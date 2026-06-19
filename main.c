@@ -208,13 +208,15 @@ getPid:
             dmenu_item_t item;
             dmenu_menu_t menu;
             int i, item_count;
+            void * return_item;
             for(i = 0, item_count = quick_menu.item_count; i < item_count; i++)
             {
-                // TODO: Check why this just repeatedly reads the "Memory" title entry. (Issue seems to be with submenu entry items, as it craps the bed after hitting the "Memory..." item)
+                // TODO: Handle empty sumbenus
                 int type = read_uint(pid, item_ptr);
                 printf("Type: %d\n", type);
                 printf("Address: %llx\n", item_ptr);
-                if (type == 52618376) // Submenu
+
+                if (type == 52618672) // Submenu
                 {
                     bzero(&item, sizeof(item));
                     read_bytes(pid, sizeof(dmenu_menu_t), item_ptr, &menu);
@@ -223,15 +225,30 @@ getPid:
                     item_count += menu.item_count;
 
 
-                    printf("Submenu Name: %s\n", &menu.item_text_buffer);
+                    printf("Submenu Name: %s (item count: %d)\n", read_string(pid, menu.item_text), menu.item_count);
                 }
                 else {
                     bzero(&menu, sizeof(menu));
                     read_bytes(pid, sizeof(dmenu_item_t), item_ptr, &item);
                     
-                    item_ptr = item.next_item;
+                    printf("Entry Name: %s\n", read_string(pid, item.item_text));
                     
-                    printf("Entry Name: %s\n", &item.item_text_buffer);
+                    if (type == 52618376)
+                    {
+                        item_ptr = (dmenu_item_t *) item.item_variable_buffer;
+                        return_item = item.next_item;
+                    }
+                    else{
+                        item_ptr = item.next_item;
+                    }
+                    
+                }
+
+                if (item_ptr == nullptr)
+                {
+                    echo("Hopefully returning to parent menu to continue flow.");
+                    item_ptr = return_item;
+                    return_item = nullptr;
                 }
 
                 echo("");

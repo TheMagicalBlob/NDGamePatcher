@@ -55,8 +55,8 @@ typedef struct dmenu_item // Size 0xB8/0x?? (seems to vary, don't think there's 
     unsigned int item_count; // The amount of items in the root of the menu
     unsigned int entry_type_id_maybe; // The amount of items in the root of the menu
     void * event_handler;
-    int item_state;
-    char padding1[0x14];
+    unsigned long item_variable_buffer; // Bool for options that can be toggled, points to the header item for submenu entry items
+    char padding1[0x10];
 
 } dmenu_item_t;
 

@@ -158,6 +158,31 @@ int read_bytes(int pid, size_t length, void * address, void * buffer)
 
 
 
+char * read_string(int pid, char * address)
+{
+    int len = 0;
+    if (read_byte(pid, address) <= 0) 
+    {
+        printf("Empty string at address 0x%lX.", address);
+        return nullptr;
+    }
+
+    printf("Getting length of string at %lX", address);
+    for (++len; read_byte(pid, address + len) < 0; ++len);
+
+
+    int alen = ALIGN(len);
+    printf("Allocating %d bytes for string at %lX", alen, address);
+    char * ret = malloc(alen);
+
+    for(int i = 0; i < len; ++i)
+    {
+        *(ret + i) = read_byte(pid, (void *) address + i);
+    }
+}
+
+
+
 
 unsigned long read_ulong(int pid, unsigned long address)
 {
@@ -233,16 +258,16 @@ unsigned int read_single(int pid, unsigned long address)
 
 
 
-unsigned int read_byte(int pid, unsigned long address)
+unsigned char read_byte(int pid, void * address)
 {
     int ret;
     unsigned char data;
-    struct ptrace_io_desc iod = { 1, (void *) address, &data, 0x1 };
+    struct ptrace_io_desc iod = { 1, address, &data, 0x1 };
 
     if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
     {
         printf("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s\n# Line: %d", strerror(ret), __FUNCTION__, __LINE__);
-        return 0xDEADBEEF;
+        return 0;
     }
 
     return data;
