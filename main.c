@@ -80,6 +80,43 @@ void notify(const char * message, ...)
 
 
 
+// static dmenu_item_t * find_item(pid_t pid, dmenu_menu_base_t * parent)
+static char * find_item(pid_t pid, dmenu_menu_base_t * parent, const char * item_name)
+{
+    dmenu_menu_base_t menu_base;
+    read_bytes(pid, sizeof(menu_base), parent, &menu_base);
+    
+    if (menu_base.menu == NULL)
+    {
+        printf("ERROR: menu base %s's menu pointer was null. cannot find item.", &menu_base.item_text_buffer);
+        return NULL;
+    }
+
+    dmenu_menu_t current_menu;
+    dmenu_menu_t current_item;
+    read_bytes(pid, sizeof(dmenu_menu_t), menu_base.menu, &current_menu);
+    if (current_menu.first_item == NULL)
+    {
+        printf("ERROR: menu %s's initial item pointer was null. cannot find item.", &current_menu.item_text_buffer);
+        return NULL;
+    }
+
+    void * string_pointer; //! CHANGE TO A POINTER TO THE ITEM ITSELF ONCE DONE TESTING
+    dmenu_item_t * next_item;
+    dmenu_menu_t * next_menu;
+    do {
+        read_bytes(pid, sizeof(dmenu_menu_t), next_item, &current_menu);
+        if (0)
+        {
+
+        }
+
+    }
+    while (!strcmp(string_pointer, item_name));
+
+    return string_pointer;
+}
+
 
 
 
@@ -133,15 +170,21 @@ getPid:
 
         
 
-
         
-
+        
         dmenu_menu_base_t quick_menu_base;
         read_bytes(pid, sizeof(dmenu_menu_base_t), (void *) read_ulong(pid, DMENU_QUICK_MENU_BASE_PTR), &quick_menu_base);
+        
+        printf("SIZE CHECK:\n# %lx\n# %lx\n", sizeof(dmenu_menu_base_t), sizeof(quick_menu_base));
 
-        printf("Check: %s\n", &quick_menu_base.item_text_buffer);
-        printf("menu_base.Menu ptr val: %llx\n", quick_menu_base.menu);
+        if (!strcmp("Quick Menu", (char *) &quick_menu_base.item_text_buffer))
+        {
+            printf("ERROR: unexpected value when Quick Menu text was expected. Read: %s", (char *) &quick_menu_base.item_text_buffer);
+            detach(pid);
+            return;
+        }
 
+        
         if (quick_menu_base.menu != 0)
         {
             dmenu_menu_t quick_menu;
@@ -189,11 +232,8 @@ getPid:
 
 
 int main() {
-    // Set payload name
-    syscall(SYS_thr_set_name, -1, MODULE_NAME);
-
     int pid, len;
-    if ((pid = find_pid(MODULE_NAME)) > 0) // Kill any previous instance
+    while ((pid = find_pid(MODULE_NAME)) > 0) // Kill any previous instance
     {
         printf("\nKilling old instance (pid: %d)... ", pid);
         len = strlen(MODULE_NAME) + 28;
@@ -211,6 +251,10 @@ int main() {
         notify(msg);
         return 0;
     }
+
+    
+    // Set payload name
+    syscall(SYS_thr_set_name, -1, MODULE_NAME);
 
     
 

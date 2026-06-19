@@ -13,3 +13,12 @@
 
 #include <ps5/klog.h>
 #include <ps5/kernel.h>
+
+
+#define null NULL
+#define nullptr (void *) 0
+
+#define TRUE 1
+#define FALSE 0
+#define true TRUE
+#define false FALSE
