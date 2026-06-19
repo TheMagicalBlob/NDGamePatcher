@@ -195,11 +195,11 @@ unsigned int read_double(int pid, unsigned long address)
 
 
 
-unsigned int read_uint(int pid, unsigned long address)
+unsigned int read_uint(int pid, void * address)
 {
     int ret;
     unsigned int data = 0xDEADBEEF;
-    struct ptrace_io_desc iod = { 1, (void *) address, &data, 0x4 };
+    struct ptrace_io_desc iod = { 1, address, &data, 0x4 };
 
     if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
     {

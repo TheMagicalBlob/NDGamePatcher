@@ -47,7 +47,6 @@ extern int sceKernelGetAppInfo(pid_t pid, app_info_t *info);
 
 
 
-
 int echo(char * str)
 {
     size_t len = strlen(str);
@@ -101,9 +100,9 @@ static char * find_item(pid_t pid, dmenu_menu_base_t * parent, const char * item
         return NULL;
     }
 
-    void * string_pointer; //! CHANGE TO A POINTER TO THE ITEM ITSELF ONCE DONE TESTING
-    dmenu_item_t * next_item;
-    dmenu_menu_t * next_menu;
+    void * string_pointer = null; //! CHANGE TO A POINTER TO THE ITEM ITSELF ONCE DONE TESTING
+    dmenu_item_t * next_item = null;
+    dmenu_menu_t * next_menu = null;
     do {
         read_bytes(pid, sizeof(dmenu_menu_t), next_item, &current_menu);
         if (0)
@@ -177,9 +176,9 @@ getPid:
         
         printf("SIZE CHECK:\n# %lx\n# %lx\n", sizeof(dmenu_menu_base_t), sizeof(quick_menu_base));
 
-        if (!strcmp("Quick Menu", (char *) &quick_menu_base.item_text_buffer))
+        if (strcmp("Quick Menu", (char *) &quick_menu_base.item_text_buffer))
         {
-            printf("ERROR: unexpected value when Quick Menu text was expected. Read: %s", (char *) &quick_menu_base.item_text_buffer);
+            printf("ERROR: unexpected value when Quick Menu text was expected. Read: %s\n", (char *) &quick_menu_base.item_text_buffer);
             detach(pid);
             return;
         }
@@ -209,14 +208,33 @@ getPid:
             dmenu_item_t item;
             dmenu_menu_t menu;
             int i, item_count;
-            for(i = 0, item_count += quick_menu.item_count; i < item_count; i++)
+            for(i = 0, item_count = quick_menu.item_count; i < item_count; i++)
             {
+                // TODO: Check why this just repeatedly reads the "Memory" title entry. (Issue seems to be with submenu entry items, as it craps the bed after hitting the "Memory..." item)
                 int type = read_uint(pid, item_ptr);
-                if (type == dmenu_types.submenu)
+                printf("Type: %d\n", type);
+                printf("Address: %llx\n", item_ptr);
+                if (type == 52618376) // Submenu
+                {
+                    bzero(&item, sizeof(item));
+                    read_bytes(pid, sizeof(dmenu_menu_t), item_ptr, &menu);
 
-                read_bytes(pid, sizeof(item), item_ptr, &item);
+                    item_ptr = menu.first_item;
+                    item_count += menu.item_count;
 
-                printf("Item: %s\n", item.item_text_buffer);
+
+                    printf("Submenu Name: %s\n", &menu.item_text_buffer);
+                }
+                else {
+                    bzero(&menu, sizeof(menu));
+                    read_bytes(pid, sizeof(dmenu_item_t), item_ptr, &item);
+                    
+                    item_ptr = item.next_item;
+                    
+                    printf("Entry Name: %s\n", &item.item_text_buffer);
+                }
+
+                echo("");
             }
         }
         else{

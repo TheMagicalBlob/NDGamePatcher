@@ -12,4 +12,4 @@ int detach(int pid);
 
 int read_bytes(int pid, size_t length, void * address, void * buffer);
 unsigned long read_ulong(int pid, unsigned long address);
-unsigned int read_uint(int pid, unsigned long address);
+unsigned int read_uint(int pid, void * address);

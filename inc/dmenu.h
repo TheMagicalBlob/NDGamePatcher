@@ -17,9 +17,9 @@ enum dmenu_types : int {
     bool_item = 52615704,
     execute_item = 52617784,
     submenu_item = 52618376,
-    string_list_item,
-    float_item,
-    decimal_item,
+    string_list_item = -1,
+    float_item = -1,
+    decimal_item = -1,
     separator_item = 52614816,
 
 };
