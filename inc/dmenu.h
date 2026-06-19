@@ -11,11 +11,12 @@
 #define T_DMENU_MENU_BASE
 
 
-enum dmenu_types {
+enum dmenu_types : int {
     menu_base = 52618888,
     menu = 52618672,
     bool_item = 52615704,
     execute_item = 52617784,
+    submenu_item = 52618376,
     string_list_item,
     float_item,
     decimal_item,
@@ -88,12 +89,12 @@ typedef struct dmenu_menu // Size = 0xE0
     int menu_closed_by_other_menu;
     const char alignment1[0x4];
     dmenu_item_t * first_item; // Points to the first/top item in the menu [0xB0]
-    char unknown3[0x4];
+    char unknown4[0x4];
     int menu_is_open;
     char unmapped2[0x8];
     char unmapped3[0x4];
     int on_screen_item_count;
-    char unknown4[0x10];
+    char unknown5[0x10];
 
 } dmenu_menu_t;
 

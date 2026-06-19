@@ -198,17 +198,22 @@ getPid:
 
 
 
-            int i, item_count;
             dmenu_item_t * item_ptr;
+            if((item_ptr = quick_menu.first_item) == 0)
+            {
+                printf("ERROR:\n# %s has no entries (%d).\n# Aborting.", &quick_menu.item_text, item_ptr);
+            }
+            
+            
+            
             dmenu_item_t item;
+            dmenu_menu_t menu;
+            int i, item_count;
             for(i = 0, item_count += quick_menu.item_count; i < item_count; i++)
             {
-                if((item_ptr = quick_menu.first_item) == 0)
-                {
-                    printf("Skipping empty submenu %s with no entries (%d)\n", &quick_menu.item_text, item_ptr);
-                    continue;
-                }
-                
+                int type = read_uint(pid, item_ptr);
+                if (type == dmenu_types.submenu)
+
                 read_bytes(pid, sizeof(item), item_ptr, &item);
 
                 printf("Item: %s\n", item.item_text_buffer);
