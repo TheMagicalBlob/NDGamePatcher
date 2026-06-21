@@ -10,12 +10,13 @@
 #include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <sys/sysctl.h>
+#include <sys/stat.h>
 
 #include <ps5/klog.h>
 #include <ps5/kernel.h>
 
 
-#define null NULL
+#define null 0
 #define nullptr (void *) 0
 
 #define TRUE 1

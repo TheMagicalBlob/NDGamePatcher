@@ -3,31 +3,49 @@
 #define T2_FREE 0x02a8f680
 #define T2_MALLOC 0x02a8f690
 
-#define DMENU_DEV_MENU_BASE_PTR       0x6b63998
-#define DMENU_QUICK_MENU_BASE_PTR     0x6b64670
-#define DMENU_FAVORITES_MENU_BASE_PTR 0x6b639a0
+
+typedef struct dmenu_menu_base dmenu_menu_base_t;
+#define DMENU_DEV_MENU_BASE_PTR       (dmenu_menu_base_t *) 0x6b63998
+#define DMENU_QUICK_MENU_BASE_PTR     (dmenu_menu_base_t *) 0x6b64670
+#define DMENU_FAVORITES_MENU_BASE_PTR (dmenu_menu_base_t *) 0x6b639a0
 
 
 #define T_DMENU_MENU_BASE
 
 
-enum dmenu_types : int {
+enum dmenu_type_ids : u_long
+{
     menu_base = 52618888,
     menu = 52618672,
-    bool_item = 52615704,
-    execute_item = 52617784,
-    submenu_item = 52618376,
-    string_list_item = -1,
-    float_item = -1,
-    decimal_item = -1,
-    separator_item = 52614816,
+    dyn_menu = 52122184, // slightly larger than normal menus, I think these are ones generated when opened. //! check when headache gone
+    unk1_menu = 52592816,
 
+    submenu_item = 52618376,
+    
+    bool_item = 52615704,
+    exec_item = 52617784,
+    alt_exec_item = 52618080,
+    string_item = 52617192,
+    string_list_item = 52616296,
+    float_item = 52617488,
+    decimal_item = 52616888,
+    separator_item = 52614816
 };
 
-typedef struct dmenu_menu dmenu_menu_t;
-typedef struct dmenu_menu_base dmenu_menu_base_t;
-typedef struct dmenu_item dmenu_item_t;
 
+enum dmenu_item_types : int
+{
+    dmenu_base, // The base instance containing all menu
+    dmenu_menu, // the menus themselves, whether it be the "Quick Menu" menu or "Rendering" submenu
+    dmenu_dyn_menu, // generated ones- first item is in a diff spot
+    dmenu_unk1_menu, // idk
+    dmenu_submenu, // The items that load submenus
+    dmenu_item // anything else
+};
+
+
+typedef struct dmenu_menu dmenu_menu_t;
+typedef struct dmenu_item dmenu_item_t;
 
 
 typedef struct dmenu_item // Size 0xB8/0x?? (seems to vary, don't think there's one universal dmenu_item struct- needs checking)

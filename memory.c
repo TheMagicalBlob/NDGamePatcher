@@ -1,8 +1,11 @@
 #include "inc/include.h"
 #include "inc/memory.h"
 
+#define printf(s, ...) { /*klog_printf(s, __VA_ARGS__);*/ log_message(s, __VA_ARGS__); }
 
 int echo(char * str);
+
+void log_message(char * base_string, ...);
 
 void notify(const char * message, ...);
 
@@ -139,7 +142,7 @@ static int proc_read(pid_t pid, int len, void * addr, void * buffer, const char 
     int ret;
     if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
     {
-        printf("ERROR:\n# ptrace PT_IO failed with code %d\n# Message: %s\n\n# Function: %s\n# Line: %d", ret, strerror(ret), caller, from);
+        printf("ERROR:\n# ptrace PT_IO failed with code %d\n# Message: %s\n\n# Function: %s\n# Line: %d\n", ret, strerror(ret), caller, from);
         return 1;
     }
 
@@ -158,36 +161,43 @@ int read_bytes(int pid, size_t length, void * address, void * buffer)
 
 
 
-char * read_string(int pid, char * address)
+char * read_string(int pid, void * address)
 {
-    int len = 0;
     if (read_byte(pid, address) <= 0) 
     {
-        printf("Empty string at address 0x%lX.", address);
+        printf("Empty string at address 0x%llX.\n", (unsigned long long) address);
         return nullptr;
     }
-
-    printf("Getting length of string at %lX", address);
-    for (++len; read_byte(pid, address + len) < 0; ++len);
-
-
+    
+ 
+    int len = 0;
+    for (; read_byte(pid, address + len) != 0; ++len);
+    
+    
+    
     int alen = ALIGN(len);
-    printf("Allocating %d bytes for string at %lX", alen, address);
+    
+    
+    // static char tst[0x80];
+    // bzero(&tst, sizeof(tst));
+    
     char * ret = malloc(alen);
-
-    for(int i = 0; i < len; ++i)
+    for(long long i = 0; i < len; ++i)
     {
         *(ret + i) = read_byte(pid, (void *) address + i);
     }
+    *(ret + len) = 0; // terminate the string
+
+    return ret;
 }
 
 
 
 
-unsigned long read_ulong(int pid, unsigned long address)
+unsigned long long read_ulong(int pid, void * address)
 {
     unsigned long err = 0xDEADBEEF;
-    unsigned long data = err;
+    unsigned long long data = err;
 
     if (proc_read(pid, 8, (void *) address, &data, __FUNCTION__, __LINE__))
     {
@@ -201,7 +211,7 @@ unsigned long read_ulong(int pid, unsigned long address)
 
 
 
-unsigned int read_double(int pid, unsigned long address)
+long double read_double(int pid, unsigned long address)
 {
     int ret;
     double data;
@@ -209,7 +219,7 @@ unsigned int read_double(int pid, unsigned long address)
 
     if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
     {
-        printf("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s\n# Line: %d", strerror(ret), __FUNCTION__, __LINE__);
+        printf("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s\n# Line: %d\n", strerror(ret), __FUNCTION__, __LINE__);
         return 0xDEADBEEF;
     }
 
@@ -228,7 +238,7 @@ unsigned int read_uint(int pid, void * address)
 
     if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
     {
-        printf("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s\n# Line: %d", strerror(ret), __FUNCTION__, __LINE__);
+        printf("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s\n# Line: %d\n", strerror(ret), __FUNCTION__, __LINE__);
         return 0xDEADBEEF;
     }
 
@@ -239,7 +249,7 @@ unsigned int read_uint(int pid, void * address)
 
 
 
-unsigned int read_single(int pid, unsigned long address)
+float read_single(int pid, unsigned long address)
 {
     int ret;
     float data;
@@ -247,8 +257,8 @@ unsigned int read_single(int pid, unsigned long address)
 
     if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
     {
-        printf("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s\n# Line: %d", strerror(ret), __FUNCTION__, __LINE__);
-        return 0xDEADBEEF;
+        printf("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s\n# Line: %d\n", strerror(ret), __FUNCTION__, __LINE__);
+        return (float) 0xDEADBEEF;
     }
 
     return data;
@@ -266,7 +276,7 @@ unsigned char read_byte(int pid, void * address)
 
     if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
     {
-        printf("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s\n# Line: %d", strerror(ret), __FUNCTION__, __LINE__);
+        printf("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s\n# Line: %d\n", strerror(ret), __FUNCTION__, __LINE__);
         return 0;
     }
 
