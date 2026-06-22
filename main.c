@@ -19,9 +19,8 @@ along with this program; see the file COPYING. If not, see
 
 #define MODULE_NAME "t2p.prx"
 
+#define printf(s, ...) klog_printf(s, __VA_ARGS__)
 
-void log_message(char * base_string, ...);
-#define printf(s, ...) { /*klog_printf(s, __VA_ARGS__);*/ log_message(s, __VA_ARGS__); }
 
 
 
@@ -29,7 +28,6 @@ typedef struct notify_request {
     char unused[45];
     char message[3075];
 } notify_request_t;
-
 
 
 typedef struct app_info
@@ -49,14 +47,21 @@ extern int sceKernelGetAppInfo(pid_t pid, app_info_t *info);
 
 static int logfile;
 
-int echo(char * str)
+
+int echo(const char * str, ...)
 {
-    size_t len = strlen(str);
-    char msg[len + 2];
-    len = snprintf(msg, sizeof(msg), "%s\n", str);
-
-    printf(msg, "");
-
+    int len;
+    va_list list;
+    va_start(list, str);
+    
+    char msg[4000];
+    len = vsnprintf(msg, sizeof(msg) - 2, str, list);
+    
+    klog_printf("%s\n", msg);
+    log_message("%s\n", msg);
+    va_end(list);
+    
+    
     return len;
 }
 
@@ -79,7 +84,7 @@ void notify(const char * message, ...)
 }
 
 
-void log_message(char * base_string, ...)
+void log_message(const char * base_string, ...)
 {
     va_list args;
     va_start(args, base_string);
@@ -111,280 +116,10 @@ void log_message(char * base_string, ...)
 
 
 
-static int get_dmenu_item_type(pid_t pid, void * item)
-{
-    unsigned long long chk = (unsigned long long) read_ulong(pid, item);
-    switch (chk)
-    {
-        case bool_item:
-        case exec_item:
-        case alt_exec_item:
-        case float_item:
-        case decimal_item:
-        case separator_item:
-        case string_list_item:
-        case string_item:
-            return dmenu_item;
-        
-        case submenu_item:
-            return dmenu_submenu;
 
-        case menu_base:
-            return dmenu_base;
 
 
-        case menu:
-            return dmenu_menu;
-        
-        case dyn_menu:
-            return dmenu_dyn_menu;
-
-            
-        case unk1_menu:
-            return dmenu_unk1_menu;
-
-        default:
-            printf("Unknown value read when getting dmenu item type: %lld", chk);
-            return -1;
-    }
-}
-
-
-
-char * debug_get_entry_type(long long type)
-{
-    switch (type)
-    {
-        case bool_item: return "bool_item";
-        case exec_item: return "exec_item";
-        case alt_exec_item: return "alt_exec_item";
-        case float_item: return "float_item";
-        case decimal_item: return "decimal_item";
-        case separator_item: return "separator_item";
-        case string_list_item: return "string_list_item";
-
-        case string_item: return "string_item";
-        
-        case submenu_item: return "submenu_item";
-
-        case menu_base: return "menu_base";
-
-        case menu: return "menu";
-
-        case dyn_menu: return "dyn_menu";
-
-        case unk1_menu: return "unk1_menu";
-    }
-
-
-    char retval[0x40];
-    snprintf(retval, sizeof(retval), "Unknown value read when getting dmenu item type: %lld", type);
-    echo(retval);
-    return "Unknown value";
-}
-
-
-
-
-
-// static dmenu_item_t * find_item(pid_t pid, dmenu_menu_base_t * parent)
-static char * find_item(pid_t pid, dmenu_menu_base_t * parent, const char * item_name)
-{
-    dmenu_menu_base_t menu_base;
-    read_bytes(pid, sizeof(menu_base), parent, &menu_base);
-    
-    if (menu_base.menu == NULL)
-    {
-        printf("ERROR: menu base %s's menu pointer was null. cannot find item.", &menu_base.item_text_buffer);
-        return nullptr;
-    }
-
-    dmenu_menu_t current_menu;
-    read_bytes(pid, sizeof(dmenu_menu_t), menu_base.menu, &current_menu);
-    if (current_menu.first_item == NULL)
-    {
-        printf("ERROR: menu %s's initial item pointer was null. cannot find item.", &current_menu.item_text_buffer);
-        return nullptr;
-    }
-
-
-    char * string_pointer = null; //! CHANGE TO A POINTER TO THE ITEM ITSELF ONCE DONE TESTING
-    void * next_item;
-    dmenu_item_t current_item;
-    
-    next_item = current_menu.first_item;
-    do {
-        if (next_item == nullptr)
-        {
-            echo("ERROR: null pointer for next item.");
-            return nullptr;
-        }
-
-
-
-        int type = get_dmenu_item_type(pid, next_item);
-
-        if (type == dmenu_menu || type == dmenu_dyn_menu)
-        {
-            read_bytes(pid, sizeof(dmenu_menu_t), next_item, &current_menu);
-
-            string_pointer = current_menu.item_text_buffer;
-
-
-            next_item = current_menu.first_item;
-            bzero(&current_menu, sizeof(current_menu));
-            continue;
-        }
-
-
-        if (type == dmenu_item)
-        {
-            item:
-            read_bytes(pid, sizeof(dmenu_item_t), next_item, &current_item);
-
-            string_pointer = current_item.item_text_buffer;
-
-
-
-            next_item = current_item.next_item;
-            bzero(&current_item, sizeof(current_item));
-            continue;
-        }
-
-
-        if (type == dmenu_submenu)
-        {
-            echo("WARNING: Item is submenu entry item. I forget whether these are mapped correctly rn");
-            goto item;
-        } 
-
-    }
-    while (!strcmp(string_pointer, item_name));
-
-    printf("FOUND IT BIHH (@%llX)", string_pointer);
-
-    return string_pointer;
-}
-
-
-
-
-static void dump_menu_entries(pid_t pid, dmenu_menu_base_t * menu)
-{
-    if (menu->menu != 0)
-    {
-        dmenu_menu_t current_menu;
-        read_bytes(pid, sizeof(dmenu_menu_t), menu->menu, &current_menu);
-        
-        dmenu_item_t * item_ptr;
-        if((item_ptr = current_menu.first_item) == 0)
-        {
-            printf("ERROR:\n# %s has no entries (%d).\n# Aborting.", &current_menu.item_text, item_ptr);
-        }
-        
-        
-        
-        dmenu_item_t item;
-        dmenu_menu_t menu;
-        int i, item_count;
-        
-        
-        int unknown_type_count = 0;
-        void * history[0x20]; // surely there's no place with a submenu depth even approaching 32, so this should be more than sufficient in size
-        unsigned depth = 0;
-
-        char next_item_should_be_submenu = 0;
-
-        for(i = 0, item_count = current_menu.item_count; i < item_count; i++)
-        {
-            // TODO: Handle empty sumbenus
-            int type = read_uint(pid, item_ptr);
-            char * dtype = debug_get_entry_type(type);
-
-            if (((unsigned long long) (* (unsigned long long *) dtype)) == 2336936577129475669)
-            {
-                unknown_type_count++;
-            }
-            
-            
-            
-            printf("Type: %d (%s)\n", type, dtype);
-            printf("Item: %d \\ %d\n", i, item_count);
-            printf("Address: %llx\n", item_ptr);
-
-            if (next_item_should_be_submenu) // Submenu
-            {
-                bzero(&item, sizeof(item));
-                read_bytes(pid, sizeof(dmenu_menu_t), item_ptr, &menu);
-                
-                printf("Submenu Name: %s (item count: %d)\n", read_string(pid, menu.item_text), menu.item_count);
-                
-                item_ptr = menu.first_item;
-                item_count += menu.item_count + 1; // Iirc the header item isn't counted, so we add one extra to crawl through the whole menu
-                next_item_should_be_submenu = 0;
-
-
-
-                if (type != 52618672 && type != 52122184 && type != 52592816)
-                {
-                    printf("WARNING: read type does not match known menu types. (%lld)", type);
-                }
-            }
-            else {
-                bzero(&menu, sizeof(menu));
-                read_bytes(pid, sizeof(dmenu_item_t), item_ptr, &item);
-
-
-                char * str;
-                if (item.item_text == nullptr)
-                {
-                    str = "------------------------------------";
-                }
-                else{
-                    str = read_string(pid, item.item_text);
-                }
-                
-
-
-                printf("Entry Name: %s\n", str);
-                
-                if (type == submenu_item)
-                {
-                    item_ptr = (dmenu_item_t *) item.item_variable_buffer;
-                    history[++depth] = item.next_item;
-                    next_item_should_be_submenu = 1;
-
-                }
-                else{
-                    item_ptr = item.next_item;
-                    next_item_should_be_submenu = 0;
-                }
-                
-            }
-
-            if (item_ptr == nullptr)
-            {
-                item_ptr = history[depth];
-                history[depth--] = nullptr;
-            }
-
-            echo("");
-        }
-
-        printf("\n#SCAN FINISHED:\nUnknown item types: %d\n", unknown_type_count);
-    }
-    else{
-        echo("ERROR: Menu pointer was still null.");
-    }
-}
-
-
-
-
-
-
-
-static void ptracetst(int module_pid)
+static int ptracetst(int module_pid)
 {
     int pid;
     
@@ -411,38 +146,33 @@ getPid:
     if (!strncmp(app_info.title_id, "PPSA10662", 10))
     {
         int status;
-        printf("Status:\n# Game is the last of us part II.\n# Title ID: %s\n# App ID: %d\n", app_info.title_id, app_info.app_id);
-
         if ((status = set_dbg_perms()) != 0)
         {
-            close(logfile);
-            return;
+            return -1;
         }
 
         echo("Successfully set permissions.");
         
         if ((status = attach(pid)) != 0)
         {
-            close(logfile);
-            return;
+            return -1;
         }
         notify("Attached to game process.");
-
-
+        
+        echo("Waiting for pid...");
         waitpid(pid, 0, 0);
-        notify("Process should be suspended, running IO tests.");
-
+        echo("waitpid returned; proceeding\n");
         
 
         
         echo("==================================\n"
-             "#  PRINTING QUICK MENU CONTENTS  #\n"
+            "#  PRINTING QUICK MENU CONTENTS  #\n"
              "==================================");
         dmenu_menu_base_t quick_menu_base;
         read_bytes(pid, sizeof(dmenu_menu_base_t), (void *) read_ulong(pid, DMENU_QUICK_MENU_BASE_PTR), &quick_menu_base);
         dump_menu_entries(pid, &quick_menu_base);
         
-
+        
         
         echo("\n\n================================\n"
                  "|  PRINTING DEV MENU CONTENTS  |\n"
@@ -459,7 +189,8 @@ getPid:
         notify("Application Title ID does not match expected value of [PPSA10662]\nTitle ID: %s\nApp ID: %d\n", app_info.title_id, app_info.app_id);
     }
 
-    close(logfile);
+
+    return 0;
 }
 
 
@@ -491,17 +222,23 @@ int main() {
     // Set payload name
     syscall(SYS_thr_set_name, -1, MODULE_NAME);
     
-
+    
+    
+    
     // Construct and print start message
     len = strlen(MODULE_NAME) + 23;
     char msg[len];
     snprintf(msg, sizeof(msg), "Loaded new %s instance", MODULE_NAME);
-
+    
     notify(msg);
-
+    
 
     // Payload start
     ptracetst(getpid());
+
+    close(logfile);
+
+    return 0;
 }
 
 

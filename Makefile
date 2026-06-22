@@ -29,6 +29,6 @@ CFLAGS := -Wall -g
 
 all: $(ELF)
 
-$(ELF): main.c memory.c
+$(ELF): main.c memory.c dmenu.c
 	rm -f $(ELF)
 	$(CC) $(CFLAGS) -o $@ $^

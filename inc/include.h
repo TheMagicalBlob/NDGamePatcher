@@ -23,3 +23,11 @@
 #define FALSE 0
 #define true TRUE
 #define false FALSE
+
+
+
+int echo(const char * message, ...);
+
+void log_message(const char * base_string, ...);
+
+void notify(const char * message, ...);

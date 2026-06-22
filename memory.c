@@ -1,13 +1,7 @@
 #include "inc/include.h"
 #include "inc/memory.h"
 
-#define printf(s, ...) { /*klog_printf(s, __VA_ARGS__);*/ log_message(s, __VA_ARGS__); }
-
-int echo(char * str);
-
-void log_message(char * base_string, ...);
-
-void notify(const char * message, ...);
+#define printf(s, ...) klog_printf(s, __VA_ARGS__)
 
 
 
@@ -60,7 +54,6 @@ int set_dbg_perms()
     echo("Setting authid...");
     
     int this = getpid();
-
     long authid = kernel_get_ucred_authid(this);
 
     if (authid == _SHELLCORE_AUTHID)
@@ -100,7 +93,7 @@ int attach(int pid)
 
 int detach(int pid)
 {
-    printf("Detaching from process %d\n", pid);
+    echo("Detaching from process %d", pid);
 
     int status;
     if ((status = ptrace(PT_DETACH, pid, 0, 0)) != 0)
@@ -165,7 +158,7 @@ char * read_string(int pid, void * address)
 {
     if (read_byte(pid, address) <= 0) 
     {
-        printf("Empty string at address 0x%llX.\n", (unsigned long long) address);
+        echo("Empty string at address 0x%llX.", (unsigned long long) address);
         return nullptr;
     }
     
@@ -219,7 +212,7 @@ long double read_double(int pid, unsigned long address)
 
     if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
     {
-        printf("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s\n# Line: %d\n", strerror(ret), __FUNCTION__, __LINE__);
+        echo("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s\n# Line: %d", strerror(ret), __FUNCTION__, __LINE__);
         return 0xDEADBEEF;
     }
 
@@ -238,7 +231,7 @@ unsigned int read_uint(int pid, void * address)
 
     if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
     {
-        printf("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s\n# Line: %d\n", strerror(ret), __FUNCTION__, __LINE__);
+        echo("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s\n# Line: %d", strerror(ret), __FUNCTION__, __LINE__);
         return 0xDEADBEEF;
     }
 
@@ -257,7 +250,7 @@ float read_single(int pid, unsigned long address)
 
     if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
     {
-        printf("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s\n# Line: %d\n", strerror(ret), __FUNCTION__, __LINE__);
+        echo("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s\n# Line: %d", strerror(ret), __FUNCTION__, __LINE__);
         return (float) 0xDEADBEEF;
     }
 
@@ -276,7 +269,7 @@ unsigned char read_byte(int pid, void * address)
 
     if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
     {
-        printf("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s\n# Line: %d\n", strerror(ret), __FUNCTION__, __LINE__);
+        echo("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s\n# Line: %d", strerror(ret), __FUNCTION__, __LINE__);
         return 0;
     }
 

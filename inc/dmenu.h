@@ -15,32 +15,38 @@ typedef struct dmenu_menu_base dmenu_menu_base_t;
 
 enum dmenu_type_ids : u_long
 {
-    menu_base = 52618888,
-    menu = 52618672,
-    dyn_menu = 52122184, // slightly larger than normal menus, I think these are ones generated when opened. //! check when headache gone
-    unk1_menu = 52592816,
-
-    submenu_item = 52618376,
+    dmenu_id_menu_base = 52618888,
     
-    bool_item = 52615704,
-    exec_item = 52617784,
-    alt_exec_item = 52618080,
-    string_item = 52617192,
-    string_list_item = 52616296,
-    float_item = 52617488,
-    decimal_item = 52616888,
-    separator_item = 52614816
+    dmenu_id_menu = 52618672,
+    dmenu_id_dyn_menu = 52122184, // slightly larger than normal menus, I think these are ones generated when opened. //! check when headache gone
+    dmenu_id_unk_menu = 52592816,
+
+    dmenu_id_submenu_item = 52618376,
+    dmenu_id_task_submenu_item = 52768088,
+    dmenu_id_noreturn_task_submenu_item = 52767792,
+    
+    dmenu_id_bool_item = 52615704,
+    dmenu_id_exec_item = 52617784,
+    dmenu_id_alt_exec_item = 52618080,
+    dmenu_id_string_item = 52617192,
+    dmenu_id_string_list_item = 52616296,
+    dmenu_id_float_item = 52617488,
+    dmenu_id_decimal_item = 52616888,
+    dmenu_id_separator_item = 52614816,
+    dmenu_id_task_history_item = 52767200,
+    dmenu_id_task_item = 52767496,
+    dmenu_id_unk_item = 52616000
 };
 
 
-enum dmenu_item_types : int
+enum dmenu_item_base_types : int
 {
-    dmenu_base, // The base instance containing all menu
-    dmenu_menu, // the menus themselves, whether it be the "Quick Menu" menu or "Rendering" submenu
-    dmenu_dyn_menu, // generated ones- first item is in a diff spot
-    dmenu_unk1_menu, // idk
-    dmenu_submenu, // The items that load submenus
-    dmenu_item // anything else
+    dmenu_basetype_menu_base, // The base instance containing all menu
+    dmenu_basetype_menu, // the menus themselves, whether it be the "Quick Menu" menu or "Rendering" submenu
+    dmenu_basetype_dyn_menu, // generated ones- first item is in a diff spot //! what?
+    dmenu_basetype_unk_menu, // idk
+    dmenu_basetype_submenu, // The items that load submenus
+    dmenu_basetype_item // anything else
 };
 
 
@@ -143,3 +149,11 @@ typedef struct dmenu_menu_base // 0x328 total size
     void * unknown_struct_pointer2;
 
 } dmenu_menu_base_t;
+
+
+
+int get_dmenu_item_type(pid_t pid, void * item);
+char * debug_get_entry_type(long long type);
+dmenu_item_t * find_item(pid_t pid, dmenu_menu_base_t * parent, const char * item_name);
+void dump_menu_entries(pid_t pid, dmenu_menu_base_t * menu);
+
