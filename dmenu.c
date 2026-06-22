@@ -23,6 +23,8 @@ int get_dmenu_entry_base_type(pid_t pid, void * item)
         case dmenu_id_string_item:
         case dmenu_id_task_history_item:
         case dmenu_id_task_item:
+        case dmenu_id_timer_item:
+        case dmenu_id_user_item:
         case dmenu_id_unk_item:
             return dmenu_basetype_item;
         
@@ -61,6 +63,8 @@ char * get_dmenu_entry_type_as_string(long long type)
         case dmenu_id_string_list_item: return "string_list_item";
         case dmenu_id_task_history_item: return "task_history_item";
         case dmenu_id_task_item: return "task_item";
+        case dmenu_id_user_item: return "user_item";
+        case dmenu_id_timer_item: return "timer_item";
         case dmenu_id_unk_item: return "unk_item";
 
         case dmenu_id_string_item: return "string_item";

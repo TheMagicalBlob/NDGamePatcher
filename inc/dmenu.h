@@ -10,7 +10,6 @@ typedef struct dmenu_menu_base dmenu_menu_base_t;
 #define DMENU_FAVORITES_MENU_BASE_PTR (dmenu_menu_base_t *) 0x6b639a0
 
 
-#define T_DMENU_MENU_BASE
 
 
 enum dmenu_type_ids : u_long
@@ -35,6 +34,8 @@ enum dmenu_type_ids : u_long
     dmenu_id_separator_item = 52614816,
     dmenu_id_task_history_item = 52767200,
     dmenu_id_task_item = 52767496,
+    dmenu_id_user_item = 52706288, // Entirely useless, maybe it's meant to be replaced by an actual user name? idk
+    dmenu_id_timer_item = 51476832,
     dmenu_id_unk_item = 52616000
 };
 
