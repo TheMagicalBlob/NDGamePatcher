@@ -135,7 +135,7 @@ static int proc_read(pid_t pid, int len, void * addr, void * buffer, const char 
     int ret;
     if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
     {
-        printf("ERROR:\n# ptrace PT_IO failed with code %d\n# Message: %s\n\n# Function: %s\n# Line: %d\n", ret, strerror(ret), caller, from);
+        printf("ERROR:\n# ptrace PT_IO failed with code %d (%s)\n\n# Address: %llX\n# Function: %s\n# Line: %d\n", ret, strerror(ret), addr, caller, from);
         return 1;
     }
 

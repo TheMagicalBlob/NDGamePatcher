@@ -38,11 +38,11 @@ typedef enum dmenu_type_ids : u_long
     dmenu_id_user_item = 52706288, // Entirely useless, maybe it's meant to be replaced by an actual user name? idk
     dmenu_id_timer_item = 51476832,
     dmenu_id_unk_item = 52616000
-    
+
 } dmenu_type_ids_t;
 
 
-enum dmenu_item_base_types : int
+typedef enum dmenu_item_base_types : int
 {
     dmenu_basetype_menu_base, // The base instance containing all menu
     dmenu_basetype_menu, // the menus themselves, whether it be the "Quick Menu" menu or "Rendering" submenu
@@ -50,7 +50,8 @@ enum dmenu_item_base_types : int
     dmenu_basetype_unk_menu, // idk
     dmenu_basetype_submenu, // The items that load submenus
     dmenu_basetype_item // anything else
-};
+
+} dmenu_item_base_types_t;
 
 
 typedef struct dmenu_menu dmenu_menu_t;
@@ -158,5 +159,9 @@ typedef struct dmenu_menu_base // 0x328 total size
 int get_dmenu_item_type(pid_t pid, void * item);
 char * debug_get_entry_type(long long type);
 dmenu_item_t * find_item(pid_t pid, dmenu_menu_base_t * parent, const char * item_name);
+dmenu_menu_t * find_menu(pid_t pid, dmenu_menu_base_t * parent, const char * item_name);
 void dump_menu_entries(pid_t pid, dmenu_menu_base_t * menu);
 
+dmenu_menu_base_t * load_menu_base(pid_t pid, void * address);
+dmenu_menu_t * load_menu(pid_t pid, void * address);
+dmenu_item_t * load_item(pid_t pid, void * address);

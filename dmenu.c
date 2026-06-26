@@ -3,7 +3,6 @@
 
 
 
-
 int get_dmenu_entry_base_type(pid_t pid, void * item)
 {
     unsigned long long chk = (unsigned long long) read_ulong(pid, item);
@@ -84,103 +83,145 @@ char * get_dmenu_entry_type_as_string(long long type)
 
 
     char retval[0x40];
-    snprintf(retval, sizeof(retval), "Unknown value read when getting dmenu item type: %lld", type);
+    snprintf(retval, sizeof(retval), "_Unknown value read when getting dmenu item type: %lld", type);
     echo(retval);
     return "Unknown value";
 }
 
 
+dmenu_menu_base_t * load_menu_base(pid_t pid, void * address)
+{
+    static dmenu_menu_base_t menu_base;
+    read_bytes(pid, sizeof(dmenu_menu_base_t), (void *) read_ulong(pid, (unsigned long *) address), &menu_base);
+
+    return &menu_base;
+}
 
 
-void * find_dmenu_entry(pid_t pid, const char * entry_name, dmenu_menu_base_t * parent_base, dmenu_type_ids_t item_type)
+dmenu_menu_t * load_menu(pid_t pid, void * address)
+{
+    static dmenu_menu_t menu;
+    read_bytes(pid, sizeof(dmenu_menu_t), address, &menu);
+    
+    return &menu;
+}
+
+
+dmenu_item_t * load_item(pid_t pid, void * address)
+{
+    static dmenu_item_t item;
+    read_bytes(pid, sizeof(dmenu_item_t), address, &item);
+
+    return &item;
+}
+
+
+
+
+
+static void * find_dmenu_entry(pid_t pid, const char * expected_entry_name, dmenu_menu_base_t * parent_base, dmenu_item_base_types_t expected_base_type, size_t len)
 {
     if (parent_base->menu == 0)
     {
         echo("ERROR: Empty menu base pointer provided.");
-        return;
+        return nullptr;
     }
 
 
     dmenu_menu_t menu;
     read_bytes(pid, sizeof(dmenu_menu_t), parent_base->menu, &menu);
     
-    dmenu_item_t * item_ptr;
-    if((item_ptr = menu.first_item) == 0)
+    void * entry_ptr;
+    if((entry_ptr = menu.first_item) == 0)
     {
-        echo("ERROR:\n# %s %s has no entries (%d).", get_dmenu_entry_type_as_string(*(unsigned long long *) &menu), &menu.item_text, item_ptr);
+        return nullptr;
     }
     
     
     
-    
+    char next_is_menu = 0;
+
     int depth = 0;
     void * history[0x20]; // surely there's no place with a submenu depth even approaching 32, so this should be more than sufficient in size
-    
-    char item_name[0x80];
-    
-    char next_is_menu = 0;
-    
-    dmenu_item_t item;
-    
-    while(item_ptr != null)
-    {
-        int type = read_uint(pid, item_ptr);
 
+    dmenu_item_t item;
+    char entry_name[0x80];
+    
+    while(entry_ptr != null)
+    {
+        int base_type = get_dmenu_entry_base_type(pid, entry_ptr);
+        unsigned int type = read_ulong(pid, entry_ptr);
+        
+        
         bzero(&item, sizeof(item));
         bzero(&menu, sizeof(menu));
         
         // Menu
         if (next_is_menu)
         {
-            read_bytes(pid, sizeof(dmenu_menu_t), item_ptr, &menu);
+            read_bytes(pid, sizeof(dmenu_menu_t), entry_ptr, &menu);
             
-            read_string(pid, menu.item_text, item_name);
+            read_string(pid, menu.item_text, entry_name);
+
+            // if (base_type == expected_base_type && !strncmp(expected_entry_name, entry_name, len))
+            if (expected_base_type == base_type && !strncmp(expected_entry_name, entry_name, len))
+            {
+                return entry_ptr;
+            }
+
 
             // Read next item pointer
-            item_ptr = menu.first_item;
+            entry_ptr = menu.first_item;
             next_is_menu = 0;
         }
         // Item
         else {
-            read_bytes(pid, sizeof(dmenu_item_t), item_ptr, &item);
+            read_bytes(pid, sizeof(dmenu_item_t), entry_ptr, &item);
             
             if (item.item_text == nullptr)
             {
-                strncpy(item_name, "------------------------------------", 40);
+                strncpy(entry_name, "------------------------------------", 40);
             }
             else{
-                read_string(pid, item.item_text, item_name);
+                read_string(pid, item.item_text, entry_name);
             }
 
+
+            // if (expected_base_type == base_type && !strncmp(expected_entry_name, entry_name, len))
+            if (expected_base_type == base_type && !strcmp("Disable FPS", entry_name))
+            {
+                return entry_ptr;
+            }
 
 
             if (type == dmenu_id_submenu_item || type == dmenu_id_task_submenu_item || type == dmenu_id_noreturn_task_submenu_item)
             {
-                item_ptr = (dmenu_item_t *) item.item_variable_buffer;
+                entry_ptr = (dmenu_item_t *) item.item_variable_buffer;
 
                 history[++depth] = item.next_item;
 
                 next_is_menu = 1;
             }
             else{
-                item_ptr = item.next_item;
+                entry_ptr = item.next_item;
                 next_is_menu = 0;
             }
         }
         
         
 
-
-        while (item_ptr == nullptr && depth >= 0)
+        while (entry_ptr == nullptr && depth >= 0)
         {
-            item_ptr = history[depth];
+            entry_ptr = history[depth];
             history[depth--] = nullptr;
         
             next_is_menu = 0;
         }
     }
 
-    echo("Unablr to find item \"%s\"", item_name);
+
+    echo("Unable to find item \"%s\"", expected_entry_name);
+    return nullptr;
 }
 
 
@@ -188,12 +229,12 @@ void * find_dmenu_entry(pid_t pid, const char * entry_name, dmenu_menu_base_t * 
 
 dmenu_item_t * find_item(pid_t pid, dmenu_menu_base_t * parent, const char * item_name)
 {
-    return nullptr;
+    return find_dmenu_entry(pid, item_name, parent, dmenu_basetype_item, 0x80);
 }
 
-dmenu_item_t * find_menu(pid_t pid, dmenu_menu_base_t * parent, const char * item_name)
+dmenu_menu_t * find_menu(pid_t pid, dmenu_menu_base_t * parent, const char * item_name)
 {
-    return nullptr;
+    return find_dmenu_entry(pid, item_name, parent, dmenu_basetype_menu, strnlen(item_name, 0x80));
 }
 
 
@@ -211,10 +252,10 @@ void dump_menu_entries(pid_t pid, dmenu_menu_base_t * parent_base)
     dmenu_menu_t menu;
     read_bytes(pid, sizeof(dmenu_menu_t), parent_base->menu, &menu);
     
-    dmenu_item_t * item_ptr;
-    if((item_ptr = menu.first_item) == 0)
+    void * entry_ptr;
+    if((entry_ptr = menu.first_item) == 0)
     {
-        echo("ERROR:\n# %s %s has no entries (%d).\n# Aborting.", get_dmenu_entry_type_as_string(*(unsigned long long *) &menu), &menu.item_text, item_ptr);
+        echo("ERROR:\n# %s %s has no entries (%d).\n# Aborting.", get_dmenu_entry_type_as_string(*(unsigned long long *) &menu), &menu.item_text, entry_ptr);
     }
     
     
@@ -234,9 +275,9 @@ void dump_menu_entries(pid_t pid, dmenu_menu_base_t * parent_base)
     
     dmenu_item_t item;
     
-    while(item_ptr != null)
+    while(entry_ptr != null)
     {
-        int type = read_uint(pid, item_ptr);
+        unsigned int type = read_ulong(pid, entry_ptr);
         char * dtype = get_dmenu_entry_type_as_string(type);
         
 
@@ -252,20 +293,20 @@ void dump_menu_entries(pid_t pid, dmenu_menu_base_t * parent_base)
         // Menu
         if (next_is_menu)
         {
-            read_bytes(pid, sizeof(dmenu_menu_t), item_ptr, &menu);
+            read_bytes(pid, sizeof(dmenu_menu_t), entry_ptr, &menu);
             
             read_string(pid, menu.item_text, item_name);
-            read_string(pid, (void *) read_ulong(pid, &menu.parent_menu->item_text), parent_name);
+            read_string(pid, (void *) read_ulong(pid, (unsigned long *) &menu.parent_menu->item_text), parent_name);
 
-            echo(output_format, item_ptr, padding, item_name, dtype, type, parent_name);
+            echo(output_format, entry_ptr, padding, item_name, dtype, type, parent_name);
             
             // Read next item pointer
-            item_ptr = menu.first_item;
+            entry_ptr = menu.first_item;
             next_is_menu = 0;
         }
         // Item
         else {
-            read_bytes(pid, sizeof(dmenu_item_t), item_ptr, &item);
+            read_bytes(pid, sizeof(dmenu_item_t), entry_ptr, &item);
             
             if (item.item_text == nullptr)
             {
@@ -277,13 +318,13 @@ void dump_menu_entries(pid_t pid, dmenu_menu_base_t * parent_base)
 
 
 
-            read_string(pid, (void *) read_ulong(pid, &item.parent_menu->item_text), parent_name);
+            read_string(pid, (void *) read_ulong(pid, (unsigned long *) &item.parent_menu->item_text), parent_name);
 
-            echo(output_format, item_ptr, padding, item_name, dtype, type, parent_name);
+            echo(output_format, entry_ptr, padding, item_name, dtype, type, parent_name);
             
             if (type == dmenu_id_submenu_item || type == dmenu_id_task_submenu_item || type == dmenu_id_noreturn_task_submenu_item)
             {
-                item_ptr = (dmenu_item_t *) item.item_variable_buffer;
+                entry_ptr = (dmenu_item_t *) item.item_variable_buffer;
 
                 history[++depth] = item.next_item;
                 
@@ -301,7 +342,7 @@ void dump_menu_entries(pid_t pid, dmenu_menu_base_t * parent_base)
                 next_is_menu = 1;
             }
             else{
-                item_ptr = item.next_item;
+                entry_ptr = item.next_item;
                 next_is_menu = 0;
             }
             
@@ -310,9 +351,9 @@ void dump_menu_entries(pid_t pid, dmenu_menu_base_t * parent_base)
         
 
 
-        while (item_ptr == nullptr && depth >= 0)
+        while (entry_ptr == nullptr && depth >= 0)
         {
-            item_ptr = history[depth];
+            entry_ptr = history[depth];
             history[depth--] = nullptr;
         
             *(padding + depth * 4) = 0; // truncate padding

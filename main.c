@@ -166,27 +166,34 @@ getPid:
         
 
         
-        // goto skipQuickMenuScan;
+        goto skipQuickMenuScan;
         echo("\n==================================\n"
             "#  PRINTING QUICK MENU CONTENTS  #\n"
              "==================================");
         dmenu_menu_base_t quick_menu_base;
-        read_bytes(pid, sizeof(dmenu_menu_base_t), (void *) read_ulong(pid, DMENU_QUICK_MENU_BASE_PTR), &quick_menu_base);
+        read_bytes(pid, sizeof(dmenu_menu_base_t), (void *) read_ulong(pid, (unsigned long *) DMENU_QUICK_MENU_BASE_PTR), &quick_menu_base);
         dump_menu_entries(pid, &quick_menu_base);
         
         
         skipQuickMenuScan:
-        // goto skipDevMenuScan;
+        goto skipDevMenuScan;
         echo("\n\n================================\n"
                  "|  PRINTING DEV MENU CONTENTS  |\n"
                  "================================");
 
         dmenu_menu_base_t dev_menu_base;
-        read_bytes(pid, sizeof(dmenu_menu_base_t), (void *) read_ulong(pid, DMENU_DEV_MENU_BASE_PTR), &dev_menu_base);
+        read_bytes(pid, sizeof(dmenu_menu_base_t), (void *) read_ulong(pid, (unsigned long *) DMENU_DEV_MENU_BASE_PTR), &dev_menu_base);
         dump_menu_entries(pid, &dev_menu_base);
         
 
         skipDevMenuScan:
+
+        if (1) {
+            dmenu_item_t * item;
+            item = find_item(pid, load_menu_base(pid, DMENU_DEV_MENU_BASE_PTR), "Disable FPS");
+            echo("Found Item At 0x%llX", item);
+        }
+
         detach(pid);
     }
     else {
