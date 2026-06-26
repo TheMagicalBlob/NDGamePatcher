@@ -182,7 +182,7 @@ static void * find_dmenu_entry(pid_t pid, const char * expected_entry_name, dmen
             {
                 strncpy(entry_name, "------------------------------------", 40);
             }
-            else{
+            else {
                 read_string(pid, item.item_text, entry_name);
             }
 

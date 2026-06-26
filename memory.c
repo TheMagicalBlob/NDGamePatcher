@@ -1,5 +1,7 @@
 #include "inc/include.h"
 #include "inc/memory.h"
+#include "inc/dmenu.h"
+
 
 #define printf(s, ...) klog_printf(s, __VA_ARGS__)
 
@@ -108,6 +110,58 @@ int detach(int pid)
     }
 
     return status;
+}
+
+
+
+
+void * proc_malloc(pid_t pid, int amount)
+{
+    int ret;
+    struct reg og_registers;
+    struct reg registers;
+    if ((ret = ptrace(PT_GETREGS, pid, (caddr_t) &registers, 0)) != 0)
+    {
+        printf("ERROR:\n# PT_GETREGS failed with code %d (%s)\n\n# Amount: %dx", ret, strerror(ret), amount);
+        return nullptr;
+    }
+
+    // Back the regisers up
+    memcpy(&og_registers, &registers, sizeof(struct reg));
+    
+
+    registers.r_rsp = registers.r_rsp - 0x10;
+
+    // Write rip to the new loc pointed to be the adjusted rsp
+    //! ^ No idea whether this is how that works, so check that first
+
+    registers.r_rip = T2_MALLOC;
+    registers.r_rdi = 0x40;
+
+    
+    if ((ret = ptrace(PT_SETREGS, pid, (caddr_t) &registers, 0)) != 0)
+    {
+        printf("ERROR:\n# PT_SETREGS failed with code %d (%s)\n\n# Amount: %dx", ret, strerror(ret), amount);
+        return nullptr;
+    }
+
+
+
+    
+    // Restore the registers
+    if ((ret = ptrace(PT_SETREGS, pid, (caddr_t) &og_registers, 0)) != 0)
+    {
+        printf("ERROR:\n# PT_SETREGS failed with code %d (%s)\n\n# Amount: %dx", ret, strerror(ret), amount);
+        return nullptr;
+    }
+
+    return nullptr; //!
+}
+
+
+int proc_free(void * ptrace)
+{
+    return -1; //!
 }
 
 
