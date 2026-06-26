@@ -13,8 +13,8 @@ int attach(int pid);
 int detach(int pid);
 
 int read_bytes(int pid, size_t length, void * address, void * buffer);
-char * read_string(int pid, void * address);
-unsigned long long read_ulong(int pid, void * address);
+int read_string(int pid, void * address, void * buffer);
+unsigned long long read_ulong(int pid, unsigned long * address);
 unsigned int read_uint(int pid, void * address);
 unsigned char read_byte(int pid, void * address);
 

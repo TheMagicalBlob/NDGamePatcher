@@ -154,12 +154,18 @@ int read_bytes(int pid, size_t length, void * address, void * buffer)
 
 
 
-char * read_string(int pid, void * address)
+int read_string(int pid, void * address, void * buffer)
 {
+    if (address == 0)
+    {
+        echo("null string pointer provided.");
+        return -1;
+    }
+
     if (read_byte(pid, address) <= 0) 
     {
         echo("Empty string at address 0x%llX.", (unsigned long long) address);
-        return nullptr;
+        return 0;
     }
     
  
@@ -168,31 +174,24 @@ char * read_string(int pid, void * address)
     
     
     
-    int alen = ALIGN(len);
-    
-    
-    // static char tst[0x80];
-    // bzero(&tst, sizeof(tst));
-    
-    char * ret = malloc(alen);
     for(long long i = 0; i < len; ++i)
     {
-        *(ret + i) = read_byte(pid, (void *) address + i);
+        *(char *) (buffer + i) = read_byte(pid, (void *) address + i);
     }
-    *(ret + len) = 0; // terminate the string
+    *(char *) (buffer + len) = 0; // terminate the string
 
-    return ret;
+    return len;
 }
 
 
 
 
-unsigned long long read_ulong(int pid, void * address)
+unsigned long long read_ulong(int pid, unsigned long * address)
 {
     unsigned long err = 0xDEADBEEF;
     unsigned long long data = err;
 
-    if (proc_read(pid, 8, (void *) address, &data, __FUNCTION__, __LINE__))
+    if (proc_read(pid, 8, address, &data, __FUNCTION__, __LINE__))
     {
         return err;
     }

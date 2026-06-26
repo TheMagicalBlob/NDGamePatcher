@@ -92,194 +92,235 @@ char * get_dmenu_entry_type_as_string(long long type)
 
 
 
-
-// dmenu_item_t * find_item(pid_t pid, dmenu_menu_base_t * parent)
-dmenu_item_t * find_item(pid_t pid, dmenu_menu_base_t * parent, const char * item_name)
+void * find_dmenu_entry(pid_t pid, const char * entry_name, dmenu_menu_base_t * parent_base, dmenu_type_ids_t item_type)
 {
-    dmenu_menu_base_t menu_base;
-    read_bytes(pid, sizeof(menu_base), parent, &menu_base);
-    
-    if (menu_base.menu == NULL)
+    if (parent_base->menu == 0)
     {
-        echo("ERROR: menu base %s's menu pointer was null. cannot find item.", &menu_base.item_text_buffer);
-        return nullptr;
-    }
-
-    dmenu_menu_t current_menu;
-    read_bytes(pid, sizeof(dmenu_menu_t), menu_base.menu, &current_menu);
-    if (current_menu.first_item == NULL)
-    {
-        echo("ERROR: menu %s's initial item pointer was null. cannot find item.", &current_menu.item_text_buffer);
-        return nullptr;
+        echo("ERROR: Empty menu base pointer provided.");
+        return;
     }
 
 
-    char * string_pointer = null; //! CHANGE TO A POINTER TO THE ITEM ITSELF ONCE DONE TESTING
-    void * next_item;
-    dmenu_item_t current_item;
+    dmenu_menu_t menu;
+    read_bytes(pid, sizeof(dmenu_menu_t), parent_base->menu, &menu);
     
-    next_item = current_menu.first_item;
-    do {
-        if (next_item == nullptr)
-        {
-            echo("ERROR: null pointer for next item.");
-            return nullptr;
-        }
-
-
-
-        int base_type = get_dmenu_entry_base_type(pid, next_item);
-
-        if (base_type == dmenu_basetype_menu || base_type == dmenu_basetype_dyn_menu)
-        {
-            read_bytes(pid, sizeof(dmenu_menu_t), next_item, &current_menu);
-
-            string_pointer = &current_menu.item_text_buffer;
-
-
-            next_item = current_menu.first_item;
-            bzero(&current_menu, sizeof(current_menu));
-            continue;
-        }
-
-
-        if (base_type == dmenu_basetype_item)
-        {
-            item:
-            read_bytes(pid, sizeof(dmenu_item_t), next_item, &current_item);
-
-            string_pointer = &current_item.item_text_buffer;
-
-            next_item = current_item.next_item;
-            bzero(&current_item, sizeof(current_item));
-            continue;
-        }
-
-
-        if (base_type == dmenu_basetype_submenu)
-        {
-            echo("WARNING: Item is submenu entry item. I forget whether these are mapped correctly rn");
-            goto item;
-        } 
-
+    dmenu_item_t * item_ptr;
+    if((item_ptr = menu.first_item) == 0)
+    {
+        echo("ERROR:\n# %s %s has no entries (%d).", get_dmenu_entry_type_as_string(*(unsigned long long *) &menu), &menu.item_text, item_ptr);
     }
-    while (!strcmp(string_pointer, item_name));
+    
+    
+    
+    
+    int depth = 0;
+    void * history[0x20]; // surely there's no place with a submenu depth even approaching 32, so this should be more than sufficient in size
+    
+    char item_name[0x80];
+    
+    char next_is_menu = 0;
+    
+    dmenu_item_t item;
+    
+    while(item_ptr != null)
+    {
+        int type = read_uint(pid, item_ptr);
 
-    echo("FOUND IT BIHH (@%llX)", string_pointer);
+        bzero(&item, sizeof(item));
+        bzero(&menu, sizeof(menu));
+        
+        // Menu
+        if (next_is_menu)
+        {
+            read_bytes(pid, sizeof(dmenu_menu_t), item_ptr, &menu);
+            
+            read_string(pid, menu.item_text, item_name);
 
-    return string_pointer;
+            // Read next item pointer
+            item_ptr = menu.first_item;
+            next_is_menu = 0;
+        }
+        // Item
+        else {
+            read_bytes(pid, sizeof(dmenu_item_t), item_ptr, &item);
+            
+            if (item.item_text == nullptr)
+            {
+                strncpy(item_name, "------------------------------------", 40);
+            }
+            else{
+                read_string(pid, item.item_text, item_name);
+            }
+
+
+
+            if (type == dmenu_id_submenu_item || type == dmenu_id_task_submenu_item || type == dmenu_id_noreturn_task_submenu_item)
+            {
+                item_ptr = (dmenu_item_t *) item.item_variable_buffer;
+
+                history[++depth] = item.next_item;
+
+                next_is_menu = 1;
+            }
+            else{
+                item_ptr = item.next_item;
+                next_is_menu = 0;
+            }
+        }
+        
+        
+
+
+        while (item_ptr == nullptr && depth >= 0)
+        {
+            item_ptr = history[depth];
+            history[depth--] = nullptr;
+        
+            next_is_menu = 0;
+        }
+    }
+
+    echo("Unablr to find item \"%s\"", item_name);
 }
 
 
 
 
-void dump_menu_entries(pid_t pid, dmenu_menu_base_t * menu)
+dmenu_item_t * find_item(pid_t pid, dmenu_menu_base_t * parent, const char * item_name)
 {
-    if (menu->menu != 0)
+    return nullptr;
+}
+
+dmenu_item_t * find_menu(pid_t pid, dmenu_menu_base_t * parent, const char * item_name)
+{
+    return nullptr;
+}
+
+
+
+
+void dump_menu_entries(pid_t pid, dmenu_menu_base_t * parent_base)
+{
+    if (parent_base->menu == 0)
     {
-        dmenu_menu_t current_menu;
-        read_bytes(pid, sizeof(dmenu_menu_t), menu->menu, &current_menu);
+        echo("ERROR: Empty menu base pointer provided.");
+        return;
+    }
+
+
+    dmenu_menu_t menu;
+    read_bytes(pid, sizeof(dmenu_menu_t), parent_base->menu, &menu);
+    
+    dmenu_item_t * item_ptr;
+    if((item_ptr = menu.first_item) == 0)
+    {
+        echo("ERROR:\n# %s %s has no entries (%d).\n# Aborting.", get_dmenu_entry_type_as_string(*(unsigned long long *) &menu), &menu.item_text, item_ptr);
+    }
+    
+    
+    
+    
+    int depth = 0;
+    void * history[0x20]; // surely there's no place with a submenu depth even approaching 32, so this should be more than sufficient in size
+    
+    char * output_format = "0x%llX %sItem: %s [Type: %s (%d) | Parent: %s]";
+    char padding[0x40]; // used for indentation during output
+    
+    char item_name[0x80];
+    char parent_name[0x80];
+    
+    char next_is_menu = 0;
+    int unknown_type_count = 0;
+    
+    dmenu_item_t item;
+    
+    while(item_ptr != null)
+    {
+        int type = read_uint(pid, item_ptr);
+        char * dtype = get_dmenu_entry_type_as_string(type);
         
-        dmenu_item_t * item_ptr;
-        if((item_ptr = current_menu.first_item) == 0)
+
+        if (((unsigned long long) ( *(unsigned long long *) dtype)) == 2336936577129475669) // just the start of the "Unknown value..." string read as an unsigned 64bit integer
         {
-            echo("ERROR:\n# %s has no entries (%d).\n# Aborting.", &current_menu.item_text, item_ptr);
+            unknown_type_count++;
+        }
+        
+
+        bzero(&item, sizeof(item));
+        bzero(&menu, sizeof(menu));
+        
+        // Menu
+        if (next_is_menu)
+        {
+            read_bytes(pid, sizeof(dmenu_menu_t), item_ptr, &menu);
+            
+            read_string(pid, menu.item_text, item_name);
+            read_string(pid, (void *) read_ulong(pid, &menu.parent_menu->item_text), parent_name);
+
+            echo(output_format, item_ptr, padding, item_name, dtype, type, parent_name);
+            
+            // Read next item pointer
+            item_ptr = menu.first_item;
+            next_is_menu = 0;
+        }
+        // Item
+        else {
+            read_bytes(pid, sizeof(dmenu_item_t), item_ptr, &item);
+            
+            if (item.item_text == nullptr)
+            {
+                strncpy(item_name, "------------------------------------", 40);
+            }
+            else{
+                read_string(pid, item.item_text, item_name);
+            }
+
+
+
+            read_string(pid, (void *) read_ulong(pid, &item.parent_menu->item_text), parent_name);
+
+            echo(output_format, item_ptr, padding, item_name, dtype, type, parent_name);
+            
+            if (type == dmenu_id_submenu_item || type == dmenu_id_task_submenu_item || type == dmenu_id_noreturn_task_submenu_item)
+            {
+                item_ptr = (dmenu_item_t *) item.item_variable_buffer;
+
+                history[++depth] = item.next_item;
+                
+                for(int i = 0;;) // Write padding
+                {
+                    *(padding + i++) = ' ';
+
+                    if (i >= depth * 4)
+                    {
+                        *(padding + i) = 0;
+                        break;
+                    }
+                }
+
+                next_is_menu = 1;
+            }
+            else{
+                item_ptr = item.next_item;
+                next_is_menu = 0;
+            }
+            
         }
         
         
-        
-        int unknown_type_count = 0;
-        
-        void * history[0x20]; // surely there's no place with a submenu depth even approaching 32, so this should be more than sufficient in size
-        
-        int depth = 0;
-        char next_item_should_be_submenu = 0;
-        
-        dmenu_item_t item;
-        dmenu_menu_t menu;
-        
-        while(item_ptr != null)
+
+
+        while (item_ptr == nullptr && depth >= 0)
         {
-            // TODO: Handle empty sumbenus
-            int type = read_uint(pid, item_ptr);
-            char * dtype = get_dmenu_entry_type_as_string(type);
+            item_ptr = history[depth];
+            history[depth--] = nullptr;
+        
+            *(padding + depth * 4) = 0; // truncate padding
 
-            if (((unsigned long long) ( *(unsigned long long *) dtype)) == 2336936577129475669)
-            {
-                unknown_type_count++;
-            }
-            
-            
-            
-            echo("Type: %d (%s)", type, dtype);
-            echo("Address: %llx", item_ptr);
-
-            if (next_item_should_be_submenu) // Submenu
-            {
-                bzero(&item, sizeof(item));
-                read_bytes(pid, sizeof(dmenu_menu_t), item_ptr, &menu);
-                
-                echo("Submenu Name: %s (item count: %d)", read_string(pid, menu.item_text), menu.item_count);
-                
-                item_ptr = menu.first_item;
-                next_item_should_be_submenu = 0;
-
-
-
-                if (type != dmenu_id_menu && type != dmenu_id_dyn_menu && type != dmenu_id_unk_menu)
-                {
-                    echo("WARNING: read type does not match known menu types. (%lld)", type);
-                }
-            }
-            else {
-                bzero(&menu, sizeof(menu));
-                read_bytes(pid, sizeof(dmenu_item_t), item_ptr, &item);
-
-
-                char * str;
-                if (item.item_text == nullptr)
-                {
-                    str = "------------------------------------";
-                }
-                else{
-                    str = read_string(pid, item.item_text);
-                }
-                
-
-
-                echo("Entry Name: %s", str);
-                
-                if (type == dmenu_id_submenu_item || type == dmenu_id_task_submenu_item)
-                {
-                    item_ptr = (dmenu_item_t *) item.item_variable_buffer;
-
-                    history[++depth] = item.next_item;
-                    next_item_should_be_submenu = 1;
-
-                }
-                else{
-                    item_ptr = item.next_item;
-                    next_item_should_be_submenu = 0;
-                }
-                
-            }
-
-            while (item_ptr == nullptr && depth >= 0)
-            {
-                echo("Returning to parent menu (depth %d)", depth);
-
-                item_ptr = history[depth];
-                history[depth--] = nullptr;
-
-                next_item_should_be_submenu = 0;
-            }
-
-            echo("");
+            next_is_menu = 0;
+            echo(""); // just for formatting
         }
+    }
 
-        echo("\n# Scan finished. Unknown item types: %d", unknown_type_count);
-    }
-    else{
-        echo("ERROR: Menu pointer was still null.\n");
-    }
+    echo("\n# Scan finished. Unknown item types: %d", unknown_type_count);
 }

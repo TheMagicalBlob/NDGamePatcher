@@ -44,6 +44,7 @@ typedef struct app_info
 
 extern int sceKernelSendNotificationRequest(int, notify_request_t*, size_t, int);
 extern int sceKernelGetAppInfo(pid_t pid, app_info_t *info);
+extern int sceKernelLoadStartModule(const char *name, uint64_t argc, const void *argv, uint32_t flags, void *, int *result);
 
 static int logfile;
 
@@ -165,7 +166,8 @@ getPid:
         
 
         
-        echo("==================================\n"
+        // goto skipQuickMenuScan;
+        echo("\n==================================\n"
             "#  PRINTING QUICK MENU CONTENTS  #\n"
              "==================================");
         dmenu_menu_base_t quick_menu_base;
@@ -173,7 +175,8 @@ getPid:
         dump_menu_entries(pid, &quick_menu_base);
         
         
-        
+        skipQuickMenuScan:
+        // goto skipDevMenuScan;
         echo("\n\n================================\n"
                  "|  PRINTING DEV MENU CONTENTS  |\n"
                  "================================");
@@ -183,6 +186,7 @@ getPid:
         dump_menu_entries(pid, &dev_menu_base);
         
 
+        skipDevMenuScan:
         detach(pid);
     }
     else {
@@ -199,6 +203,10 @@ getPid:
 
 
 int main() {
+
+    // Set thread name
+    syscall(SYS_thr_set_name, -1, MODULE_NAME); // set it BEFORE CHECKING FOR IT YOU FUCKING MORON
+    
     int pid, len;
     while ((pid = find_pid(MODULE_NAME)) > 0) // Kill any previous instance
     {
@@ -208,7 +216,7 @@ int main() {
         if (kill(pid, SIGKILL))
         {
             printf("sigkill err%s", "\n");
-            return -1;
+            break;
         }
         
         char msg[len];
@@ -216,14 +224,10 @@ int main() {
         notify(msg);
         
         printf("Killed previous %s instance\n", MODULE_NAME);
-        return 0;
     }
     
-    // Set payload name
-    syscall(SYS_thr_set_name, -1, MODULE_NAME);
-    
-    
-    
+
+
     
     // Construct and print start message
     len = strlen(MODULE_NAME) + 23;
@@ -240,20 +244,4 @@ int main() {
 
     return 0;
 }
-
-
-
-
-
-
-// extern int32_t module_start(size_t argc, const void* args)
-// {
-//     main();
-//     return 0;
-// }
-
-// extern int32_t module_stop(size_t argc, const void* args)
-// {
-//     return 0;
-// }
 

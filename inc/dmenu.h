@@ -11,8 +11,9 @@ typedef struct dmenu_menu_base dmenu_menu_base_t;
 
 
 
-
-enum dmenu_type_ids : u_long
+//! TODO: Convert these to hexadecimal
+// Just the function array pointer at the start of each dmenu struct read as an unsigned 64bit integer
+typedef enum dmenu_type_ids : u_long
 {
     dmenu_id_menu_base = 52618888,
     
@@ -37,7 +38,8 @@ enum dmenu_type_ids : u_long
     dmenu_id_user_item = 52706288, // Entirely useless, maybe it's meant to be replaced by an actual user name? idk
     dmenu_id_timer_item = 51476832,
     dmenu_id_unk_item = 52616000
-};
+    
+} dmenu_type_ids_t;
 
 
 enum dmenu_item_base_types : int
@@ -57,11 +59,11 @@ typedef struct dmenu_item dmenu_item_t;
 
 typedef struct dmenu_item // Size 0xB8/0x?? (seems to vary, don't think there's one universal dmenu_item struct- needs checking)
 {
-    void * function_array;
-    char unused1[0x8]; // Always zero
-    char item_text_buffer[0x20];
-    char * item_text; // Just Points 32 bytes above? I assume it gets used to redirect strings that are too long for the item_text_buffer
-    dmenu_menu_t * parent_menu;
+    void * function_array; // 0x00
+    char unused1[0x8]; // 0x08 // Always zero
+    char item_text_buffer[0x20]; // 0x10
+    char * item_text; // 0x30 // Just Points 32 bytes above? I assume it gets used to redirect strings that are too long for the item_text_buffer
+    dmenu_menu_t * parent_menu; // 0x38
     dmenu_item_t * next_item;
     const unsigned short horizontal_padding; 
     const unsigned short vertical_padding; 
