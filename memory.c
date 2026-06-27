@@ -129,14 +129,9 @@ void * proc_malloc(pid_t pid, int amount)
     // Back the regisers up
     memcpy(&og_registers, &registers, sizeof(struct reg));
     
+    write_ulong(pid, (void *) registers.r_rsp - 8, (unsigned long) registers.r_rip);
 
-    registers.r_rsp = registers.r_rsp - 0x10;
-
-    // Write rip to the new loc pointed to be the adjusted rsp
-    //! ^ No idea whether this is how that works, so check that first
-
-    registers.r_rip = T2_MALLOC;
-    registers.r_rdi = 0x40;
+    registers.r_rip = 0x16c7bf0;
 
     
     if ((ret = ptrace(PT_SETREGS, pid, (caddr_t) &registers, 0)) != 0)
@@ -145,7 +140,7 @@ void * proc_malloc(pid_t pid, int amount)
         return nullptr;
     }
 
-
+return null;
 
     
     // Restore the registers
@@ -159,7 +154,7 @@ void * proc_malloc(pid_t pid, int amount)
 }
 
 
-int proc_free(void * ptrace)
+int proc_free(void * mem_ptr)
 {
     return -1; //!
 }
@@ -184,12 +179,29 @@ int proc_free(void * ptrace)
 
 static int proc_read(pid_t pid, int len, void * addr, void * buffer, const char * caller, int from)
 {
-    struct ptrace_io_desc iod = { 1, addr, buffer, len };
+    struct ptrace_io_desc iod = { PIOD_READ_D, addr, buffer, len };
 
     int ret;
     if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
     {
-        printf("ERROR:\n# ptrace PT_IO failed with code %d (%s)\n\n# Address: %llX\n# Function: %s\n# Line: %d\n", ret, strerror(ret), addr, caller, from);
+        printf("ERROR:\n# ptrace PT_IO (read) failed with code %d (%s)\n\n# Address: %llX\n# Function: %s\n# Line: %d\n", ret, strerror(ret), addr, caller, from);
+        return 1;
+    }
+
+    return 0;
+}
+
+
+
+
+static int proc_write(pid_t pid, int len, void * addr, void * value, const char * caller, int from)
+{
+    struct ptrace_io_desc iod = { PIOD_WRITE_D, addr, value, len };
+
+    int ret;
+    if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
+    {
+        printf("ERROR:\n# ptrace PT_IO (read) failed with code %d (%s)\n\n# Address: %llX\n# Function: %s\n# Line: %d\n", ret, strerror(ret), addr, caller, from);
         return 1;
     }
 
@@ -327,4 +339,20 @@ unsigned char read_byte(int pid, void * address)
     }
 
     return data;
+}
+
+
+
+
+
+int write_ulong(int pid, unsigned long * address, unsigned long value)
+{
+    unsigned long long data = value;
+
+    if (proc_write(pid, 8, address, &data, __FUNCTION__, __LINE__))
+    {
+        return 1;
+    }
+
+    return 0;
 }

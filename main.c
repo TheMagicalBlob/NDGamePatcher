@@ -184,11 +184,20 @@ getPid:
 
         skipDevMenuScan:
 
-        if (1) {
+        if (0) {
             dmenu_item_t * item;
             item = find_item(pid, load_menu_base(pid, DMENU_DEV_MENU_BASE_PTR), "Disable FPS");
             echo("Found Item At 0x%llX", item);
         }
+
+
+
+        // malloc testing
+        void * ret = proc_malloc(pid, 0x40);
+
+        ptrace(PT_CONTINUE, pid, (void *) 1, 0);
+
+
 
         detach(pid);
     }
