@@ -166,24 +166,6 @@ getPid:
         
 
         
-        goto skipQuickMenuScan;
-        echo("\n==================================\n"
-            "#  PRINTING QUICK MENU CONTENTS  #\n"
-             "==================================");
-        dump_menu_entries(pid, load_menu_base(pid, DMENU_QUICK_MENU_BASE_PTR));
-        
-        
-        skipQuickMenuScan:
-        goto skipDevMenuScan;
-        echo("\n\n================================\n"
-                 "|  PRINTING DEV MENU CONTENTS  |\n"
-                 "================================");
-
-        dump_menu_entries(pid, load_menu_base(pid, DMENU_DEV_MENU_BASE_PTR));
-        
-
-        skipDevMenuScan:
-
         if (0) {
             dmenu_item_t * item;
             item = find_item(pid, load_menu_base(pid, DMENU_DEV_MENU_BASE_PTR), "Disable FPS");
@@ -195,10 +177,18 @@ getPid:
         // malloc testing
         void * ret = proc_malloc(pid, 0x40);
 
+        if (ret == nullptr)
+        {
+            echo("ERROR: Unable to allocate memory, cannot proceed.");
+            goto _detach;
+        }
+
         ptrace(PT_CONTINUE, pid, (void *) 1, 0);
 
 
 
+
+    _detach:
         detach(pid);
     }
     else {

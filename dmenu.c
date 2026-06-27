@@ -32,14 +32,10 @@ int get_dmenu_entry_base_type(pid_t pid, void * item)
         case dmenu_id_noreturn_task_submenu_item:
             return dmenu_basetype_submenu;
 
+        case dmenu_id_dyn_menu:
+        case dmenu_id_unk_menu:
         case dmenu_id_menu:
             return dmenu_basetype_menu;
-        
-        case dmenu_id_dyn_menu:
-            return dmenu_basetype_dyn_menu;
-
-        case dmenu_id_unk_menu:
-            return dmenu_basetype_unk_menu;
 
         default:
             echo("Unknown value read when getting dmenu item type: %lld", chk);
@@ -180,11 +176,10 @@ static void * find_dmenu_entry(pid_t pid, const char * expected_entry_name, dmen
             
             if (item.item_text == nullptr)
             {
-                strncpy(entry_name, "------------------------------------", 40);
+                goto no_text;
             }
-            else {
-                read_string(pid, item.item_text, entry_name);
-            }
+            
+            read_string(pid, item.item_text, entry_name);
 
 
             // if (expected_base_type == base_type && !strncmp(expected_entry_name, entry_name, len))
@@ -194,6 +189,7 @@ static void * find_dmenu_entry(pid_t pid, const char * expected_entry_name, dmen
             }
 
 
+            no_text:
             if (type == dmenu_id_submenu_item || type == dmenu_id_task_submenu_item || type == dmenu_id_noreturn_task_submenu_item)
             {
                 entry_ptr = (dmenu_item_t *) item.item_variable_buffer;

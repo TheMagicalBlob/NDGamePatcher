@@ -11,43 +11,43 @@ typedef struct dmenu_menu_base dmenu_menu_base_t;
 
 
 
-//! TODO: Convert these to hexadecimal
 // Just the function array pointer at the start of each dmenu struct read as an unsigned 64bit integer
 typedef enum dmenu_type_ids : u_long
 {
-    dmenu_id_menu_base = 52618888,
-    
-    dmenu_id_menu = 52618672,
-    dmenu_id_dyn_menu = 52122184, // slightly larger than normal menus, I think these are ones generated when opened. //! check when headache gone
-    dmenu_id_unk_menu = 52592816,
+    dmenu_id_menu_base = 0x322E688,
 
-    dmenu_id_submenu_item = 52618376,
-    dmenu_id_task_submenu_item = 52768088,
-    dmenu_id_noreturn_task_submenu_item = 52767792,
-    
-    dmenu_id_bool_item = 52615704,
-    dmenu_id_exec_item = 52617784,
-    dmenu_id_alt_exec_item = 52618080,
-    dmenu_id_string_item = 52617192,
-    dmenu_id_string_list_item = 52616296,
-    dmenu_id_float_item = 52617488,
-    dmenu_id_decimal_item = 52616888,
-    dmenu_id_separator_item = 52614816,
-    dmenu_id_task_history_item = 52767200,
-    dmenu_id_task_item = 52767496,
-    dmenu_id_user_item = 52706288, // Entirely useless, maybe it's meant to be replaced by an actual user name? idk
-    dmenu_id_timer_item = 51476832,
-    dmenu_id_unk_item = 52616000
+    dmenu_id_menu = 0x322E5B0,
+    dmenu_id_dyn_menu = 0x31B5248, // slightly larger than normal menus, I think these are ones generated when opened. //! check when headache gone
+    dmenu_id_unk_menu = 0x32280B0,
+
+    dmenu_id_submenu_item = 0x322E488,
+    dmenu_id_task_submenu_item = 0x3252D58,
+    dmenu_id_noreturn_task_submenu_item = 0x3252C30,
+
+    dmenu_id_bool_item = 0x322DA18,
+    dmenu_id_exec_item = 0x322E238,
+    dmenu_id_alt_exec_item = 0x322E360,
+    dmenu_id_string_item = 0x322DFE8,
+    dmenu_id_string_list_item = 0x322DC68,
+    dmenu_id_float_item = 0x322E110,
+    dmenu_id_decimal_item = 0x322DEB8,
+    dmenu_id_separator_item = 0x322D6A0,
+    dmenu_id_task_history_item = 0x32529E0,
+    dmenu_id_task_item = 0x3252B08,
+    dmenu_id_user_item = 0x3243BF0, // Entirely useless, maybe it's meant to be replaced by an actual user name? idk
+    dmenu_id_timer_item = 0x3117960,
+    dmenu_id_unk_item = 0x322DB40
 
 } dmenu_type_ids_t;
 
 
+// 
 typedef enum dmenu_item_base_types : int
 {
     dmenu_basetype_menu_base, // The base instance containing all menu
     dmenu_basetype_menu, // the menus themselves, whether it be the "Quick Menu" menu or "Rendering" submenu
-    dmenu_basetype_dyn_menu, // generated ones- first item is in a diff spot //! what?
-    dmenu_basetype_unk_menu, // idk
+    // dmenu_basetype_dyn_menu, // generated ones- first item is in a diff spot //! what?
+    // dmenu_basetype_unk_menu, // idk
     dmenu_basetype_submenu, // The items that load submenus
     dmenu_basetype_item // anything else
 
@@ -90,7 +90,7 @@ typedef struct dmenu_item // Size 0xB8/0x?? (seems to vary, don't think there's 
 
 
 
-typedef struct dmenu_menu // Size = 0xE0
+typedef struct dmenu_menu // 0xE0
 {
     void * function_array;
     char unused1[0x8]; // Always zero
@@ -128,7 +128,7 @@ typedef struct dmenu_menu // Size = 0xE0
 
 
 
-typedef struct dmenu_menu_base // 0x328 total size
+typedef struct dmenu_menu_base // 0x328
 {
     void * function_array;
     char unused1[0x8]; // Always zero
