@@ -41,7 +41,7 @@ typedef enum dmenu_type_ids : u_long
 } dmenu_type_ids_t;
 
 
-// 
+// simplified dmenu type enum boiling it down to structurally different items
 typedef enum dmenu_item_base_types : int
 {
     dmenu_basetype_menu_base, // The base instance containing all menu
@@ -156,8 +156,17 @@ typedef struct dmenu_menu_base // 0x328
 
 
 
-int get_dmenu_item_type(pid_t pid, void * item);
-char * debug_get_entry_type(long long type);
+
+int t2_dcall(pid_t pid);
+
+int get_dmenu_entry_base_type(pid_t pid, void * item);
+char * get_dmenu_entry_type_as_string(long long type);
+
+dmenu_menu_base_t * load_menu_base(pid_t pid, void * address);
+dmenu_menu_t * load_menu(pid_t pid, void * address);
+dmenu_item_t * load_item(pid_t pid, void * address);
+
+
 dmenu_item_t * find_item(pid_t pid, dmenu_menu_base_t * parent, const char * item_name);
 dmenu_menu_t * find_menu(pid_t pid, dmenu_menu_base_t * parent, const char * item_name);
 void dump_menu_entries(pid_t pid, dmenu_menu_base_t * menu);
@@ -165,3 +174,4 @@ void dump_menu_entries(pid_t pid, dmenu_menu_base_t * menu);
 dmenu_menu_base_t * load_menu_base(pid_t pid, void * address);
 dmenu_menu_t * load_menu(pid_t pid, void * address);
 dmenu_item_t * load_item(pid_t pid, void * address);
+

@@ -2,6 +2,18 @@
 #include "inc/dmenu.h"
 
 
+int t2_dcall(pid_t pid)
+{
+    int ret;
+    if ((ret = proc_call(pid, (void *) 0x16c7bf0, nullptr, nullptr)) != 0)
+    {
+        echo("ERROR: %s call failed! (ret: %d)", __FUNCTION__);
+    }
+
+    return ret;
+}
+
+
 
 int get_dmenu_entry_base_type(pid_t pid, void * item)
 {

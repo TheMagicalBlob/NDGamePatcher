@@ -119,32 +119,36 @@ void log_message(const char * base_string, ...)
 
 
 
-
-static int ptracetst(int module_pid)
+static pid_t wait_for_game_launch(const char * title_id)
 {
-    int pid;
-    
     // Check for any running eboot.bin //! remember to check for the other possible T2R executable names
-getPid:
-    pid = find_pid("eboot.bin");
+    pid_t pid = find_pid("eboot.bin");
 
 
-    if (pid < 0)
+    if (pid <= 0)
     {
         echo("Unable to find eboot, waiting a few seconds before retrying");
         sleep(7);
-        goto getPid;
+        
+        do {
+            pid = find_pid("eboot.bin");
+        }
+        while (pid <= 0);
+
+
+        // process started- wait 20 seconds for the game to finish launching
+        sleep(20);
     }
 
-    char msg[0x40];
-    snprintf(msg, sizeof(msg), "Found eboot.bin as pid %d, getting title id...\n", pid); 
-    notify(msg);
+
+
+    echo("Found eboot.bin (pid %d), getting title id...", pid);
 
 
     app_info_t app_info;
     sceKernelGetAppInfo(pid, &app_info);
 
-    if (!strncmp(app_info.title_id, "PPSA10662", 10))
+    if (!strncmp(app_info.title_id, title_id, 10))
     {
         int status;
         if ((status = set_dbg_perms()) != 0)
@@ -158,43 +162,64 @@ getPid:
         {
             return -1;
         }
-        notify("Attached to game process.");
+
+        notify("Attached to game process.\nTitle ID: %s\nprocess id: %d", title_id, pid);
         
         echo("Waiting for pid...");
         waitpid(pid, 0, 0);
-        echo("waitpid returned; proceeding\n");
         
+        return pid;
 
-        
-        if (0) {
-            dmenu_item_t * item;
-            item = find_item(pid, load_menu_base(pid, DMENU_DEV_MENU_BASE_PTR), "Disable FPS");
-            echo("Found Item At 0x%llX", item);
-        }
-
-
-
-        // malloc testing
-        void * ret = proc_malloc(pid, 0x40);
-
-        if (ret == nullptr)
-        {
-            echo("ERROR: Unable to allocate memory, cannot proceed.");
-            goto _detach;
-        }
-
-        ptrace(PT_CONTINUE, pid, (void *) 1, 0);
-
-
-
-
-    _detach:
-        detach(pid);
     }
     else {
         notify("Application Title ID does not match expected value of [PPSA10662]\nTitle ID: %s\nApp ID: %d\n", app_info.title_id, app_info.app_id);
+        return -1;
+    }
+}
+
+
+
+
+
+
+static int start(int module_pid)
+{
+    int pid;
+    pid = wait_for_game_launch("PPSA10662");
+
+
+
+        
+
+    
+    if (0) {
+        dmenu_item_t * item;
+        item = find_item(pid, load_menu_base(pid, DMENU_DEV_MENU_BASE_PTR), "Disable FPS");
+        echo("Found Item At 0x%llX", item);
     }
 
+
+
+    // malloc testing
+
+    t2_dcall(pid);
+    goto _detach;
+
+    void * ret = proc_malloc(pid, 0x40);
+
+    if (ret == nullptr)
+    {
+        echo("ERROR: Unable to allocate memory, cannot proceed.");
+        goto _detach;
+    }
+
+    ptrace(PT_CONTINUE, pid, (void *) 1, 0);
+
+
+
+    
+_detach:
+    detach(pid);
 
     return 0;
 }
@@ -204,16 +229,17 @@ getPid:
 
 
 
-int main() {
-
+int main()
+{
     // Set thread name
-    syscall(SYS_thr_set_name, -1, MODULE_NAME); // set it BEFORE CHECKING FOR IT YOU FUCKING MORON
+    syscall(SYS_thr_set_name, -1, MODULE_NAME);
     
-    int pid, len;
-    while ((pid = find_pid(MODULE_NAME)) > 0) // Kill any previous instance
+    
+    // Kill any previous instances
+    int pid;
+    while ((pid = find_pid(MODULE_NAME)) > 0)
     {
-        printf("\nKilling old instance (pid: %d)... ", pid);
-        len = ALIGN(strlen(MODULE_NAME) + 28);
+        printf("Killing old instance (pid: %d)...\n", pid);
 
         if (kill(pid, SIGKILL))
         {
@@ -221,26 +247,17 @@ int main() {
             break;
         }
         
-        char msg[len];
-        snprintf(msg, sizeof(msg), "Killed previous %s instance\n", MODULE_NAME);
-        notify(msg);
-        
-        printf("Killed previous %s instance\n", MODULE_NAME);
+        char * msg = "Killed previous %s instance";
+        notify(msg, MODULE_NAME);
+        echo(msg, MODULE_NAME);
     }
     
 
 
-    
-    // Construct and print start message
-    len = strlen(MODULE_NAME) + 23;
-    char msg[len];
-    snprintf(msg, sizeof(msg), "Loaded new %s instance", MODULE_NAME);
-    
-    notify(msg);
-    
+    echo("Loaded new %s instance", MODULE_NAME);
 
     // Payload start
-    ptracetst(getpid());
+    start(getpid());
 
     close(logfile);
 

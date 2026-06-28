@@ -1,9 +1,9 @@
 #include "inc/include.h"
-#include "inc/memory.h"
 #include "inc/dmenu.h"
 
-
 #define printf(s, ...) klog_printf(s, __VA_ARGS__)
+
+#define _SHELLCORE_AUTHID 0x4800000000010003L
 
 
 
@@ -69,8 +69,10 @@ int set_dbg_perms()
 
 
 
+
+
 //#
-//## ptrace functions
+//## ptrace debugging functions
 //#
 
 
@@ -118,14 +120,16 @@ int detach(int pid)
 
 
 
+
 int get_regs(pid_t pid, struct reg * regs)
 {
     int ret;
     if ((ret = ptrace(PT_GETREGS, pid, (caddr_t) &regs, 0)) != 0)
     {
         printf("ERROR:\n# PT_GETREGS failed with code %d (%s)\n", ret, strerror(ret));
-        return -1;
     }
+
+    return ret;
 }
 
 
@@ -135,11 +139,15 @@ int set_regs(pid_t pid, struct reg * regs)
     if ((ret = ptrace(PT_SETREGS, pid, (caddr_t) &regs, 0)) != 0)
     {
         printf("ERROR:\n# PT_SETREGS failed with code %d (%s)\n", ret, strerror(ret));
-        return -1;
     }
+
+    return ret;
 }
 
 
+
+unsigned long long read_ulong(int pid, unsigned long * address);
+int write_ulong(int pid, unsigned long * address, unsigned long value);
 
 int proc_call(pid_t pid, void * function_address, void * return_val_ptr, struct reg * arg_regs)
 {
@@ -148,79 +156,92 @@ int proc_call(pid_t pid, void * function_address, void * return_val_ptr, struct 
         echo("ERROR: Null address provided for function.");
         return 1;
     }
-
-
-
-    // Get a copy of the initial register values
+    
     int ret;
-    struct reg registers;
-    if ((ret = ptrace(PT_GETREGS, pid, (caddr_t) &registers, 0)) != 0)
+    u_long error_source;
+
+    if (0)
     {
-        printf("ERROR:\n# PT_GETREGS failed with code %d (%s)\n", ret, strerror(ret));
-        return -1;
+    err:
+        echo("Unable to complete function call (failed at line %d)", error_source);
+        return 1;
     }
 
-    
+
+
+
+
     // Back the regisers up
     struct reg og_registers;
-    memcpy(&og_registers, &registers, sizeof(struct reg));
-    
-    
-    
-    // Set return address
-    long long og_stack_ptr  = (long long) read_ulong(pid, (unsigned long *) registers.r_rsp);
-
-    write_ulong(pid, (void *) registers.r_rsp - 8, (unsigned long) registers.r_rip);
-    registers.r_rip = (long long) function_address;
-    
-    
-    if ((ret = ptrace(PT_SETREGS, pid, (caddr_t) &registers, 0)) != 0)
+    if (get_regs(pid, &og_registers))
     {
-        printf("ERROR:\n# PT_SETREGS failed with code %d (%s)\n", ret, strerror(ret));
-        return -1;
+        error_source = __LINE__ - 2;
+        goto err;
     }
 
 
-    struct reg backup_reg;
+    
+    // Make a copy of the current register values if none was provided
+    struct reg registers;
+    if (!arg_regs)
+    {
+        memcpy(&registers, &og_registers, sizeof(struct reg));
+        arg_regs = &registers;
+    }
+    
+    
+    
+    // Set up the function call
+    long long og_stack_ptr  = (long long) read_ulong(pid, (unsigned long *) og_registers.r_rsp); // save return stack pointer
+
+    write_ulong(pid, (void *) arg_regs->r_rsp - 8, (unsigned long) arg_regs->r_rip); // set return address
+
+    arg_regs->r_rip = (long long) function_address; // Set next instruction address
+    
+    
+    if (set_regs(pid, arg_regs))
+    {
+        error_source = __LINE__ - 2;
+        goto err;
+    }
+
+
 
     while (1)
     {
-        ret = ptrace(PT_STEP, pid, 0, 0);
-        if (ret != 0){
-            printf("ERROR:\n# PT_STEP failed with code %d (%s) while checking rip.\n", ret, strerror(ret));
-            return -1;
-        }
-            
-        waitpid(pid, 0, 0);
-        if ((ret = ptrace(PT_GETREGS, pid, (caddr_t) &registers, 0)) != 0)
+        if ((ret = ptrace(PT_STEP, pid, 0, 0)) != 0)
         {
-            printf("ERROR:\n# PT_GETREGS failed with code %d (%s) while checking rip.\n", ret, strerror(ret));
-            return -1;
+            printf("ERROR:\n# PT_STEP failed with code %d (%s) while checking rip.\n", ret, strerror(ret));
+            return 1;
+        }
+        waitpid(pid, 0, 0);
+    
+
+
+        if (get_regs(pid, arg_regs))
+        {
+            error_source = __LINE__ - 2;
+            goto err;
         }
 
 
-        memcpy(&backup_reg, &registers, sizeof(registers));
-
-
-        if (registers.r_rip == (__int64_t) og_stack_ptr)
+        if (arg_regs->r_rip == (__int64_t) og_stack_ptr)
         {
             if (return_val_ptr > 0)
             {
                 printf("Return address reached, getting return value (%llx)\n", registers.r_rax);
                 *((long long *) return_val_ptr) = registers.r_rax;
             }
+            
+            // Restore the registers 
+            if ((ret = ptrace(PT_SETREGS, pid, (caddr_t) &og_registers, 0)) != 0)
+            {
+                printf("ERROR:\n# PT_SETREGS failed with code %d (%s)\n", ret, strerror(ret));
+                return 1;
+            }
 
             break;
         }
-    }
-
-
-    
-    // Restore the registers 
-    if ((ret = ptrace(PT_SETREGS, pid, (caddr_t) &og_registers, 0)) != 0)
-    {
-        printf("ERROR:\n# PT_SETREGS failed with code %d (%s)\n", ret, strerror(ret));
-        return -1;
     }
 
 
@@ -233,23 +254,27 @@ int proc_call(pid_t pid, void * function_address, void * return_val_ptr, struct 
 void * proc_malloc(pid_t pid, int amount)
 {
     int ret;
-    void * ptr; 
+    void * allocated_mem; 
 
     struct reg regs;
-    if ((ret = ptrace(PT_GETREGS, pid, (caddr_t) &regs, 0)) != 0)
+    if (get_regs(pid, &regs))
     {
-
+        return nullptr;
     }
 
-    if ((ret = proc_call(pid, (void *) T2_MALLOC, &ptr, NULL)) != 0)
+
+    regs.r_rdi = amount;
+
+
+    if ((ret = proc_call(pid, (void *) T2_MALLOC, &allocated_mem, &regs)) != 0)
     {
         echo("ERROR: malloc call failed! (ret: %d, amount: %d)", ret, amount);
         return nullptr;
     }
 
-    echo("allocate mem ptr: %llX", ptr);
+    echo("allocate mem ptr: %llX", allocated_mem);
 
-    return ptr;
+    return allocated_mem;
 }
 
 
@@ -260,6 +285,10 @@ int proc_free(void * mem_ptr)
 
 
 
+
+//#
+//## ptrace I/O functions
+//#
 
 /*
 *	Operations in piod_op.
@@ -276,14 +305,14 @@ int proc_free(void * mem_ptr)
 //     size_t  piod_len;	     /*	request	length */
 // };
 
-static int proc_read(pid_t pid, int len, void * addr, void * buffer, const char * caller, int from)
+static int proc_read(pid_t pid, int len, void * addr, void * buffer, const char * caller)
 {
     struct ptrace_io_desc iod = { PIOD_READ_D, addr, buffer, len };
 
     int ret;
     if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
     {
-        printf("ERROR:\n# ptrace PT_IO (read) failed with code %d (%s)\n\n# Address: %llX\n# Function: %s\n# Line: %d\n", ret, strerror(ret), addr, caller, from);
+        printf("ERROR:\n# ptrace PT_IO (read) failed with code %d (%s)\n\n# Address: %llX\n# Function: %s\n", ret, strerror(ret), addr, caller);
         return 1;
     }
 
@@ -293,14 +322,14 @@ static int proc_read(pid_t pid, int len, void * addr, void * buffer, const char 
 
 
 
-static int proc_write(pid_t pid, int len, void * addr, void * value, const char * caller, int from)
+static int proc_write(pid_t pid, int len, void * addr, void * value, const char * caller)
 {
     struct ptrace_io_desc iod = { PIOD_WRITE_D, addr, value, len };
 
     int ret;
     if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
     {
-        printf("ERROR:\n# ptrace PT_IO (read) failed with code %d (%s)\n\n# Address: %llX\n# Function: %s\n# Line: %d\n", ret, strerror(ret), addr, caller, from);
+        printf("ERROR:\n# ptrace PT_IO (read) failed with code %d (%s)\n\n# Address: %llX\n# Function: %s\n", ret, strerror(ret), addr, caller);
         return 1;
     }
 
@@ -310,16 +339,158 @@ static int proc_write(pid_t pid, int len, void * addr, void * value, const char 
 
 
 
-/// Read length number of bytes in the specified process in to buffer, starting at address.
-int read_bytes(int pid, size_t length, void * address, void * buffer)
+int read_bytes(pid_t pid, size_t len, void * address, void * buffer)
 {
-    return proc_read(pid, length, address, buffer, __FUNCTION__, __LINE__);
+    return proc_read(pid, len, address, buffer, __FUNCTION__);
+}
+
+
+
+int write_bytes(pid_t pid, size_t len, void * address, void * buffer)
+{
+    return proc_write(pid, len, address, buffer, __FUNCTION__);
 }
 
 
 
 
-int read_string(int pid, void * address, void * buffer)
+
+unsigned char read_byte(int pid, void * address)
+{
+    int ret;
+    unsigned char data;
+
+    if ((ret = proc_read(pid, 1, address, &data, __FUNCTION__)) != 0)
+    {
+        return -1;
+    }
+
+    return data;
+}
+
+
+int write_byte(int pid, void * address, unsigned char data)
+{
+    return proc_write(pid, 1, address, &data, __FUNCTION__);
+}
+
+
+
+
+
+unsigned long long read_ulong(int pid, unsigned long * address)
+{
+    unsigned long long data;
+
+    if (proc_read(pid, 8, address, &data, __FUNCTION__))
+    {
+        return -1;
+    }
+
+    return data;
+}
+
+
+int write_ulong(int pid, unsigned long * address, unsigned long value)
+{
+    return proc_write(pid, 8, address, &value, __FUNCTION__);
+}
+
+
+
+
+
+unsigned int read_uint(int pid, void * address)
+{
+    unsigned int data;
+
+    if (proc_write(pid, 8, address, &data, __FUNCTION__))
+    {
+        return -1;
+    }
+
+    return data;
+}
+
+
+int write_uint(int pid, void * address, unsigned int data)
+{
+    int ret;
+    struct ptrace_io_desc iod = { 1, address, &data, 0x4 };
+
+    if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
+    {
+        echo("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s", strerror(ret), __FUNCTION__);
+    }
+
+    return ret;
+}
+
+
+
+
+
+double read_double(int pid, void * address)
+{
+    int ret;
+    double data;
+    struct ptrace_io_desc iod = { 1, (void *) address, &data, 0x8 };
+
+    if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
+    {
+        echo("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s", strerror(ret), __FUNCTION__);
+        return 0xDEADBEEF;
+    }
+
+    return data;
+}
+
+
+int write_double(int pid, void * address, double value)
+{
+    return 1;
+}
+
+
+
+
+
+
+float read_single(int pid, unsigned long address)
+{
+    int ret;
+    float data;
+    struct ptrace_io_desc iod = { 1, (void *) address, &data, 0x4 };
+
+    if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
+    {
+        echo("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s", strerror(ret), __FUNCTION__);
+        return (float) 0xDEADBEEF;
+    }
+
+    return data;
+}
+
+int write_single(int pid, unsigned long address, float value)
+{
+    int ret;
+    float data;
+    struct ptrace_io_desc iod = { 2, (void *) address, &data, 0x4 };
+
+    if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
+    {
+        echo("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s", strerror(ret), __FUNCTION__);
+        return 1;
+    }
+
+    return 0;
+}
+
+
+
+
+
+int read_string(int pid, void * address, char * buffer)
 {
     if (address == 0)
     {
@@ -349,109 +520,35 @@ int read_string(int pid, void * address, void * buffer)
 }
 
 
-
-
-unsigned long long read_ulong(int pid, unsigned long * address)
+int write_string(int pid, void * address, const char * str)
 {
-    unsigned long err = 0xDEADBEEF;
-    unsigned long long data = err;
-
-    if (proc_read(pid, 8, address, &data, __FUNCTION__, __LINE__))
-    {
-        return err;
+    if (!address) {
+        echo("null string pointer provided.");
+        return -1;
     }
 
-    return data;
-}
-
-
-
-
-
-long double read_double(int pid, unsigned long address)
-{
-    int ret;
-    double data;
-    struct ptrace_io_desc iod = { 1, (void *) address, &data, 0x8 };
-
-    if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
-    {
-        echo("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s\n# Line: %d", strerror(ret), __FUNCTION__, __LINE__);
-        return 0xDEADBEEF;
+    if (!str) {
+        echo("null string pointer provided.");
+        return -1;
     }
 
-    return data;
-}
-
-
-
-
-
-unsigned int read_uint(int pid, void * address)
-{
-    int ret;
-    unsigned int data = 0xDEADBEEF;
-    struct ptrace_io_desc iod = { 1, address, &data, 0x4 };
-
-    if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
+    if (!*str) 
     {
-        echo("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s\n# Line: %d", strerror(ret), __FUNCTION__, __LINE__);
-        return 0xDEADBEEF;
+        echo("Empty string at address 0x%llX.", (unsigned long long) address);
+        return -1;
     }
-
-    return data;
-}
-
-
-
-
-
-float read_single(int pid, unsigned long address)
-{
-    int ret;
-    float data;
-    struct ptrace_io_desc iod = { 1, (void *) address, &data, 0x4 };
-
-    if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
+    
+ 
+    // Get string length
+    int len = 0;
+    while (*(str + ++len) != 0);
+    
+    for(long long i = 0; i < len; ++i)
     {
-        echo("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s\n# Line: %d", strerror(ret), __FUNCTION__, __LINE__);
-        return (float) 0xDEADBEEF;
+        write_byte(pid, (void *) address + i, *(char *) (str + i));
     }
+    *(char *) (str + len) = 0; // terminate the string
 
-    return data;
+    return len;
 }
 
-
-
-
-
-unsigned char read_byte(int pid, void * address)
-{
-    int ret;
-    unsigned char data;
-    struct ptrace_io_desc iod = { 1, address, &data, 0x1 };
-
-    if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
-    {
-        echo("ERROR:\n# ptrace PT_IO failed with code: %s\n\n# Function: %s\n# Line: %d", strerror(ret), __FUNCTION__, __LINE__);
-        return 0;
-    }
-
-    return data;
-}
-
-
-
-
-
-int write_ulong(int pid, unsigned long * address, unsigned long value)
-{
-    unsigned long long data = value;
-
-    if (proc_write(pid, 8, address, &data, __FUNCTION__, __LINE__))
-    {
-        return 1;
-    }
-
-    return 0;
-}
