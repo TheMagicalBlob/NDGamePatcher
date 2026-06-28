@@ -187,24 +187,15 @@ static int start(int module_pid)
     int pid;
     pid = wait_for_game_launch("PPSA10662");
 
-
+    echo("game paused");
 
         
 
     
-    if (0) {
-        dmenu_item_t * item;
-        item = find_item(pid, load_menu_base(pid, DMENU_DEV_MENU_BASE_PTR), "Disable FPS");
-        echo("Found Item At 0x%llX", item);
-    }
-
-
-
-    // malloc testing
-
     t2_dcall(pid);
     goto _detach;
-
+    
+    // malloc testing
     void * ret = proc_malloc(pid, 0x40);
 
     if (ret == nullptr)

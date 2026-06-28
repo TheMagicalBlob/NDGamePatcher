@@ -4,8 +4,22 @@
 
 int t2_dcall(pid_t pid)
 {
+    echo(__FUNCTION__);
     int ret;
-    if ((ret = proc_call(pid, (void *) 0x16c7bf0, nullptr, nullptr)) != 0)
+    unsigned long long check; 
+    struct reg args;
+    if ((ret = get_regs(pid, &args)) != 0)
+    {
+        echo("Unable to get register values, aborting 'cause something's clearly wrong.");
+        return ret;
+    }
+
+
+
+    dmenu_menu_base_t * fav = (dmenu_menu_base_t *) read_ulong(pid, (u_long *) T2DMENU_FAVORITES_MENU_BASE_PTR);
+    args.r_rdi = read_ulong(pid, (u_long *) &fav->item_text);
+
+    if ((ret = proc_call(pid, (void *) 0x16c7bf0, &check, &args)) != 0)
     {
         echo("ERROR: %s call failed! (ret: %d)", __FUNCTION__);
     }

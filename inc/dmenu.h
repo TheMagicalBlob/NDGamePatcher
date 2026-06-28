@@ -5,9 +5,9 @@
 
 
 typedef struct dmenu_menu_base dmenu_menu_base_t;
-#define DMENU_DEV_MENU_BASE_PTR       (dmenu_menu_base_t *) 0x6b63998
-#define DMENU_QUICK_MENU_BASE_PTR     (dmenu_menu_base_t *) 0x6b64670
-#define DMENU_FAVORITES_MENU_BASE_PTR (dmenu_menu_base_t *) 0x6b639a0
+#define T2DMENU_DEV_MENU_BASE_PTR       (dmenu_menu_base_t *) 0x6b63998
+#define T2DMENU_QUICK_MENU_BASE_PTR     (dmenu_menu_base_t *) 0x6b64670
+#define T2DMENU_FAVORITES_MENU_BASE_PTR (dmenu_menu_base_t *) 0x6b639a0
 
 
 

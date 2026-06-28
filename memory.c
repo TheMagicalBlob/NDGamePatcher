@@ -124,7 +124,7 @@ int detach(int pid)
 int get_regs(pid_t pid, struct reg * regs)
 {
     int ret;
-    if ((ret = ptrace(PT_GETREGS, pid, (caddr_t) &regs, 0)) != 0)
+    if ((ret = ptrace(PT_GETREGS, pid, (caddr_t) regs, 0)) != 0)
     {
         printf("ERROR:\n# PT_GETREGS failed with code %d (%s)\n", ret, strerror(ret));
     }
@@ -136,7 +136,7 @@ int get_regs(pid_t pid, struct reg * regs)
 int set_regs(pid_t pid, struct reg * regs)
 {
     int ret;
-    if ((ret = ptrace(PT_SETREGS, pid, (caddr_t) &regs, 0)) != 0)
+    if ((ret = ptrace(PT_SETREGS, pid, (caddr_t) regs, 0)) != 0)
     {
         printf("ERROR:\n# PT_SETREGS failed with code %d (%s)\n", ret, strerror(ret));
     }
@@ -172,6 +172,7 @@ int proc_call(pid_t pid, void * function_address, void * return_val_ptr, struct 
 
 
     // Back the regisers up
+    echo("getting og regisers");
     struct reg og_registers;
     if (get_regs(pid, &og_registers))
     {
@@ -183,22 +184,25 @@ int proc_call(pid_t pid, void * function_address, void * return_val_ptr, struct 
     
     // Make a copy of the current register values if none was provided
     struct reg registers;
-    if (!arg_regs)
+    if (arg_regs == nullptr)
     {
+        echo("no args provided, copying og regisers to use instead");
         memcpy(&registers, &og_registers, sizeof(struct reg));
         arg_regs = &registers;
     }
     
     
     
+
     // Set up the function call
-    long long og_stack_ptr  = (long long) read_ulong(pid, (unsigned long *) og_registers.r_rsp); // save return stack pointer
+    echo("setting up function call");
+    long long og_stack_ptr  = (long long) read_ulong(pid, (unsigned long *) arg_regs->r_rsp); // save return stack pointer
 
     write_ulong(pid, (void *) arg_regs->r_rsp - 8, (unsigned long) arg_regs->r_rip); // set return address
 
     arg_regs->r_rip = (long long) function_address; // Set next instruction address
     
-    
+    echo("setting new register values for function call");
     if (set_regs(pid, arg_regs))
     {
         error_source = __LINE__ - 2;
