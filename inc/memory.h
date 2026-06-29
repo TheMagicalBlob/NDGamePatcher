@@ -18,7 +18,7 @@ int set_regs(pid_t pid, struct reg * regs);
 int proc_call(pid_t pid, void * function_address, void * return_val_ptr, struct reg * arg_regs);
 
 void * proc_malloc(pid_t pid, int amount);
-int proc_free(void * mem_ptr);
+int proc_free(pid_t pid, void * mem_ptr);
 
 int read_bytes(pid_t pid, size_t len, void * address, void * buffer);
 int write_bytes(pid_t pid, size_t len, void * address, void * buffer);

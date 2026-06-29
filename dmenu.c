@@ -17,7 +17,8 @@ int t2_dcall(pid_t pid)
 
 
     dmenu_menu_base_t * fav = (dmenu_menu_base_t *) read_ulong(pid, (u_long *) T2DMENU_FAVORITES_MENU_BASE_PTR);
-    args.r_rdi = read_ulong(pid, (u_long *) &fav->item_text);
+    args.r_rdi = (long long) &fav->open_menu;
+    args.r_rsi = 1;
 
     if ((ret = proc_call(pid, (void *) 0x16c7bf0, &check, &args)) != 0)
     {
