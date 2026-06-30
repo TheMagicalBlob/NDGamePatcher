@@ -119,6 +119,23 @@ int detach(int pid)
 }
 
 
+int prov_continue(pid_t pid, void * resume)
+{
+    int ret;
+    if (resume == nullptr ||!resume)
+    {
+        resume = (void *) 1; // (continue where it left off)
+    }
+
+    if ((ret = ptrace(PT_CONTINUE, pid, resume, 0)) != 0)
+    {
+        printf("ERROR:\n# PT_CONTINUE failed with code %d (%s)\n", ret, strerror(ret));
+    }
+
+    return ret;
+}
+
+
 
 
 int get_regs(pid_t pid, struct reg * regs)

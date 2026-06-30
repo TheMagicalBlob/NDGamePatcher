@@ -87,6 +87,8 @@ void notify(const char * message, ...)
 
 void log_message(const char * base_string, ...)
 {
+    return;
+    
     va_list args;
     va_start(args, base_string);
 
@@ -190,8 +192,8 @@ static int start(int module_pid)
     echo("game paused");
 
 
-    // t2_dcall(pid);
-    // goto _detach;
+    t2_dcall(pid);
+    goto _detach;
         
     // malloc testing
     void * ret = proc_malloc(pid, 0x40);
@@ -206,12 +208,6 @@ static int start(int module_pid)
 
     echo("Freeing mem");
     proc_free(pid, ret);
-    // if ((ret = ptrace(PT_CONTINUE, pid, (void *) 1, 0)) != 0)
-    // {
-    //     printf("ERROR:\n# PT_CONTINUE failed with code %d (%s)\n", ret, strerror(ret));
-    //     return -1;
-    // }
-
 
     
 _detach:

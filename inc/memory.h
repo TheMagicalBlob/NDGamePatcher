@@ -11,6 +11,7 @@ int set_dbg_perms();
 
 int attach(int pid);
 int detach(int pid);
+int prov_continue(pid_t pid, void * resume);
 
 int get_regs(pid_t pid, struct reg * regs);
 int set_regs(pid_t pid, struct reg * regs);
