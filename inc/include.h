@@ -16,14 +16,8 @@
 #include <ps5/kernel.h>
 
 
-#define null 0
+#define null NULL
 #define nullptr (void *) 0
-
-#define TRUE 1
-#define FALSE 0
-#define true TRUE
-#define false FALSE
-
 
 
 int echo(const char * message, ...);

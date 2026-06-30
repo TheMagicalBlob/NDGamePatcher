@@ -100,7 +100,7 @@ void log_message(const char * base_string, ...)
         return;
     }
 
-    if (logfile == null)
+    if (!logfile)
     {
         logfile = open("/data/blog.txt", O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
@@ -202,22 +202,10 @@ static int start(int module_pid)
         goto _detach;
     }
 
-    echo("Writing test bytes to %llX", ret);
-    char tst[0x10] = { 0xC9, 0x26, 0x17, 0x27, 0x3F, 0x22, 0xAC, 0x09 };
-    write_bytes(pid, 0x20, ret, tst);
-
-    echo("Reading test bytes");
-
-    unsigned long long anus;
-    anus = read_ulong(pid, ret);
-
-    echo("Value read: %lld", anus);
-
+    sleep(1);
 
     echo("Freeing mem");
     proc_free(pid, ret);
-
-
     // if ((ret = ptrace(PT_CONTINUE, pid, (void *) 1, 0)) != 0)
     // {
     //     printf("ERROR:\n# PT_CONTINUE failed with code %d (%s)\n", ret, strerror(ret));

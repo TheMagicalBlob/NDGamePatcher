@@ -146,98 +146,15 @@ int set_regs(pid_t pid, struct reg * regs)
 
 
 
+
 unsigned long long read_ulong(int pid, unsigned long * address);
 int write_ulong(int pid, unsigned long * address, unsigned long value);
 
 
 
-int _proc_call(pid_t pid, void * function_address, void * return_val_ptr, struct reg * arg_regs)
-{
-    if (function_address == 0)
-    {
-        echo("ERROR: Null address provided for function.");
-        return 1;
-    }
-
-
-
-    // Get a copy of the initial register values
-    int ret;
-    struct reg registers;
-    if ((ret = ptrace(PT_GETREGS, pid, (caddr_t) &registers, 0)) != 0)
-    {
-        printf("ERROR:\n# PT_GETREGS failed with code %d (%s)\n", ret, strerror(ret));
-        return -1;
-    }
-
-    
-    // Back the regisers up
-    struct reg og_registers;
-    memcpy(&og_registers, &registers, sizeof(struct reg));
-    
-    
-    
-    // Set return address
-    long long og_stack_ptr = (long long) read_ulong(pid, (unsigned long *) registers.r_rsp);
-
-    write_ulong(pid, (void *) registers.r_rsp - 8, (unsigned long) registers.r_rip);
-    registers.r_rip = (long long) function_address;
-    
-    
-    if ((ret = ptrace(PT_SETREGS, pid, (caddr_t) &registers, 0)) != 0)
-    {
-        printf("ERROR:\n# PT_SETREGS failed with code %d (%s)\n", ret, strerror(ret));
-        return -1;
-    }
-
-
-    struct reg backup_reg;
-
-    while (1)
-    {
-        ret = ptrace(PT_STEP, pid, 0, 0);
-        if (ret != 0){
-            printf("ERROR:\n# PT_STEP failed with code %d (%s) while checking rip.\n", ret, strerror(ret));
-            return -1;
-        }
-            
-        waitpid(pid, 0, 0);
-        if ((ret = ptrace(PT_GETREGS, pid, (caddr_t) &registers, 0)) != 0)
-        {
-            printf("ERROR:\n# PT_GETREGS failed with code %d (%s) while checking rip.\n", ret, strerror(ret));
-            return -1;
-        }
-
-
-        memcpy(&backup_reg, &registers, sizeof(registers));
-
-
-        if (registers.r_rip == (__int64_t) og_stack_ptr)
-        {
-            if (return_val_ptr > 0)
-            {
-                printf("Return address reached, getting return value (%llx)\n", registers.r_rax);
-                *((long long *) return_val_ptr) = registers.r_rax;
-            }
-
-            break;
-        }
-    }
-
-
-    
-    // Restore the registers 
-    if ((ret = ptrace(PT_SETREGS, pid, (caddr_t) &og_registers, 0)) != 0)
-    {
-        printf("ERROR:\n# PT_SETREGS failed with code %d (%s)\n", ret, strerror(ret));
-        return -1;
-    }
-
-
-    return 0;
-}
-
-int proc_call(pid_t pid, void * function_address, void * return_val_ptr, struct reg * arg_regs)
+// Setup a function call at the specified function_address in the tracee process.
+// Opt
+int proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr, struct reg * arg_regs)
 {
     if (function_address == 0)
     {
@@ -358,7 +275,7 @@ void * proc_malloc(pid_t pid, int amount)
     regs.r_rdi = amount;
 
 
-    ret = proc_call(pid, (void *) T2_MALLOC, &allocated_mem, &regs);
+    ret = proc_call(pid, (void *) T2_MALLOC, (unsigned long *) &allocated_mem, &regs);
     if (ret)
     {
         echo("ERROR: malloc call failed! (ret: %d, amount: %d)", ret, amount);
@@ -376,14 +293,15 @@ int proc_free(pid_t pid, void * allocated_mem)
     int ret;
     struct reg regs;
 
-    regs.r_rdi = (long) allocated_mem;
+    regs.r_rdi = (long long) allocated_mem;
 
-    if (!(ret = get_regs(pid, &regs)))
+    if ((ret = get_regs(pid, &regs)))
     {
-        if ((ret = proc_call(pid, (void *) T2_FREE, NULL, &regs)))
-        {
-            echo("ERROR: free call failed!");
-        }
+        echo("ERROR: free get_regs call failed!");
+    }
+    else if ((ret = proc_call(pid, (void *) T2_FREE, NULL, &regs)))
+    {
+        echo("ERROR: free call failed!");
     }
 
     return ret;
@@ -596,6 +514,8 @@ int write_single(int pid, unsigned long address, float value)
 
 
 
+// Read a null-terminated string of characters from the traced process' memory from the provided address.
+// Returns the amount of characters written, or -1 if a null pointer was provided for either the source or the destination
 int read_string(int pid, void * address, char * buffer)
 {
     if (address == 0)
@@ -626,15 +546,17 @@ int read_string(int pid, void * address, char * buffer)
 }
 
 
+// Write a null-terminated string of characters to the traced process' memory.
+// Returns the amount of characters written, or -1 if a null pointer was provided for either the source or the destination
 int write_string(int pid, void * address, const char * str)
 {
     if (!address) {
-        echo("null string pointer provided.");
+        echo("null destination string pointer provided.");
         return -1;
     }
 
     if (!str) {
-        echo("null string pointer provided.");
+        echo("null source string pointer provided.");
         return -1;
     }
 

@@ -18,9 +18,9 @@ int t2_dcall(pid_t pid)
 
     dmenu_menu_base_t * fav = (dmenu_menu_base_t *) read_ulong(pid, (u_long *) T2DMENU_FAVORITES_MENU_BASE_PTR);
     args.r_rdi = (long long) &fav->open_menu;
-    args.r_rsi = 1;
+    args.r_rsi = (long long) !read_byte(pid, &fav->open_menu);
 
-    if ((ret = proc_call(pid, (void *) 0x16c7bf0, &check, &args)) != 0)
+    if ((ret = proc_call(pid, (unsigned long *) 0x16c7bf0, (unsigned long *) &check, &args)) != 0)
     {
         echo("ERROR: %s call failed! (ret: %d)", __FUNCTION__);
     }
@@ -105,9 +105,7 @@ char * get_dmenu_entry_type_as_string(long long type)
     }
 
 
-    char retval[0x40];
-    snprintf(retval, sizeof(retval), "_Unknown value read when getting dmenu item type: %lld", type);
-    echo(retval);
+    echo("Unknown type provided when trying to get dmenu entry type as string: %lld", type);
     return "Unknown value";
 }
 
@@ -170,7 +168,7 @@ static void * find_dmenu_entry(pid_t pid, const char * expected_entry_name, dmen
     dmenu_item_t item;
     char entry_name[0x80];
     
-    while(entry_ptr != null)
+    while(entry_ptr != nullptr)
     {
         int base_type = get_dmenu_entry_base_type(pid, entry_ptr);
         unsigned int type = read_ulong(pid, entry_ptr);

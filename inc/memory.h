@@ -15,7 +15,7 @@ int detach(int pid);
 int get_regs(pid_t pid, struct reg * regs);
 int set_regs(pid_t pid, struct reg * regs);
 
-int proc_call(pid_t pid, void * function_address, void * return_val_ptr, struct reg * arg_regs);
+int proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr, struct reg * arg_regs);
 
 void * proc_malloc(pid_t pid, int amount);
 int proc_free(pid_t pid, void * mem_ptr);
