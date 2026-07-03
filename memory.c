@@ -75,8 +75,6 @@ int set_dbg_perms()
 //## ptrace debugging functions
 //#
 
-
-
 int attach(int pid)
 {
     echo("Attaching to process...");
@@ -94,9 +92,6 @@ int attach(int pid)
 
     return status;
 }
-
-
-
 
 
 int detach(int pid)
@@ -119,7 +114,10 @@ int detach(int pid)
 }
 
 
-int prov_continue(pid_t pid, void * resume)
+
+
+
+int proc_continue(pid_t pid, void * resume)
 {
     int ret;
     if (resume == nullptr ||!resume)
@@ -159,6 +157,50 @@ int set_regs(pid_t pid, struct reg * regs)
     }
 
     return ret;
+}
+
+
+int set_watchpoint(pid_t pid, void * address)
+{
+    int ret;
+    struct dbreg regs;
+
+    if ((ret = ptrace(PT_GETDBREGS, pid, (caddr_t) &regs, 0)) != 0)
+    {
+        echo("ERROR:\n# PT_GETDBREGS failed with code %d (%s)", ret, strerror(ret));
+        return 1;
+    }
+    if (regs.dr[0])
+    {
+        echo("ERROR: An attempt to create another watchpoint was made, but one is already present, and we haven't written support for dr1-dr3");
+        return 1;
+    }
+    bzero(&regs, sizeof(regs));
+
+    
+
+    // Set watch address
+    regs.dr[0] = address;
+
+    // idk what to do with DR6 at the moment, fairly sure it's written to with information on the breakpoint
+    regs.dr[6] = 0;
+
+    // Set breakpoint flags
+    regs.dr[7] = 0;
+    {
+        regs.dr[7] |= 3; // Set both local and global for DR0
+        // regs.dr[7] |= (3 >> 8); // exact breakpoint enable for LE & GE
+        regs.dr[7] |= (2 >> 13); // general detect enable //! double-check that we're not setting bit 12 instead of 13
+        regs.dr[7] |= (1 >> 16); 
+    }
+
+    if ((ret = ptrace(PT_SETDBREGS, pid, (caddr_t) &regs, 0)) != 0)
+    {
+        printf("ERROR:\n# PT_SETDBREGS failed with code %d (%s)\n", ret, strerror(ret));
+        return 1;
+    }
+
+    return 0;
 }
 
 

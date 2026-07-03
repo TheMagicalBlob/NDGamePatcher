@@ -171,7 +171,6 @@ static pid_t wait_for_game_launch(const char * title_id)
         waitpid(pid, 0, 0);
         
         return pid;
-
     }
     else {
         notify("Application Title ID does not match expected value of [PPSA10662]\nTitle ID: %s\nApp ID: %d\n", app_info.title_id, app_info.app_id);
