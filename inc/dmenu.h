@@ -76,12 +76,12 @@ typedef struct dmenu_item // Size 0xB8/0x?? (seems to vary, don't think there's 
     unsigned int on_state_colour;
     unsigned int unknown_state_colour_1;
     unsigned int unknown_state_colour_2;
-    char unknown2[0x18];
+    char unknown1[0x18];
     dmenu_menu_base_t * menu_base; // Points to the dmenu base entry [0x90] 
-    char unknown3[0x4];
+    char unknown2[0x4];
     int selection_index;
     unsigned int item_count; // The amount of items in the root of the menu
-    unsigned int entry_type_id_maybe; // The amount of items in the root of the menu
+    unsigned int _entry_event_handler_type_id; // unsure
     void * event_handler;
     unsigned long item_variable_buffer; // Bool for options that can be toggled, points to the header item for submenu entry items
     char padding1[0x10];
@@ -102,27 +102,27 @@ typedef struct dmenu_menu // 0xE0
     const unsigned short vertical_padding; 
     const unsigned short width; 
     const unsigned short height; 
-    char unknown1[0x10];
+    char unknown0[0x10];
     unsigned long unknown_struct_pointer;
     unsigned int off_state_colour;
     unsigned int on_state_colour;
     unsigned int unknown_state_colour_1;
     unsigned int unknown_state_colour_2;
-    char unknown2[0x18];
+    char unknown1[0x18];
     dmenu_menu_base_t * menu_base; // Points to the dmenu base entry [0x90] 
-    char unknown3[0x4];
+    char unknown2[0x4];
     int selection_index;
     unsigned int item_count; // The amount of items in the root of the menu
-    unsigned int entry_type_id_maybe; // The amount of items in the root of the menu
+    unsigned int _entry_event_handler_type_id; // unsure
     int menu_closed_by_other_menu;
     const char alignment1[0x4];
     dmenu_item_t * first_item; // Points to the first/top item in the menu [0xB0]
-    char unknown4[0x4];
+    char unknown3[0x4];
     int menu_is_open;
-    char unmapped2[0x8];
-    char unmapped3[0x4];
+    char unknown4[0x8];
+    char unknown5[0x4];
     int on_screen_item_count;
-    char unknown5[0x10];
+    char unknown6[0x10];
 
 } dmenu_menu_t;
 
