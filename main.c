@@ -40,6 +40,15 @@ typedef struct app_info
 } app_info_t;
 
 
+typedef enum wp_type {
+    WP_CODE, // Break on instruction execution only.
+    WP_DATARW, // Break on data writes only.
+    WP_IOWR, // Break on I/O reads or writes.
+    WP_DATARW_NI  // Break on data reads or writes but not instruction fetches.
+
+} wp_type_t;
+
+
 
 
 extern int sceKernelSendNotificationRequest(int, notify_request_t*, size_t, int);
@@ -191,8 +200,9 @@ static int start(int module_pid)
     echo("game paused");
 
 
-    t2_dcall(pid);
-    goto _detach;
+    // t2_dcall(pid);
+    // goto _detach;
+    goto skipMallocTesting;
         
     // malloc testing
     void * ret = proc_malloc(pid, 0x40);
@@ -208,6 +218,30 @@ static int start(int module_pid)
     echo("Freeing mem");
     proc_free(pid, ret);
 
+
+    skipMallocTesting:
+    if (0)
+    {
+
+    }
+
+    int i;
+    i = set_watchpoint(pid, (void * ) 0x27f2db0, 0);
+
+    if (i)
+    {
+        echo("Error setting watchpoint, aborting.");
+        goto _detach;
+    }
+
+    echo("huh?");
+
+    proc_continue(pid, nullptr);
+
+    echo("waiting...");
+    waitpid(pid, 0, 0);
+
+    echo("process frozen");
     
 _detach:
     detach(pid);
@@ -238,9 +272,10 @@ int main()
             break;
         }
         
-        char * msg = "Killed previous %s instance";
+        char * msg = "Killed previous %s instance, exiting.";
         notify(msg, MODULE_NAME);
         echo(msg, MODULE_NAME);
+        return 0;
     }
     
 

@@ -6,6 +6,14 @@
 #define _SHELLCORE_AUTHID 0x4800000000010003L
 
 
+typedef enum wp_type {
+    WP_CODE, // Break on instruction execution only.
+    WP_DATARW, // Break on data writes only.
+    WP_IOWR, // Break on I/O reads or writes.
+    WP_DATARW_NI  // Break on data reads or writes but not instruction fetches.
+
+} wp_type_t;
+
 
 
 
@@ -160,50 +168,64 @@ int set_regs(pid_t pid, struct reg * regs)
 }
 
 
-int set_watchpoint(pid_t pid, void * address)
+
+int set_watchpoint(pid_t pid, void * address, wp_type_t type)
 {
     int ret;
-    struct dbreg regs;
+    static struct dbreg regs;
 
     if ((ret = ptrace(PT_GETDBREGS, pid, (caddr_t) &regs, 0)) != 0)
     {
         echo("ERROR:\n# PT_GETDBREGS failed with code %d (%s)", ret, strerror(ret));
         return 1;
     }
-    if (regs.dr[0])
-    {
-        echo("ERROR: An attempt to create another watchpoint was made, but one is already present, and we haven't written support for dr1-dr3");
-        return 1;
-    }
-    bzero(&regs, sizeof(regs));
-
     
-
     // Set watch address
-    regs.dr[0] = address;
+    regs.dr[0] = (uintptr_t) address;
 
     // idk what to do with DR6 at the moment, fairly sure it's written to with information on the breakpoint
-    regs.dr[6] = 0;
+    regs.dr[6] = 0;//0x00000000FFFF0FF0;
+    echo("setting debug reg values");
 
     // Set breakpoint flags
-    regs.dr[7] = 0;
-    {
-        regs.dr[7] |= 3; // Set both local and global for DR0
-        // regs.dr[7] |= (3 >> 8); // exact breakpoint enable for LE & GE
-        regs.dr[7] |= (2 >> 13); // general detect enable //! double-check that we're not setting bit 12 instead of 13
-        regs.dr[7] |= (1 >> 16); 
-    }
-
+    regs.dr[7] &= ~DBREG_DR7_MASK(0);
+    regs.dr[7] = 0x0000000000000700;
+    regs.dr[7] |= DBREG_DR7_SET(0, DBREG_DR7_LEN_1, DBREG_DR7_EXEC, DBREG_DR7_LOCAL_ENABLE | DBREG_DR7_GLOBAL_ENABLE);  // len=4 => DBREG_DR7_LEN_4 (macro encodes bits)
+    // regs.dr[7] |= (3 << 8); // exact breakpoint enable for LE & GE
+    
+    echo("applying new debug reg values");
     if ((ret = ptrace(PT_SETDBREGS, pid, (caddr_t) &regs, 0)) != 0)
     {
-        printf("ERROR:\n# PT_SETDBREGS failed with code %d (%s)\n", ret, strerror(ret));
+        perror("PT_SETDBREGS");
+        printf("ERROR:\n# PT_SETDBREGS failed with code (%s) %d\n", strerror(ret), ret);
         return 1;
     }
-
+    
+    
     return 0;
 }
 
+int ai_set_watchpoint(pid_t pid, void *address, wp_type_t type)
+{
+    int ret;
+    struct dbreg regs;
 
+    ret = ptrace(PT_GETDBREGS, pid, (caddr_t)&regs, 0);
+    if (ret == -1) { perror("PT_GETDBREGS"); return 1; }
+
+    regs.dr[0] = (uintptr_t) address;
+
+    regs.dr[6] = 0;
+
+    regs.dr[7] &= ~DBREG_DR7_MASK(0);
+    regs.dr[7] |=  DBREG_DR7_SET(0, DBREG_DR7_LEN_1, DBREG_DR7_EXEC, 3);  // len=4 => DBREG_DR7_LEN_4 (macro encodes bits)
+
+
+    ret = ptrace(PT_SETDBREGS, pid, (caddr_t)&regs, 0);
+    if (ret == -1) { perror("PT_SETDBREGS"); return 1; }
+
+    return 0;
+}
 
 
 unsigned long long read_ulong(int pid, unsigned long * address);

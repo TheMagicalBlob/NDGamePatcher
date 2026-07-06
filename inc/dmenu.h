@@ -42,7 +42,7 @@ typedef enum dmenu_type_ids : u_long
 
 
 // simplified dmenu type enum boiling it down to structurally different items
-typedef enum dmenu_item_base_types : int
+typedef enum dmenu_item_base_types : char
 {
     dmenu_basetype_menu_base, // The base instance containing all menu
     dmenu_basetype_menu, // the menus themselves, whether it be the "Quick Menu" menu or "Rendering" submenu
