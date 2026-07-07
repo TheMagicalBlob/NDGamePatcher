@@ -199,6 +199,27 @@ static int start(int module_pid)
 
     echo("game paused");
 
+    
+
+    const char * item_name = "Give Player Weapon...";
+    
+    
+    dmenu_menu_base_t menu_base;
+    
+    echo("loading menu base from ptr");
+    read_bytes(pid, sizeof(dmenu_menu_base_t), (void *) read_ulong(pid, T2DMENU_QUICK_MENU_BASE_PTR), &menu_base);
+
+    echo("loaded menu");
+    dmenu_item_t * item = find_submenu(pid, &menu_base, item_name);
+    echo("loaded item");
+
+    if (item == nullptr)
+    {
+        echo("unable to find item :(");
+        goto _detach;
+    }
+    echo("%s Address: %llX", item_name, (unsigned long long) item);
+    goto _detach;
 
     // t2_dcall(pid);
     // goto _detach;

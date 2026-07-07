@@ -110,30 +110,21 @@ char * get_dmenu_entry_type_as_string(long long type)
 }
 
 
-dmenu_menu_base_t * load_menu_base(pid_t pid, void * address)
+int load_menu_base(pid_t pid, void * address, dmenu_menu_base_t * menu_base)
 {
-    static dmenu_menu_base_t menu_base;
-    read_bytes(pid, sizeof(dmenu_menu_base_t), (void *) read_ulong(pid, (unsigned long *) address), &menu_base);
-
-    return &menu_base;
+    return read_bytes(pid, sizeof(dmenu_menu_base_t), (void *) read_ulong(pid, (unsigned long *) address), &menu_base);
 }
 
 
-dmenu_menu_t * load_menu(pid_t pid, void * address)
+int load_menu(pid_t pid, void * address, dmenu_menu_t * menu)
 {
-    static dmenu_menu_t menu;
-    read_bytes(pid, sizeof(dmenu_menu_t), address, &menu);
-    
-    return &menu;
+    return read_bytes(pid, sizeof(dmenu_menu_t), address, &menu);
 }
 
 
-dmenu_item_t * load_item(pid_t pid, void * address)
+int load_item(pid_t pid, void * address, dmenu_item_t * item)
 {
-    static dmenu_item_t item;
-    read_bytes(pid, sizeof(dmenu_item_t), address, &item);
-
-    return &item;
+    return read_bytes(pid, sizeof(dmenu_item_t), address, &item);
 }
 
 
@@ -149,15 +140,24 @@ static void * find_dmenu_entry(pid_t pid, const char * expected_entry_name, dmen
     }
 
 
+    char parent_name[0x40];
+    read_string(pid, parent_base->item_text, parent_name);
+    echo("Loading from parent \"%s\"", parent_name);
+
     dmenu_menu_t menu;
     read_bytes(pid, sizeof(dmenu_menu_t), parent_base->menu, &menu);
     
     void * entry_ptr;
     if((entry_ptr = menu.first_item) == 0)
     {
+        echo("menu contains no items, aborting");
         return nullptr;
     }
     
+    
+    bzero(parent_name, 0x40);
+    read_string(pid, menu.item_text, parent_name);
+    echo("Searching menu \"%s\"", parent_name);
     
     
     char next_is_menu = 0;
@@ -184,7 +184,6 @@ static void * find_dmenu_entry(pid_t pid, const char * expected_entry_name, dmen
             
             read_string(pid, menu.item_text, entry_name);
 
-            // if (base_type == expected_base_type && !strncmp(expected_entry_name, entry_name, len))
             if (expected_base_type == base_type && !strncmp(expected_entry_name, entry_name, len))
             {
                 return entry_ptr;
@@ -207,8 +206,7 @@ static void * find_dmenu_entry(pid_t pid, const char * expected_entry_name, dmen
             read_string(pid, item.item_text, entry_name);
 
 
-            // if (expected_base_type == base_type && !strncmp(expected_entry_name, entry_name, len))
-            if (expected_base_type == base_type && !strcmp("Disable FPS", entry_name))
+            if (expected_base_type == base_type && !strncmp(expected_entry_name, entry_name, len))
             {
                 return entry_ptr;
             }
@@ -255,7 +253,12 @@ dmenu_item_t * find_item(pid_t pid, dmenu_menu_base_t * parent, const char * ite
 
 dmenu_menu_t * find_menu(pid_t pid, dmenu_menu_base_t * parent, const char * item_name)
 {
-    return find_dmenu_entry(pid, item_name, parent, dmenu_basetype_menu, strnlen(item_name, 0x80));
+    return find_dmenu_entry(pid, item_name, parent, dmenu_basetype_menu, 0x80);
+}
+
+dmenu_item_t * find_submenu(pid_t pid, dmenu_menu_base_t * parent, const char * item_name)
+{
+    return find_dmenu_entry(pid, item_name, parent, dmenu_basetype_submenu, 0x80);
 }
 
 

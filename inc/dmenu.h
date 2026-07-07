@@ -113,7 +113,7 @@ typedef struct dmenu_menu // 0xE0
     char unknown2[0x4];
     int selection_index;
     unsigned int item_count; // The amount of items in the root of the menu
-    unsigned int _entry_event_handler_type_id; // unsure
+    unsigned int _entry_event_handler_type_id; // 
     int menu_closed_by_other_menu;
     const char alignment1[0x4];
     dmenu_item_t * first_item; // Points to the first/top item in the menu [0xB0]
@@ -162,16 +162,15 @@ int t2_dcall(pid_t pid);
 int get_dmenu_entry_base_type(pid_t pid, void * item);
 char * get_dmenu_entry_type_as_string(long long type);
 
-dmenu_menu_base_t * load_menu_base(pid_t pid, void * address);
-dmenu_menu_t * load_menu(pid_t pid, void * address);
-dmenu_item_t * load_item(pid_t pid, void * address);
-
 
 dmenu_item_t * find_item(pid_t pid, dmenu_menu_base_t * parent, const char * item_name);
 dmenu_menu_t * find_menu(pid_t pid, dmenu_menu_base_t * parent, const char * item_name);
+dmenu_item_t * find_submenu(pid_t pid, dmenu_menu_base_t * parent, const char * item_name);
+
 void dump_menu_entries(pid_t pid, dmenu_menu_base_t * menu);
 
-dmenu_menu_base_t * load_menu_base(pid_t pid, void * address);
-dmenu_menu_t * load_menu(pid_t pid, void * address);
-dmenu_item_t * load_item(pid_t pid, void * address);
+
+int load_menu_base(pid_t pid, void * address, dmenu_menu_base_t * menu_base);
+int load_menu(pid_t pid, void * address, dmenu_menu_t * menu);
+int load_item(pid_t pid, void * address, dmenu_item_t * item);
 
