@@ -58,7 +58,7 @@ typedef struct dmenu_menu dmenu_menu_t;
 typedef struct dmenu_item dmenu_item_t;
 
 
-typedef struct dmenu_item // Size 0xB8/0x?? (seems to vary, don't think there's one universal dmenu_item struct- needs checking)
+typedef struct dmenu_item // Size 0xB8/0x?? (seems to vary, don't think there's one universal dmenu_item struct- seems to be more than just 3 or 4)
 {
     void * function_array; // 0x00
     char unused1[0x8]; // 0x08 // Always zero
@@ -114,7 +114,7 @@ typedef struct dmenu_menu // 0xE0
     int selection_index;
     unsigned int item_count; // The amount of items in the root of the menu
     unsigned int _entry_event_handler_type_id; // 
-    int menu_closed_by_other_menu;
+    int unknown_bool; // not quite sure exactly what it does yet. I've only got guesses
     const char alignment1[0x4];
     dmenu_item_t * first_item; // Points to the first/top item in the menu [0xB0]
     char unknown3[0x4];
