@@ -24,9 +24,11 @@ along with this program; see the file COPYING. If not, see
 
 
 
-typedef struct notify_request {
+typedef struct notify_request
+{
     char unused[45];
     char message[3075];
+
 } notify_request_t;
 
 
@@ -40,7 +42,11 @@ typedef struct app_info
 } app_info_t;
 
 
-typedef enum wp_type {
+
+
+
+typedef enum wp_type
+{
     WP_CODE, // Break on instruction execution only.
     WP_DATARW, // Break on data writes only.
     WP_IOWR, // Break on I/O reads or writes.
@@ -50,18 +56,21 @@ typedef enum wp_type {
 
 
 
+extern uint sceShellCoreUtilGetAppLaunchedParamString(int appid, const char * name, char * dst , size_t max);
 
 extern int sceKernelSendNotificationRequest(int, notify_request_t*, size_t, int);
 extern int sceKernelGetAppInfo(pid_t pid, app_info_t *info);
-extern int sceKernelLoadStartModule(const char *name, uint64_t argc, const void *argv, uint32_t flags, void *, int *result);
+// extern int sceKernelLoadStartModule(const char *name, uint64_t argc, const void *argv, uint32_t flags, void *, int *result);
 
 // Not being used atm.
 //! TODO: Reimplement once sigterm is being handled and we can actually close the file handles properly
 static int logfile;
 
+// The title id of the game being traced
+const char _active_game_id[0xA];
 
-// Lazy global for handling cleanup on sigterm
-static pid_t active_pid;
+nd_game_t game;
+
 
 
 int echo(const char * str, ...)
@@ -155,18 +164,24 @@ static pid_t wait_for_game_launch(const char * title_id)
         // process started- wait 20 seconds for the game to finish launching
         sleep(20);
     }
-
-
-
+    
+    
     echo("Found eboot.bin (pid %d), getting title id...", pid);
-
-
+    
+    
+    int ret;
     app_info_t app_info;
-    sceKernelGetAppInfo(pid, &app_info);
+    ret = sceKernelGetAppInfo(pid, &app_info);
+    if (ret)
+    {
+        echo("Error getting app info, off we fuck");
+    }
 
-    if (!strncmp(app_info.title_id, title_id, 10))
+    if (!strncmp(app_info.title_id, title_id, 0xA))
     {
         int status;
+        strncpy((char *) _active_game_id, app_info.title_id, 0xA);
+
         if ((status = set_dbg_perms()) != 0)
         {
             return -1;
@@ -196,17 +211,86 @@ static pid_t wait_for_game_launch(const char * title_id)
 
 
 
+void cleanup(int signal)
+{
+    echo("Termination signal recieved, exiting (%d)", signal);
+
+    if (*(char *)&game)
+    {
+        clear_watchpoint(game.pid, -1);
+        detach(game.pid, __FUNCTION__);
+    }
+
+    if (logfile)
+    {
+        close(logfile);
+    }
+
+    exit(0);
+}
+
+
+static int load_game_by_title_id(const char * title_id)
+{
+    if (strlen(title_id) != 9)
+    {
+        echo("load_game_by_title_id(): ERROR, provided title_id was an invalid length");
+    }
+    bzero(&game, sizeof(nd_game_t));
+    
+    game.pid = wait_for_game_launch(title_id);
+    
+    switch(*(unsigned long *) title_id + 1)
+    {
+        // T2R
+        case 3618138931251467088: // PSA10662
+        case 4048794567581979472: // PSA15508
+        case 3544672884293194576: // PSA15511
+        case 3616730478331122512: // PSA15512
+            game.game_id = T2R;
+            game.novis_address = T2R_NOVIS;
+            load_menu_base(game.pid, T2RDMENU_DEV_MENU_BASE_PTR, &game.dev_menu_base);
+            load_menu_base(game.pid, T2RDMENU_QUICK_MENU_BASE_PTR, &game.quick_menu_base);
+            load_menu_base(game.pid, T2RDMENU_FAVORITES_MENU_BASE_PTR, &game.favorites_menu_base);
+            break;
+
+        // T1X
+        case 3907210446666552144: // PSA03396
+        case 3617576011346039632: // PSA07642 
+        case 3689633605383967568: // PSA07643
+            game.game_id = T1x;
+            game.novis_address = T1x_NOVIS;
+            load_menu_base(game.pid, T1xDMENU_DEV_MENU_BASE_PTR, &game.dev_menu_base);
+            load_menu_base(game.pid, T1xDMENU_QUICK_MENU_BASE_PTR, &game.quick_menu_base);
+            load_menu_base(game.pid, T1xDMENU_FAVORITES_MENU_BASE_PTR, &game.favorites_menu_base);
+            break;
+
+
+        default:
+            bzero(&game, sizeof(nd_game_t));
+            echo("Unknown id %lld", *(unsigned long *) title_id + 1);
+            return 1;
+    }
+
+    game.title_id = title_id;
+    return 0;
+}
+
+
 
 static int start(int module_pid)
 {
+    const char * titleid = "PPSA10662";
+    int ret;
+    ret = load_game_by_title_id(titleid);
+    if (ret)
+    {
+        echo("ERROR: Unable to load game with id %s", titleid);
+    }
+    
+    
     void * mancam_toggle_eh = (void *) 0x27f2db0;
-    int ret, pid;
-    pid = wait_for_game_launch("PPSA10662");
-    
-    active_pid = pid; // Save pid in case of termination
-    
-
-    ret = set_watchpoint(pid, 0, mancam_toggle_eh, 0);
+    ret = set_watchpoint(game.pid, 0, mancam_toggle_eh, DBREG_DR7_EXEC, DBREG_DR7_LEN_1);
     if (ret)
     {
         echo("Error setting watchpoint, aborting.");
@@ -214,52 +298,13 @@ static int start(int module_pid)
     }
 
     // Resume the process now that the breakpoint's set on all threads
-    proc_continue(pid, nullptr);
+    proc_continue(game.pid, nullptr);
+    proc_wait(game.pid); // Wait for it to be hit
 
-    // Wait for it to be hit
-    proc_wait(pid);
-    echo("Watchpoint has been passed");
-    
-    dmenu_menu_base_t base;
-    ret = load_menu_base(pid, (void *) T2DMENU_QUICK_MENU_BASE_PTR, &base);
-    if (ret)
-    {
-        echo("Error getting quick menu base, aborting.");
-        goto _detach;
-    }
-    echo("Menu Base");
-
-    dmenu_item_t * item_ptr = find_item(pid, &base, "Nani");
-    echo("item ptr (%llX)", item_ptr);
-
-    if (item_ptr <= 0)
-    {
-        echo("Error getting item, aborting.");
-        goto _detach;
-    }
-
-    dmenu_item_t item;
-    load_item(pid, item_ptr, &item);
-    write_string(pid, item.item_text, "Nani");
-
+    add_novis_option(&game);
 
     _detach:
-    clear_watchpoint(pid, 0);
-    detach(pid, __FUNCTION__);
-
     return 0;
-}
-
-
-void cleanup(int singal)
-{
-    return;
-    echo("Termination signal recieved, exiting (%d)", singal);
-
-    if (active_pid)
-    {
-        detach(active_pid, __FUNCTION__);
-    }
 }
 
 
@@ -300,8 +345,9 @@ int main()
     // Payload start
     echo("Proceeding with new %s instance", MODULE_NAME);
     start(getpid());
-
     
+    
+    cleanup(SIGQUIT);
     return 0;
 }
 

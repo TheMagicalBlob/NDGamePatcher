@@ -1,13 +1,23 @@
 #include "include.h"
 
-#define T2_FREE 0x02a8f680
-#define T2_MALLOC 0x02a8f690
 
 
 typedef struct dmenu_menu_base dmenu_menu_base_t;
-#define T2DMENU_DEV_MENU_BASE_PTR       (dmenu_menu_base_t *) 0x6b63998
-#define T2DMENU_QUICK_MENU_BASE_PTR     (dmenu_menu_base_t *) 0x6b64670
-#define T2DMENU_FAVORITES_MENU_BASE_PTR (dmenu_menu_base_t *) 0x6b639a0
+#define T2RDMENU_DEV_MENU_BASE_PTR       (dmenu_menu_base_t *) 0x6b63998
+#define T2RDMENU_QUICK_MENU_BASE_PTR     (dmenu_menu_base_t *) 0x6b64670
+#define T2RDMENU_FAVORITES_MENU_BASE_PTR (dmenu_menu_base_t *) 0x6b639a0
+
+#define T2R_FREE 0x02a8f680
+#define T2R_MALLOC 0x02a8f690
+
+#define T2R_NOVIS (int8_t *) 0x70cc124
+
+
+
+#define T1xDMENU_DEV_MENU_BASE_PTR      (dmenu_menu_base_t *) nullptr
+#define T1xDMENU_QUICK_MENU_BASE_PTR     (dmenu_menu_base_t *) nullptr
+#define T1xDMENU_FAVORITES_MENU_BASE_PTR (dmenu_menu_base_t *) nullptr
+#define T1x_NOVIS (int8_t *) 0x3a10794
 
 
 
@@ -54,16 +64,35 @@ typedef enum dmenu_item_base_types : char
 } dmenu_item_base_types_t;
 
 
+// Basic ID system for the loaded games. 
+typedef enum game_id : char
+{
+    Invalid = -1, // Unknown or unsupported
+    T2R,
+    T1x,
+    UC4,
+    TLL
+
+} game_id_t;
+
+
+
+
+
+
+
+
+
+
 typedef struct dmenu_menu dmenu_menu_t;
 typedef struct dmenu_item dmenu_item_t;
-
 
 typedef struct dmenu_item // Size 0xB8 (seems to vary for different item types, don't think there's one universal dmenu_item struct- seems to be more than just 3 or 4)
 {
     void * function_array; // 0x00
     char unused1[0x8]; // 0x08 // Always zero
-    char item_text_buffer[0x20]; // 0x10
-    char * item_text; // 0x30 // Just Points 32 bytes above? I assume it gets used to redirect strings that are too long for the item_text_buffer
+    char item_text_buffer[0x20]; // 32-byte buffer for the item text. If the string is too long, additional space is allocated instead and this is left unused. (it's also left null for separator lines) // 0x10
+    char * item_text; // Item text pointer. Usually points to the item_text_buffer, but is redirected if the string is too long (or left null for separator lines) // 0x30
     dmenu_menu_t * parent_menu; // 0x38
     dmenu_item_t * next_item;
     const unsigned short horizontal_padding; 
@@ -71,7 +100,7 @@ typedef struct dmenu_item // Size 0xB8 (seems to vary for different item types, 
     const unsigned short width; 
     const unsigned short height; 
     char unknown0[0x10];
-    void * unknown_struct_pointer;
+    void * item_variable_ptr;
     unsigned int off_state_colour;
     unsigned int on_state_colour;
     unsigned int unknown_state_colour_1;
@@ -83,7 +112,7 @@ typedef struct dmenu_item // Size 0xB8 (seems to vary for different item types, 
     unsigned int item_count; // The amount of items in the root of the menu
     unsigned int _entry_event_handler_type_id; // unsure
     void * event_handler;
-    unsigned long item_variable_buffer; // Bool for options that can be toggled, points to the header item for submenu entry items
+    unsigned long item_event_buffer; // Bool for options that can be toggled, points to the header item for submenu entry items
     char padding1[0x10];
 
 } dmenu_item_t;
@@ -94,8 +123,8 @@ typedef struct dmenu_menu // 0xE0
 {
     void * function_array;
     char unused1[0x8]; // Always zero
-    char item_text_buffer[0x20]; // Only used if the item text is less than 32 bytes, otherwise the game allocates additional space and uses that instead
-    char * item_text; // Just Points 32 bytes above? I assume it gets used to redirect strings that are too long for the item_text_buffer
+    char item_text_buffer[0x20];
+    char * item_text;
     dmenu_menu_t * parent_menu;
     const char * next_item; // Next item in the regular entries. seems to still be read here, though
     const unsigned short horizontal_padding;
@@ -157,7 +186,26 @@ typedef struct dmenu_menu_base // x >= 0x328
 
 
 
-int t2_dcall(pid_t pid);
+
+//! O V E R   H E R E,  B L I N D - A S S
+typedef struct nd_game
+{
+    pid_t pid;
+    game_id_t game_id;
+    const char * title_id;
+    dmenu_menu_base_t quick_menu_base;
+    dmenu_menu_base_t dev_menu_base;
+    dmenu_menu_base_t favorites_menu_base;
+
+    int8_t * novis_address;
+    void * malloc;
+    void * free;
+
+} nd_game_t;
+
+
+
+
 
 int get_dmenu_entry_base_type(pid_t pid, void * item);
 char * get_dmenu_entry_type_as_string(long long type);
@@ -173,4 +221,8 @@ void dump_menu_entries(pid_t pid, dmenu_menu_base_t * menu);
 int load_menu_base(pid_t pid, void * address, dmenu_menu_base_t * menu_base);
 int load_menu(pid_t pid, void * address, dmenu_menu_t * menu);
 int load_item(pid_t pid, void * address, dmenu_item_t * item);
+
+int t2_example_call(pid_t pid);
+
+void add_novis_option(nd_game_t * game);
 

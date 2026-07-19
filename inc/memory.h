@@ -3,7 +3,6 @@
 
 
 
-typedef enum wp_type wp_type_t;
 
 
 pid_t find_pid(const char * process_name);
@@ -20,7 +19,7 @@ int proc_continue(pid_t pid, void * resume);
 int get_regs(pid_t pid, struct reg * regs);
 int set_regs(pid_t pid, struct reg * regs);
 
-int set_watchpoint(pid_t pid, short index, void * address, wp_type_t type);
+int set_watchpoint(pid_t pid, short index, void * address, int wp_type, int wp_len);
 int clear_watchpoint(pid_t pid, short index);
 
 int proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr, struct reg * arg_regs);

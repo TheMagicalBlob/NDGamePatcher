@@ -6,14 +6,21 @@
 #define _SHELLCORE_AUTHID 0x4800000000010003L
 
 
-typedef enum wp_type {
-    WP_CODE, // Break on instruction execution only.
-    WP_DATARW, // Break on data writes only.
-    WP_IOWR, // Break on I/O reads or writes.
-    WP_DATARW_NI  // Break on data reads or writes but not instruction fetches.
 
-} wp_type_t;
+typedef struct notify_request {
+    char unused[45];
+    char message[3075];
+} notify_request_t;
 
+
+typedef struct app_info
+{
+    uint32_t app_id;
+    uint64_t unknown1;
+    char     title_id[14];
+    char     unknown2[0x3c];
+
+} app_info_t;
 
 
 
@@ -190,7 +197,7 @@ int set_regs(pid_t pid, struct reg * regs)
 
 static struct dbreg regs;
 static struct ptrace_lwpinfo lwpinfo;
-int set_watchpoint(pid_t pid, short index, void * address, wp_type_t type)
+int set_watchpoint(pid_t pid, short index, void * address, int wp_type, int wp_len)
 {
     int ret;
     int thread_count;
@@ -243,7 +250,7 @@ int set_watchpoint(pid_t pid, short index, void * address, wp_type_t type)
     
     if (address)
     {
-        regs.dr[7] |= DBREG_DR7_SET(index, DBREG_DR7_LEN_1, DBREG_DR7_EXEC, DBREG_DR7_LOCAL_ENABLE | DBREG_DR7_GLOBAL_ENABLE);  // len=4 => DBREG_DR7_LEN_4 (macro encodes bits)
+        regs.dr[7] |= DBREG_DR7_SET(index, wp_type ? wp_len : DBREG_DR7_LEN_1, wp_type, DBREG_DR7_LOCAL_ENABLE | DBREG_DR7_GLOBAL_ENABLE);  // len=4 => DBREG_DR7_LEN_4 (macro encodes bits)
     }
     else {
         regs.dr[7] |= DBREG_DR7_SET(index, 0, 0, 0);
@@ -302,7 +309,7 @@ int clear_watchpoint(pid_t pid, short index)
     {
         for (int i = 0; i < 4; i++)
         {
-            ret = set_watchpoint(pid, i, NULL, 0);
+            ret = set_watchpoint(pid, i, NULL, 0, 0);
             if (ret != 0)
             {
                 echo("ERROR\nclear_watchpoint(): error clearing watchpoint #%d", i);
@@ -311,7 +318,7 @@ int clear_watchpoint(pid_t pid, short index)
         return ret;
     }
 
-    return set_watchpoint(pid, index, NULL, 0);
+    return set_watchpoint(pid, index, NULL, 0, 0);
 }
 
 
@@ -320,7 +327,8 @@ unsigned long long read_ulong(int pid, unsigned long * address);
 int write_ulong(int pid, unsigned long * address, unsigned long value);
 
 
-// Setup a function call at the specified function_address in the tracee
+// Setup a function call at the specified function_address in the tracee.
+// The i
 int proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr, struct reg * arg_regs)
 {
     if (function_address == 0)
@@ -332,12 +340,6 @@ int proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr
     int ret;
     u_long error_source;
 
-    if (0)
-    {
-    err:
-        echo("Unable to complete function call (failed at line %d)", error_source);
-        return 1;
-    }
 
 
 
@@ -349,7 +351,7 @@ int proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr
     if (get_regs(pid, &og_registers))
     {
         error_source = __LINE__ - 2;
-        goto err;
+        goto _err;
     }
 
 
@@ -376,12 +378,12 @@ int proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr
     if (set_regs(pid, arg_regs))
     {
         error_source = __LINE__ - 2;
-        goto err;
+        goto _err;
     }
 
 
 
-    //! TODO: replace this, fairly sure I can just use a breakpoint
+    //! TODO: replace this with a watchpoint
     // Step through until we return from the called function, then restore the original register values (and read the return value if a pointer to store it at was provided)
     while (1)
     {
@@ -397,7 +399,7 @@ int proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr
         if (get_regs(pid, arg_regs))
         {
             error_source = __LINE__ - 2;
-            goto err;
+            goto _err;
         }
 
 
@@ -406,14 +408,13 @@ int proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr
             if (return_val_ptr > 0)
             {
                 *((long long *) return_val_ptr) = arg_regs->r_rax;
-                echo("Getting return value %llX", arg_regs->r_rax);
             }
             
             // Restore the registers 
             if (set_regs(pid, &og_registers))
             {
                 error_source = __LINE__ - 2;
-                goto err;
+                goto _err;
             }
 
             break;
@@ -422,18 +423,23 @@ int proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr
 
 
     return 0;
+
+    
+_err:
+    echo("Unable to complete function call (failed at line %d)", error_source);
+    return 1;
 }
 
 
 
 
-void * proc_malloc(pid_t pid, int amount)
+void * proc_malloc(nd_game_t * game, int amount)
 {
     int ret;
     void * allocated_mem; 
 
     struct reg regs;
-    if (get_regs(pid, &regs))
+    if (get_regs(game->pid, &regs))
     {
         return nullptr;
     }
@@ -442,7 +448,7 @@ void * proc_malloc(pid_t pid, int amount)
     regs.r_rdi = amount;
 
 
-    ret = proc_call(pid, (void *) T2_MALLOC, (unsigned long *) &allocated_mem, &regs);
+    ret = proc_call(game->pid, (void *) game->malloc, (unsigned long *) &allocated_mem, &regs);
     if (ret)
     {
         echo("ERROR: malloc call failed! (ret: %d, amount: %d)", ret, amount);
@@ -455,18 +461,18 @@ void * proc_malloc(pid_t pid, int amount)
 }
 
 
-int proc_free(pid_t pid, void * allocated_mem)
+int proc_free(nd_game_t * game, void * allocated_mem)
 {
     int ret;
     struct reg regs;
 
     regs.r_rdi = (long long) allocated_mem;
 
-    if ((ret = get_regs(pid, &regs)))
+    if ((ret = get_regs(game->pid, &regs)))
     {
         echo("ERROR: free get_regs call failed!");
     }
-    else if ((ret = proc_call(pid, (void *) T2_FREE, NULL, &regs)))
+    else if ((ret = proc_call(game->pid, (void *) game->free, NULL, &regs)))
     {
         echo("ERROR: free call failed!");
     }

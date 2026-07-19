@@ -2,33 +2,6 @@
 #include "inc/dmenu.h"
 
 
-int t2_dcall(pid_t pid)
-{
-    echo(__FUNCTION__);
-    int ret;
-    unsigned long long check; 
-    struct reg args;
-    if ((ret = get_regs(pid, &args)) != 0)
-    {
-        echo("Unable to get register values, aborting 'cause something's clearly wrong.");
-        return ret;
-    }
-
-
-
-    dmenu_menu_base_t * fav = (dmenu_menu_base_t *) read_ulong(pid, (u_long *) T2DMENU_FAVORITES_MENU_BASE_PTR);
-    args.r_rdi = (long long) &fav->open_menu;
-    args.r_rsi = (long long) !read_byte(pid, &fav->open_menu);
-
-    if ((ret = proc_call(pid, (unsigned long *) 0x16c7bf0, (unsigned long *) &check, &args)) != 0)
-    {
-        echo("ERROR: %s call failed! (ret: %d)", __FUNCTION__);
-    }
-
-    return ret;
-}
-
-
 
 int get_dmenu_entry_base_type(pid_t pid, void * item)
 {
@@ -110,18 +83,23 @@ char * get_dmenu_entry_type_as_string(long long type)
 }
 
 
+
+
+// Copy the dmenu_menu_base_t at the provided address in the traced process' memory into the provided menu base struct
 int load_menu_base(pid_t pid, void * address, dmenu_menu_base_t * menu_base)
 {
     return read_bytes(pid, sizeof(dmenu_menu_base_t), (void *) read_ulong(pid, (unsigned long *) address), menu_base);
 }
 
 
+// Copy the dmenu_menu_t at the provided address in the traced process' memory into the provided menu struct
 int load_menu(pid_t pid, void * address, dmenu_menu_t * menu)
 {
     return read_bytes(pid, sizeof(dmenu_menu_t), address, menu);
 }
 
 
+// Copy the dmenu_item_t at the provided address in the traced process' memory into the provided item struct
 int load_item(pid_t pid, void * address, dmenu_item_t * item)
 {
     return read_bytes(pid, sizeof(dmenu_item_t), address, item);
@@ -215,7 +193,7 @@ static void * find_dmenu_entry(pid_t pid, const char * expected_entry_name, dmen
             no_text:
             if (type == dmenu_id_submenu_item || type == dmenu_id_task_submenu_item || type == dmenu_id_noreturn_task_submenu_item)
             {
-                entry_ptr = (dmenu_item_t *) item.item_variable_buffer;
+                entry_ptr = (dmenu_item_t *) item.item_event_buffer;
 
                 history[++depth] = item.next_item;
 
@@ -246,21 +224,23 @@ static void * find_dmenu_entry(pid_t pid, const char * expected_entry_name, dmen
 
 
 
+// Get the address of the first item for which the item name (from the item_text ptr) matches the provided item_name 
 dmenu_item_t * find_item(pid_t pid, dmenu_menu_base_t * parent, const char * item_name)
 {
     return find_dmenu_entry(pid, item_name, parent, dmenu_basetype_item, 0x80);
 }
 
-dmenu_menu_t * find_menu(pid_t pid, dmenu_menu_base_t * parent, const char * item_name)
+// Get the address of the first menu for which the item name (from the item_text ptr) matches the provided menu_name 
+dmenu_menu_t * find_menu(pid_t pid, dmenu_menu_base_t * parent, const char * menu_name)
 {
-    return find_dmenu_entry(pid, item_name, parent, dmenu_basetype_menu, 0x80);
+    return find_dmenu_entry(pid, menu_name, parent, dmenu_basetype_menu, 0x80);
 }
 
-dmenu_item_t * find_submenu(pid_t pid, dmenu_menu_base_t * parent, const char * item_name)
+// Get the address of the first submenu item for which the item name (from the item_text ptr) matches the provided submenu_name
+dmenu_item_t * find_submenu(pid_t pid, dmenu_menu_base_t * parent, const char * submenu_name)
 {
-    return find_dmenu_entry(pid, item_name, parent, dmenu_basetype_submenu, 0x80);
+    return find_dmenu_entry(pid, submenu_name, parent, dmenu_basetype_submenu, 0x80);
 }
-
 
 
 
@@ -348,7 +328,7 @@ void dump_menu_entries(pid_t pid, dmenu_menu_base_t * parent_base)
             
             if (type == dmenu_id_submenu_item || type == dmenu_id_task_submenu_item || type == dmenu_id_noreturn_task_submenu_item)
             {
-                entry_ptr = (dmenu_item_t *) item.item_variable_buffer;
+                entry_ptr = (dmenu_item_t *) item.item_event_buffer;
 
                 history[++depth] = item.next_item;
                 
@@ -383,9 +363,61 @@ void dump_menu_entries(pid_t pid, dmenu_menu_base_t * parent_base)
             *(padding + depth * 4) = 0; // truncate padding
 
             next_is_menu = 0;
-            echo(""); // just for formatting
         }
     }
 
     echo("\n# Scan finished. Unknown item types: %d", unknown_type_count);
+}
+
+
+
+
+int t2_example_call(pid_t pid)
+{
+    int ret;
+    unsigned long long check; 
+    struct reg args;
+    if ((ret = get_regs(pid, &args)) != 0)
+    {
+        echo("Unable to get register values, aborting 'cause something's clearly wrong.");
+        return ret;
+    }
+
+
+
+    dmenu_menu_base_t * fav = (dmenu_menu_base_t *) read_ulong(pid, (u_long *) T2RDMENU_FAVORITES_MENU_BASE_PTR);
+    args.r_rdi = (long long) &fav->open_menu;
+    args.r_rsi = (long long) !read_byte(pid, &fav->open_menu);
+
+    if ((ret = proc_call(pid, (unsigned long *) 0x16c7bf0, (unsigned long *) &check, &args)) != 0)
+    {
+        echo("ERROR: %s call failed! (ret: %d)", __FUNCTION__);
+    }
+
+    return ret;
+}
+
+
+
+
+
+void add_novis_option(nd_game_t * game)
+{
+    dmenu_item_t * item_ptr;
+    item_ptr = find_item(game->pid, &game->dev_menu_base, "Draw World Axes");
+    if (!item_ptr)
+    {
+        if (find_item(game->pid, &game->dev_menu_base, "novis"))
+        {
+            echo("novis already present");
+        }
+
+        echo("Unable to find item to replace with novis.");
+        return;
+    }
+
+    dmenu_item_t item;
+    load_item(game->pid, item_ptr, &item);
+    write_string(game->pid, item.item_text, "Novis");
+    write_ulong(game->pid, (unsigned long *) &item_ptr->item_variable_ptr, (unsigned long) game->novis_address);
 }

@@ -16,20 +16,6 @@
 #include <ps5/klog.h>
 #include <ps5/kernel.h>
 
-//! TMP
-#include <errno.h>
-#include <inttypes.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/ptrace.h>
-#include <sys/types.h>
-#include <sys/user.h>
-#include <sys/wait.h>
-
 
 #define null NULL
 #define nullptr (void *) 0
