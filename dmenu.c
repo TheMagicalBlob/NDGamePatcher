@@ -112,19 +112,19 @@ char * get_dmenu_entry_type_as_string(long long type)
 
 int load_menu_base(pid_t pid, void * address, dmenu_menu_base_t * menu_base)
 {
-    return read_bytes(pid, sizeof(dmenu_menu_base_t), (void *) read_ulong(pid, (unsigned long *) address), &menu_base);
+    return read_bytes(pid, sizeof(dmenu_menu_base_t), (void *) read_ulong(pid, (unsigned long *) address), menu_base);
 }
 
 
 int load_menu(pid_t pid, void * address, dmenu_menu_t * menu)
 {
-    return read_bytes(pid, sizeof(dmenu_menu_t), address, &menu);
+    return read_bytes(pid, sizeof(dmenu_menu_t), address, menu);
 }
 
 
 int load_item(pid_t pid, void * address, dmenu_item_t * item)
 {
-    return read_bytes(pid, sizeof(dmenu_item_t), address, &item);
+    return read_bytes(pid, sizeof(dmenu_item_t), address, item);
 }
 
 

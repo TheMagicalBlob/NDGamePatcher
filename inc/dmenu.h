@@ -58,7 +58,7 @@ typedef struct dmenu_menu dmenu_menu_t;
 typedef struct dmenu_item dmenu_item_t;
 
 
-typedef struct dmenu_item // Size 0xB8/0x?? (seems to vary, don't think there's one universal dmenu_item struct- seems to be more than just 3 or 4)
+typedef struct dmenu_item // Size 0xB8 (seems to vary for different item types, don't think there's one universal dmenu_item struct- seems to be more than just 3 or 4)
 {
     void * function_array; // 0x00
     char unused1[0x8]; // 0x08 // Always zero
@@ -71,7 +71,7 @@ typedef struct dmenu_item // Size 0xB8/0x?? (seems to vary, don't think there's 
     const unsigned short width; 
     const unsigned short height; 
     char unknown0[0x10];
-    unsigned long unknown_struct_pointer;
+    void * unknown_struct_pointer;
     unsigned int off_state_colour;
     unsigned int on_state_colour;
     unsigned int unknown_state_colour_1;
@@ -99,11 +99,11 @@ typedef struct dmenu_menu // 0xE0
     dmenu_menu_t * parent_menu;
     const char * next_item; // Next item in the regular entries. seems to still be read here, though
     const unsigned short horizontal_padding;
-    const unsigned short vertical_padding; 
-    const unsigned short width; 
-    const unsigned short height; 
+    const unsigned short vertical_padding;
+    const unsigned short width;
+    const unsigned short height;
     char unknown0[0x10];
-    unsigned long unknown_struct_pointer;
+    void * unknown_struct_pointer;
     unsigned int off_state_colour;
     unsigned int on_state_colour;
     unsigned int unknown_state_colour_1;
@@ -128,7 +128,7 @@ typedef struct dmenu_menu // 0xE0
 
 
 
-typedef struct dmenu_menu_base // 0x328
+typedef struct dmenu_menu_base // x >= 0x328
 {
     void * function_array;
     char unused1[0x8]; // Always zero

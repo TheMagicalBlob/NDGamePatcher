@@ -101,18 +101,17 @@ int attach(int pid)
     return status;
 }
 
-
-int detach(int pid)
+int proc_suspend(pid_t pid);
+int detach(int pid, const char * from)
 {
-    echo("Detaching from process %d", pid);
+    echo("Detaching from process %d (%s)", pid, from);
+    
+    // proc_suspend(pid);
 
     int status;
     if ((status = ptrace(PT_DETACH, pid, 0, 0)) != 0)
     {
-        char err[0x200];
-        snprintf(err, sizeof(err), "PT_DETACH ERROR: %s\n\nProcess may remain paused; suggest kill(pid, SIGCONT)", strerror(status));
-        
-        notify(err);
+        perror("PT_DETACH ERROR: ");
     }
     else{
         notify("Detached, exiting.");
@@ -122,6 +121,26 @@ int detach(int pid)
 }
 
 
+void proc_wait(pid_t pid)
+{
+    int status;
+
+    echo("waiting for %d.", pid);
+    waitpid(pid, &status, 0);
+    echo("Status of stopped process: %lX", status);
+}
+
+
+int proc_suspend(pid_t pid)
+{
+    int status;
+    if ((status = ptrace(PT_SUSPEND, pid, 0, 0)) != 0)
+    {
+        perror("PT_SUSPEND ERROR: ");
+    }
+
+    return status;
+}
 
 
 
@@ -163,78 +182,145 @@ int set_regs(pid_t pid, struct reg * regs)
     {
         printf("ERROR:\n# PT_SETREGS failed with code %d (%s)\n", ret, strerror(ret));
     }
-
+    
     return ret;
 }
 
 
 
-int set_watchpoint(pid_t pid, void * address, wp_type_t type)
+static struct dbreg regs;
+static struct ptrace_lwpinfo lwpinfo;
+int set_watchpoint(pid_t pid, short index, void * address, wp_type_t type)
 {
     int ret;
-    static struct dbreg regs;
+    int thread_count;
+    lwpid_t * lwpid_list;
+    
+    if (index > 3 || index < 0)
+    {
+        echo("ERROR: Invalid index supplied for watchpoint creation.");
+        return 1;
+    }
+    
+    // # Get the amount of threads, and the threads themselves
+    if ((thread_count = ptrace(PT_GETNUMLWPS, pid, null, 0)) == -1)
+    {
+        echo("ERROR:\n# PT_GETNUMLWPS failed with code %d (%s)", thread_count, strerror(thread_count));
+        return 1;
+    }
+    
+    echo("thread count: %d", thread_count);
+    lwpid_list = (lwpid_t *) malloc(thread_count * sizeof(lwpid_t));
 
+    if ((ret = ptrace(PT_GETLWPLIST, pid, (caddr_t) lwpid_list, thread_count)) != thread_count)
+    {
+        perror("PT_GETLWPLIST");
+        echo("ERROR:\n# PT_GETLWPLIST failed. Did not fill all array entries. (%d != %d)", ret, thread_count);
+        goto _ret;
+    }
+    
+    
+    
+    // Get the current debug register values to avoid overwriting other watchpoints
     if ((ret = ptrace(PT_GETDBREGS, pid, (caddr_t) &regs, 0)) != 0)
     {
         echo("ERROR:\n# PT_GETDBREGS failed with code %d (%s)", ret, strerror(ret));
-        return 1;
+        goto _ret;
     }
+
     
     // Set watch address
-    regs.dr[0] = (uintptr_t) address;
+    regs.dr[index] = (uintptr_t) address;
 
-    // idk what to do with DR6 at the moment, fairly sure it's written to with information on the breakpoint
-    regs.dr[6] = 0;//0x00000000FFFF0FF0;
-    echo("setting debug reg values");
+    // idk what to do with DR6 at the moment, fairly sure it's written to with information on the breakpoint after it's hit
+    regs.dr[6] = 0;
 
+    
     // Set breakpoint flags
     regs.dr[7] &= ~DBREG_DR7_MASK(0);
-    regs.dr[7] = 0x0000000000000700;
-    regs.dr[7] |= DBREG_DR7_SET(0, DBREG_DR7_LEN_1, DBREG_DR7_EXEC, DBREG_DR7_LOCAL_ENABLE | DBREG_DR7_GLOBAL_ENABLE);  // len=4 => DBREG_DR7_LEN_4 (macro encodes bits)
     // regs.dr[7] |= (3 << 8); // exact breakpoint enable for LE & GE
+    regs.dr[7] = 0x0000000000000700; // exact breakpoint enable for LE & GE
     
-    echo("applying new debug reg values");
-    if ((ret = ptrace(PT_SETDBREGS, pid, (caddr_t) &regs, 0)) != 0)
+    if (address)
     {
-        perror("PT_SETDBREGS");
-        printf("ERROR:\n# PT_SETDBREGS failed with code (%s) %d\n", strerror(ret), ret);
-        return 1;
+        regs.dr[7] |= DBREG_DR7_SET(index, DBREG_DR7_LEN_1, DBREG_DR7_EXEC, DBREG_DR7_LOCAL_ENABLE | DBREG_DR7_GLOBAL_ENABLE);  // len=4 => DBREG_DR7_LEN_4 (macro encodes bits)
+    }
+    else {
+        regs.dr[7] |= DBREG_DR7_SET(index, 0, 0, 0);
     }
     
     
+    
+    
+    for (int i = 0; i < thread_count; i++)
+    {
+        if (address)
+        {
+            // Print thread names for shits and giggles (making sure the lwpinfo struct is all good)
+            if ((ret = ptrace(PT_LWPINFO, lwpid_list[i], (caddr_t) &lwpinfo, sizeof(struct ptrace_lwpinfo))) != 0)
+            {
+                printf("ERROR:\n# PT_LWPINFO failed with code (%s) %d\n", strerror(ret), ret);
+                break;
+            }
+            echo(lwpinfo.pl_tdname);
+        }
+
+        if ((ret = ptrace(PT_SETDBREGS, lwpid_list[i], (caddr_t) &regs, 0)) != 0)
+        {
+            printf("ERROR:\n# PT_SETDBREGS failed with code (%s) %d\n", strerror(ret), ret);
+            break;
+        }
+    }
+
+    
+    
+    // Return post-lwpid_list allocation
+_ret:
+    free(lwpid_list);
     return 0;
 }
 
-int ai_set_watchpoint(pid_t pid, void *address, wp_type_t type)
+
+int clear_watchpoint(pid_t pid, short index)
 {
+    echo("Clearing watchpoint #%d", index);
     int ret;
-    struct dbreg regs;
+    if (index > 3)
+    {
+        echo("ERROR\nclear_watchpoint(): Invalid index provided for watchpoint. Must be fron 0 to 3. (Or < 0 to clear all)");
+        return 1;
+    }
+    if (pid < 1)
+    {
+        echo("ERROR\nclear_watchpoint(): Invalid pid provided. (%d)", pid);
+        return 1;
+    }
 
-    ret = ptrace(PT_GETDBREGS, pid, (caddr_t)&regs, 0);
-    if (ret == -1) { perror("PT_GETDBREGS"); return 1; }
-
-    regs.dr[0] = (uintptr_t) address;
-
-    regs.dr[6] = 0;
-
-    regs.dr[7] &= ~DBREG_DR7_MASK(0);
-    regs.dr[7] |=  DBREG_DR7_SET(0, DBREG_DR7_LEN_1, DBREG_DR7_EXEC, 3);  // len=4 => DBREG_DR7_LEN_4 (macro encodes bits)
 
 
-    ret = ptrace(PT_SETDBREGS, pid, (caddr_t)&regs, 0);
-    if (ret == -1) { perror("PT_SETDBREGS"); return 1; }
+    if (index < 0) // clear all watchpoints
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            ret = set_watchpoint(pid, i, NULL, 0);
+            if (ret != 0)
+            {
+                echo("ERROR\nclear_watchpoint(): error clearing watchpoint #%d", i);
+            }
+        }
+        return ret;
+    }
 
-    return 0;
+    return set_watchpoint(pid, index, NULL, 0);
 }
+
 
 
 unsigned long long read_ulong(int pid, unsigned long * address);
 int write_ulong(int pid, unsigned long * address, unsigned long value);
 
 
-
-// Setup a function call at the specified function_address in the tracee process.
-// Opt
+// Setup a function call at the specified function_address in the tracee
 int proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr, struct reg * arg_regs)
 {
     if (function_address == 0)
@@ -650,14 +736,18 @@ int write_string(int pid, void * address, const char * str)
  
     // Get string length
     int len = 0;
+    int written = 0;
     while (*(str + ++len) != 0);
     
     for(long long i = 0; i < len; ++i)
     {
-        write_byte(pid, (void *) address + i, *(char *) (str + i));
+        if (!write_byte(pid, (void *) address + i, *(char *) (str + i)))
+        {
+            ++written;
+        }
     }
-    *(char *) (str + len) = 0; // terminate the string
+    write_byte(pid, (void *) address + len, 0);
 
-    return len;
+    return written;
 }
 

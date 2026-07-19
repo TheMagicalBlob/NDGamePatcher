@@ -55,7 +55,13 @@ extern int sceKernelSendNotificationRequest(int, notify_request_t*, size_t, int)
 extern int sceKernelGetAppInfo(pid_t pid, app_info_t *info);
 extern int sceKernelLoadStartModule(const char *name, uint64_t argc, const void *argv, uint32_t flags, void *, int *result);
 
+// Not being used atm.
+//! TODO: Reimplement once sigterm is being handled and we can actually close the file handles properly
 static int logfile;
+
+
+// Lazy global for handling cleanup on sigterm
+static pid_t active_pid;
 
 
 int echo(const char * str, ...)
@@ -135,7 +141,6 @@ static pid_t wait_for_game_launch(const char * title_id)
     // Check for any running eboot.bin //! remember to check for the other possible T2R executable names
     pid_t pid = find_pid("eboot.bin");
 
-
     if (pid <= 0)
     {
         echo("Unable to find eboot, waiting a few seconds before retrying");
@@ -177,8 +182,8 @@ static pid_t wait_for_game_launch(const char * title_id)
         notify("Attached to game process.\nTitle ID: %s\nprocess id: %d", title_id, pid);
         
         echo("Waiting for pid...");
-        waitpid(pid, 0, 0);
-        
+        proc_wait(pid);
+        echo("Process paused");
         return pid;
     }
     else {
@@ -194,85 +199,68 @@ static pid_t wait_for_game_launch(const char * title_id)
 
 static int start(int module_pid)
 {
-    int pid;
+    void * mancam_toggle_eh = (void *) 0x27f2db0;
+    int ret, pid;
     pid = wait_for_game_launch("PPSA10662");
-
-    echo("game paused");
-
+    
+    active_pid = pid; // Save pid in case of termination
     
 
-    const char * item_name = "Give Player Weapon...";
-    
-    
-    dmenu_menu_base_t menu_base;
-    
-    echo("loading menu base from ptr");
-    read_bytes(pid, sizeof(dmenu_menu_base_t), (void *) read_ulong(pid, T2DMENU_QUICK_MENU_BASE_PTR), &menu_base);
-
-    echo("loaded menu");
-    dmenu_item_t * item = find_submenu(pid, &menu_base, item_name);
-    echo("loaded item");
-
-    if (item == nullptr)
-    {
-        echo("unable to find item :(");
-        goto _detach;
-    }
-    echo("%s Address: %llX", item_name, (unsigned long long) item);
-    goto _detach;
-
-    // t2_dcall(pid);
-    // goto _detach;
-    goto skipMallocTesting;
-        
-    // malloc testing
-    void * ret = proc_malloc(pid, 0x40);
-
-    if (ret == nullptr)
-    {
-        echo("ERROR: Unable to allocate memory, cannot proceed.");
-        goto _detach;
-    }
-
-    sleep(1);
-
-    echo("Freeing mem");
-    proc_free(pid, ret);
-
-
-    skipMallocTesting:
-    if (0)
-    {
-
-    }
-
-    int i;
-    i = set_watchpoint(pid, (void * ) 0x27f2db0, 0);
-
-    if (i)
+    ret = set_watchpoint(pid, 0, mancam_toggle_eh, 0);
+    if (ret)
     {
         echo("Error setting watchpoint, aborting.");
         goto _detach;
     }
 
-    echo("huh?");
-
+    // Resume the process now that the breakpoint's set on all threads
     proc_continue(pid, nullptr);
 
-    echo("waiting...");
-    waitpid(pid, 0, 0);
-
-    echo("process frozen");
+    // Wait for it to be hit
+    proc_wait(pid);
+    echo("Watchpoint has been passed");
     
-_detach:
-    detach(pid);
+    dmenu_menu_base_t base;
+    ret = load_menu_base(pid, (void *) T2DMENU_QUICK_MENU_BASE_PTR, &base);
+    if (ret)
+    {
+        echo("Error getting quick menu base, aborting.");
+        goto _detach;
+    }
+    echo("Menu Base");
+
+    dmenu_item_t * item_ptr = find_item(pid, &base, "Nani");
+    echo("item ptr (%llX)", item_ptr);
+
+    if (item_ptr <= 0)
+    {
+        echo("Error getting item, aborting.");
+        goto _detach;
+    }
+
+    dmenu_item_t item;
+    load_item(pid, item_ptr, &item);
+    write_string(pid, item.item_text, "Nani");
+
+
+    _detach:
+    clear_watchpoint(pid, 0);
+    detach(pid, __FUNCTION__);
 
     return 0;
 }
 
 
+void cleanup(int singal)
+{
+    return;
+    echo("Termination signal recieved, exiting (%d)", singal);
 
-
+    if (active_pid)
+    {
+        detach(active_pid, __FUNCTION__);
+    }
+}
 
 
 int main()
@@ -280,20 +268,28 @@ int main()
     // Set thread name
     syscall(SYS_thr_set_name, -1, MODULE_NAME);
     
+    // Set cleanup shit so I can stop rebooting the game every time the payload is killed
+    struct sigaction handler;
+    bzero(&handler, sizeof(struct sigaction));
+    handler.__sigaction_u.__sa_handler = cleanup;
     
+    sigaction(SIGTERM, &handler, NULL);
+    
+
+
     // Kill any previous instances
-    int pid;
+    int ret, pid;
     while ((pid = find_pid(MODULE_NAME)) > 0)
     {
         printf("Killing old instance (pid: %d)...\n", pid);
 
-        if (kill(pid, SIGKILL))
+        if ((ret = kill(pid, SIGTERM)))
         {
-            printf("sigkill err%s", "\n");
+            perror("SIGKILL ERROR: ");
             break;
         }
         
-        char * msg = "Killed previous %s instance, exiting.";
+        const char * msg = "Killed previous %s instance, exiting.";
         notify(msg, MODULE_NAME);
         echo(msg, MODULE_NAME);
         return 0;
@@ -301,13 +297,11 @@ int main()
     
 
 
-    echo("Loaded new %s instance", MODULE_NAME);
-
     // Payload start
+    echo("Proceeding with new %s instance", MODULE_NAME);
     start(getpid());
 
-    close(logfile);
-
+    
     return 0;
 }
 
