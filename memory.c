@@ -92,8 +92,6 @@ int set_dbg_perms()
 
 int attach(int pid)
 {
-    echo("Attaching to process...");
-    
     int status;
     if ((status = ptrace(PT_ATTACH, pid, 0, 0)) != 0)
     {
@@ -104,7 +102,8 @@ int attach(int pid)
             echo("WARNING: Unable to resume process through SIGCONT");
         }
     }
-
+    
+    echo("Attached to pid %d", pid);
     return status;
 }
 
@@ -154,7 +153,7 @@ int proc_suspend(pid_t pid)
 int proc_continue(pid_t pid, void * resume)
 {
     int ret;
-    if (resume == nullptr ||!resume)
+    if (!resume)
     {
         resume = (void *) 1; // (continue where it left off)
     }
@@ -323,12 +322,14 @@ int clear_watchpoint(pid_t pid, short index)
 
 
 
+
+
+
+
 unsigned long long read_ulong(int pid, unsigned long * address);
 int write_ulong(int pid, unsigned long * address, unsigned long value);
 
-
 // Setup a function call at the specified function_address in the tracee.
-// The i
 int proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr, struct reg * arg_regs)
 {
     if (function_address == 0)
@@ -339,9 +340,6 @@ int proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr
     
     int ret;
     u_long error_source;
-
-
-
 
 
 
@@ -369,7 +367,7 @@ int proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr
     
 
     // Set up the function call
-    long long og_stack_ptr  = (long long) read_ulong(pid, (unsigned long *) arg_regs->r_rsp); // save return stack pointer
+    unsigned long og_stack_ptr  = (long long) read_ulong(pid, (unsigned long *) arg_regs->r_rsp); // save return stack pointer
 
     write_ulong(pid, (void *) arg_regs->r_rsp - 8, (unsigned long) arg_regs->r_rip); // set return address
 
@@ -382,6 +380,9 @@ int proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr
     }
 
 
+    
+    // set_watchpoint(pid, 0, (void *) og_stack_ptr, DBREG_DR7_EXEC, DBREG_DR7_LEN_1);
+    // proc_continue(pid, NULL);
 
     //! TODO: replace this with a watchpoint
     // Step through until we return from the called function, then restore the original register values (and read the return value if a pointer to store it at was provided)
@@ -504,6 +505,13 @@ int proc_free(nd_game_t * game, void * allocated_mem)
 
 static int proc_read(pid_t pid, int len, void * addr, void * buffer, const char * caller)
 {
+    if (!addr || !buffer)
+    {
+        echo("ERROR:\n# ptrace PT_IO (read)\nInput or output address was null");
+        return 1;
+    }
+
+
     struct ptrace_io_desc iod = { PIOD_READ_D, addr, buffer, len };
 
     int ret;
@@ -521,6 +529,13 @@ static int proc_read(pid_t pid, int len, void * addr, void * buffer, const char 
 
 static int proc_write(pid_t pid, int len, void * addr, void * value, const char * caller)
 {
+    if (!addr || !value)
+    {
+        echo("ERROR:\n# ptrace PT_IO (write)\nInput or output address was null");
+        return 1;
+    }
+    
+    
     struct ptrace_io_desc iod = { PIOD_WRITE_D, addr, value, len };
 
     int ret;

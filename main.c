@@ -180,19 +180,18 @@ static pid_t wait_for_game_launch(const char * title_id)
     if (!strncmp(app_info.title_id, title_id, 0xA))
     {
         int status;
-        strncpy((char *) _active_game_id, app_info.title_id, 0xA);
 
         if ((status = set_dbg_perms()) != 0)
         {
             return -1;
         }
 
-        echo("Successfully set permissions.");
         
         if ((status = attach(pid)) != 0)
         {
             return -1;
         }
+
 
         notify("Attached to game process.\nTitle ID: %s\nprocess id: %d", title_id, pid);
         
@@ -210,24 +209,6 @@ static pid_t wait_for_game_launch(const char * title_id)
 
 
 
-
-void cleanup(int signal)
-{
-    echo("Termination signal recieved, exiting (%d)", signal);
-
-    if (*(char *)&game)
-    {
-        clear_watchpoint(game.pid, -1);
-        detach(game.pid, __FUNCTION__);
-    }
-
-    if (logfile)
-    {
-        close(logfile);
-    }
-
-    exit(0);
-}
 
 
 static int load_game_by_title_id(const char * title_id)
@@ -249,6 +230,8 @@ static int load_game_by_title_id(const char * title_id)
         case 3616730478331122512: // PSA15512
             game.game_id = T2R;
             game.novis_address = T2R_NOVIS;
+            game.malloc = T2R_MALLOC;
+            game.free = T2R_FREE;
             load_menu_base(game.pid, T2RDMENU_DEV_MENU_BASE_PTR, &game.dev_menu_base);
             load_menu_base(game.pid, T2RDMENU_QUICK_MENU_BASE_PTR, &game.quick_menu_base);
             load_menu_base(game.pid, T2RDMENU_FAVORITES_MENU_BASE_PTR, &game.favorites_menu_base);
@@ -260,6 +243,8 @@ static int load_game_by_title_id(const char * title_id)
         case 3689633605383967568: // PSA07643
             game.game_id = T1x;
             game.novis_address = T1x_NOVIS;
+            game.malloc = T1x_MALLOC;
+            game.free = T1x_FREE;
             load_menu_base(game.pid, T1xDMENU_DEV_MENU_BASE_PTR, &game.dev_menu_base);
             load_menu_base(game.pid, T1xDMENU_QUICK_MENU_BASE_PTR, &game.quick_menu_base);
             load_menu_base(game.pid, T1xDMENU_FAVORITES_MENU_BASE_PTR, &game.favorites_menu_base);
@@ -288,8 +273,12 @@ static int start(int module_pid)
         echo("ERROR: Unable to load game with id %s", titleid);
     }
     
+    // Make sure novis is present
+    add_novis_option(&game);
     
-    void * mancam_toggle_eh = (void *) 0x27f2db0;
+    void * mancam_toggle_eh;
+    dmenu_item_t item;
+    load_item(game.pid, find_item(game.pid, &game.dev_menu_base, "Manual Camera"), &item);
     ret = set_watchpoint(game.pid, 0, mancam_toggle_eh, DBREG_DR7_EXEC, DBREG_DR7_LEN_1);
     if (ret)
     {
@@ -301,12 +290,30 @@ static int start(int module_pid)
     proc_continue(game.pid, nullptr);
     proc_wait(game.pid); // Wait for it to be hit
 
-    add_novis_option(&game);
 
     _detach:
     return 0;
 }
 
+
+
+void cleanup(int signal)
+{
+    echo("Termination signal recieved, exiting (%d)", signal);
+
+    if (*(char *)&game)
+    {
+        clear_watchpoint(game.pid, -1);
+        detach(game.pid, __FUNCTION__);
+    }
+
+    if (logfile)
+    {
+        close(logfile);
+    }
+
+    exit(0);
+}
 
 int main()
 {

@@ -418,6 +418,6 @@ void add_novis_option(nd_game_t * game)
 
     dmenu_item_t item;
     load_item(game->pid, item_ptr, &item);
-    write_string(game->pid, item.item_text, "Novis");
+    write_string(game->pid, item.item_text, "Enable novis");
     write_ulong(game->pid, (unsigned long *) &item_ptr->item_variable_ptr, (unsigned long) game->novis_address);
 }

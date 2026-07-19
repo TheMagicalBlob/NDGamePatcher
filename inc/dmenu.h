@@ -7,17 +7,24 @@ typedef struct dmenu_menu_base dmenu_menu_base_t;
 #define T2RDMENU_QUICK_MENU_BASE_PTR     (dmenu_menu_base_t *) 0x6b64670
 #define T2RDMENU_FAVORITES_MENU_BASE_PTR (dmenu_menu_base_t *) 0x6b639a0
 
-#define T2R_FREE 0x02a8f680
-#define T2R_MALLOC 0x02a8f690
+#define T2R_FREE (void *) 0x02a8f680
+#define T2R_MALLOC (void *) 0x02a8f690
 
 #define T2R_NOVIS (int8_t *) 0x70cc124
 
 
 
-#define T1xDMENU_DEV_MENU_BASE_PTR      (dmenu_menu_base_t *) nullptr
-#define T1xDMENU_QUICK_MENU_BASE_PTR     (dmenu_menu_base_t *) nullptr
-#define T1xDMENU_FAVORITES_MENU_BASE_PTR (dmenu_menu_base_t *) nullptr
+#define T1xDMENU_DEV_MENU_BASE_PTR      (dmenu_menu_base_t *) 0x6a34a68
+#define T1xDMENU_QUICK_MENU_BASE_PTR     (dmenu_menu_base_t *) 0x6a35720
+#define T1xDMENU_FAVORITES_MENU_BASE_PTR (dmenu_menu_base_t *) 0x6a34a70
+
+#define T1x_FREE (void *) 0x30ed250
+#define T1x_MALLOC (void *) 0x30ed260
+
 #define T1x_NOVIS (int8_t *) 0x3a10794
+
+
+
 
 
 
