@@ -243,29 +243,6 @@ char * get_dmenu_entry_type_as_string(long long type)
 
 
 
-// Copy the dmenu_menu_base_t at the provided address in the traced process' memory into the provided menu base struct
-int load_menu_base(pid_t pid, void * address, dmenu_menu_base_t * menu_base)
-{
-    return read_bytes(pid, sizeof(dmenu_menu_base_t), (void *) read_ulong(pid, (unsigned long *) address), menu_base);
-}
-
-
-// Copy the dmenu_menu_t at the provided address in the traced process' memory into the provided menu struct
-int load_menu(pid_t pid, void * address, dmenu_menu_t * menu)
-{
-    return read_bytes(pid, sizeof(dmenu_menu_t), address, menu);
-}
-
-
-// Copy the dmenu_item_t at the provided address in the traced process' memory into the provided item struct
-int load_item(pid_t pid, void * address, dmenu_item_t * item)
-{
-    return read_bytes(pid, sizeof(dmenu_item_t), address, item);
-}
-
-
-
-
 
 static void * find_dmenu_entry(nd_game_t nd_game, const char * expected_entry_name, dmenu_simple_type_t expected_base_type, char parent_index)
 {
@@ -423,6 +400,34 @@ dmenu_item_t * find_submenu(nd_game_t nd_game, const char * submenu_name, char p
 
 
 
+
+
+
+// Copy the dmenu_menu_base_t at the provided address in the traced process' memory into the provided menu base struct
+int load_menu_base(pid_t pid, void * address, dmenu_menu_base_t * menu_base)
+{
+    return read_bytes(pid, sizeof(dmenu_menu_base_t), (void *) read_ulong(pid, (unsigned long *) address), menu_base);
+}
+
+
+// Copy the dmenu_menu_t at the provided address in the traced process' memory into the provided menu struct
+int load_menu(pid_t pid, void * address, dmenu_menu_t * menu)
+{
+    return read_bytes(pid, sizeof(dmenu_menu_t), address, menu);
+}
+
+
+// Copy the dmenu_item_t at the provided address in the traced process' memory into the provided item struct
+int load_item(pid_t pid, void * address, dmenu_item_t * item)
+{
+    return read_bytes(pid, sizeof(dmenu_item_t), address, item);
+}
+
+
+
+
+
+
 void dump_menu_entries(nd_game_t nd_game, dmenu_menu_base_t * parent_base)
 {
     if (parent_base->menu == 0)
@@ -564,7 +569,9 @@ int t2_example_call(pid_t pid)
 
 
 
-    dmenu_menu_base_t * fav = (dmenu_menu_base_t *) read_ulong(pid, (u_long *) T2RDMENU_FAVORITES_MENU_BASE_PTR);
+    dmenu_menu_base_t * fav;
+    fav = (dmenu_menu_base_t *) read_ulong(pid, (u_long *) T2RDMENU_FAVORITES_MENU_BASE_PTR);
+    
     args.r_rdi = (long long) &fav->open_menu;
     args.r_rsi = (long long) !read_byte(pid, &fav->open_menu);
 
