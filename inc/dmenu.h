@@ -29,46 +29,137 @@ typedef struct dmenu_menu_base dmenu_menu_base_t;
 
 
 // Just the function array pointer at the start of each dmenu struct read as an unsigned 64bit integer
-typedef enum dmenu_type_ids : u_long
+typedef enum dmenu_typeid : u_long
 {
-    dmenu_id_menu_base = 0x322E688,
+    // The Last of Us Part II Remastered
+    t2r_typeid_menu_base = 0x322E688,
 
-    dmenu_id_menu = 0x322E5B0,
-    dmenu_id_dyn_menu = 0x31B5248, // slightly larger than normal menus, I think these are ones generated when opened. //! check when headache gone
-    dmenu_id_unk_menu = 0x32280B0,
+    t2r_typeid_id_menu = 0x322E5B0,
+    t2r_typeid_dyn_menu = 0x31B5248, // slightly larger than normal menus, I think these are ones generated when opened. //! check when headache gone
+    t2r_typeid_unk_menu = 0x32280B0,
 
-    dmenu_id_submenu_item = 0x322E488,
-    dmenu_id_task_submenu_item = 0x3252D58,
-    dmenu_id_noreturn_task_submenu_item = 0x3252C30,
+    t2r_typeid_submenu_item = 0x322E488,
+    t2r_typeid_task_submenu_item = 0x3252D58,
+    t2r_typeid_noreturn_task_submenu_item = 0x3252C30,
 
-    dmenu_id_bool_item = 0x322DA18,
-    dmenu_id_exec_item = 0x322E238,
-    dmenu_id_alt_exec_item = 0x322E360,
-    dmenu_id_string_item = 0x322DFE8,
-    dmenu_id_string_list_item = 0x322DC68,
-    dmenu_id_float_item = 0x322E110,
-    dmenu_id_decimal_item = 0x322DEB8,
-    dmenu_id_separator_item = 0x322D6A0,
-    dmenu_id_task_history_item = 0x32529E0,
-    dmenu_id_task_item = 0x3252B08,
-    dmenu_id_user_item = 0x3243BF0, // Entirely useless, maybe it's meant to be replaced by an actual user name? idk
-    dmenu_id_timer_item = 0x3117960,
-    dmenu_id_unk_item = 0x322DB40
+    t2r_typeid_bool_item = 0x322DA18,
+    t2r_typeid_exec_item = 0x322E238,
+    t2r_typeid_alt_exec_item = 0x322E360,
+    t2r_typeid_string_item = 0x322DFE8,
+    t2r_typeid_string_list_item = 0x322DC68,
+    t2r_typeid_float_item = 0x322E110,
+    t2r_typeid_decimal_item = 0x322DEB8,
+    t2r_typeid_separator_item = 0x322D6A0,
+    t2r_typeid_task_history_item = 0x32529E0,
+    t2r_typeid_task_item = 0x3252B08,
+    t2r_typeid_user_item = 0x3243BF0, // Entirely useless, maybe it's meant to be replaced by an actual user name? idk
+    t2r_typeid_timer_item = 0x3117960,
+    t2r_typeid_unk_item = 0x322DB40,
 
-} dmenu_type_ids_t;
+
+
+
+
+
+    // The Last of Us Remake / The Last of Us Part I
+    t1x_typeid_menu_base = 0xFFFFFFFFFFFFFFFF,
+
+    t1x_typeid_id_menu = 0xFFFFFFFFFFFFFFFF,
+    t1x_typeid_id_dyn_menu = 0xFFFFFFFFFFFFFFFF,
+    t1x_typeid_id_unk_menu = 0xFFFFFFFFFFFFFFFF,
+
+    t1x_typeid_submenu_item = 0x3938A90,
+    t1x_typeid_task_submenu_item = 0xFFFFFFFFFFFFFFFF,
+    t1x_typeid_noreturn_task_submenu_item = 0xFFFFFFFFFFFFFFFF,
+
+    t1x_typeid_bool_item = 0xFFFFFFFFFFFFFFFF,
+    t1x_typeid_exec_item = 0xFFFFFFFFFFFFFFFF,
+    t1x_typeid_alt_exec_item = 0xFFFFFFFFFFFFFFFF,
+    t1x_typeid_string_item = 0xFFFFFFFFFFFFFFFF,
+    t1x_typeid_string_list_item = 0xFFFFFFFFFFFFFFFF,
+    t1x_typeid_float_item = 0xFFFFFFFFFFFFFFFF,
+    t1x_typeid_decimal_item = 0xFFFFFFFFFFFFFFFF,
+    t1x_typeid_separator_item = 0xFFFFFFFFFFFFFFFF,
+    t1x_typeid_task_history_item = 0xFFFFFFFFFFFFFFFF,
+    t1x_typeid_task_item = 0xFFFFFFFFFFFFFFFF,
+    t1x_typeid_user_item = 0xFFFFFFFFFFFFFFFF,
+    t1x_typeid_timer_item = 0xFFFFFFFFFFFFFFFF,
+    t1x_typeid_unk_item = 0xFFFFFFFFFFFFFFFF,
+
+
+
+
+
+    
+    // Uncharted 4: A Thief's End Remastered
+    uc4r_typeid_menu_base = 0xFFFFFFFFFFFFFFFF,
+
+    uc4r_typeid_id_menu = 0xFFFFFFFFFFFFFFFF,
+    uc4r_typeid_id_dyn_menu = 0xFFFFFFFFFFFFFFFF,
+    uc4r_typeid_id_unk_menu = 0xFFFFFFFFFFFFFFFF,
+    
+    uc4r_typeid_submenu_item = 0xFFFFFFFFFFFFFFFF,
+    uc4r_typeid_task_submenu_item = 0xFFFFFFFFFFFFFFFF,
+    uc4r_typeid_noreturn_task_submenu_item = 0xFFFFFFFFFFFFFFFF,
+    
+    uc4r_typeid_bool_item = 0xFFFFFFFFFFFFFFFF,
+    uc4r_typeid_exec_item = 0xFFFFFFFFFFFFFFFF,
+    uc4r_typeid_alt_exec_item = 0xFFFFFFFFFFFFFFFF,
+    uc4r_typeid_string_item = 0xFFFFFFFFFFFFFFFF,
+    uc4r_typeid_string_list_item = 0xFFFFFFFFFFFFFFFF,
+    uc4r_typeid_float_item = 0xFFFFFFFFFFFFFFFF,
+    uc4r_typeid_decimal_item = 0xFFFFFFFFFFFFFFFF,
+    uc4r_typeid_separator_item = 0xFFFFFFFFFFFFFFFF,
+    uc4r_typeid_task_history_item = 0xFFFFFFFFFFFFFFFF,
+    uc4r_typeid_task_item = 0xFFFFFFFFFFFFFFFF,
+    uc4r_typeid_user_item = 0xFFFFFFFFFFFFFFFF,
+    uc4r_typeid_timer_item = 0xFFFFFFFFFFFFFFFF,
+    uc4r_typeid_unk_item = 0xFFFFFFFFFFFFFFFF,
+
+
+
+
+
+    
+    // Uncharted: The Lost Legacy Remastered
+    tllr_typeid_menu_base = 0xFFFFFFFFFFFFFFFF,
+
+    tllr_typeid_id_menu = 0xFFFFFFFFFFFFFFFF,
+    tllr_typeid_id_dyn_menu = 0xFFFFFFFFFFFFFFFF,
+    tllr_typeid_id_unk_menu = 0xFFFFFFFFFFFFFFFF,
+    
+    tllr_typeid_submenu_item = 0xFFFFFFFFFFFFFFFF,
+    tllr_typeid_task_submenu_item = 0xFFFFFFFFFFFFFFFF,
+    tllr_typeid_noreturn_task_submenu_item = 0xFFFFFFFFFFFFFFFF,
+    
+    tllr_typeid_bool_item = 0xFFFFFFFFFFFFFFFF,
+    tllr_typeid_exec_item = 0xFFFFFFFFFFFFFFFF,
+    tllr_typeid_alt_exec_item = 0xFFFFFFFFFFFFFFFF,
+    tllr_typeid_string_item = 0xFFFFFFFFFFFFFFFF,
+    tllr_typeid_string_list_item = 0xFFFFFFFFFFFFFFFF,
+    tllr_typeid_float_item = 0xFFFFFFFFFFFFFFFF,
+    tllr_typeid_decimal_item = 0xFFFFFFFFFFFFFFFF,
+    tllr_typeid_separator_item = 0xFFFFFFFFFFFFFFFF,
+    tllr_typeid_task_history_item = 0xFFFFFFFFFFFFFFFF,
+    tllr_typeid_task_item = 0xFFFFFFFFFFFFFFFF,
+    tllr_typeid_user_item = 0xFFFFFFFFFFFFFFFF,
+    tllr_typeid_timer_item = 0xFFFFFFFFFFFFFFFF,
+    tllr_typeid_unk_item = 0xFFFFFFFFFFFFFFFF
+
+} dmenu_typeid_t;
 
 
 // simplified dmenu type enum boiling it down to structurally different items
-typedef enum dmenu_item_base_types : char
+typedef enum dmenu_simple_type : char
 {
-    dmenu_basetype_menu_base, // The base instance containing all menu
-    dmenu_basetype_menu, // the menus themselves, whether it be the "Quick Menu" menu or "Rendering" submenu
-    // dmenu_basetype_dyn_menu, // generated ones- first item is in a diff spot //! what?
-    // dmenu_basetype_unk_menu, // idk
-    dmenu_basetype_submenu, // The items that load submenus
-    dmenu_basetype_item // anything else
+    simple_typeid_menu_base, // The base instance containing all menu
+    simple_typeid_menu, // the menus themselves, whether it be the "Quick Menu" menu or "Rendering" submenu
+    // dmenu_basetype_dyn_menu,
+    // dmenu_basetype_unk_menu,
+    simple_typeid_submenu, // The items that load submenus
+    simple_typeid_item // anything else
 
-} dmenu_item_base_types_t;
+} dmenu_simple_type_t;
 
 
 // Basic ID system for the loaded games. 
@@ -199,7 +290,8 @@ typedef struct nd_game
 {
     pid_t pid;
     game_id_t game_id;
-    const char * title_id;
+    char title_id[0xA];
+    uint32_t app_id;
     dmenu_menu_base_t quick_menu_base;
     dmenu_menu_base_t dev_menu_base;
     dmenu_menu_base_t favorites_menu_base;
@@ -222,7 +314,7 @@ dmenu_item_t * find_item(pid_t pid, dmenu_menu_base_t * parent, const char * ite
 dmenu_menu_t * find_menu(pid_t pid, dmenu_menu_base_t * parent, const char * item_name);
 dmenu_item_t * find_submenu(pid_t pid, dmenu_menu_base_t * parent, const char * item_name);
 
-void dump_menu_entries(pid_t pid, dmenu_menu_base_t * menu);
+void dump_menu_entries(nd_game_t nd_game, dmenu_menu_base_t * menu);
 
 
 int load_menu_base(pid_t pid, void * address, dmenu_menu_base_t * menu_base);

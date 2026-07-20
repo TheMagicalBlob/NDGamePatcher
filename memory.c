@@ -68,8 +68,6 @@ pid_t find_pid(const char *name)
 
 int set_dbg_perms()
 {
-    echo("Setting authid...");
-    
     int this = getpid();
     long authid = kernel_get_ucred_authid(this);
 
@@ -260,7 +258,7 @@ int set_watchpoint(pid_t pid, short index, void * address, int wp_type, int wp_l
     
     for (int i = 0; i < thread_count; i++)
     {
-        if (address)
+        if (0) // (address)
         {
             // Print thread names for shits and giggles (making sure the lwpinfo struct is all good)
             if ((ret = ptrace(PT_LWPINFO, lwpid_list[i], (caddr_t) &lwpinfo, sizeof(struct ptrace_lwpinfo))) != 0)
@@ -271,6 +269,7 @@ int set_watchpoint(pid_t pid, short index, void * address, int wp_type, int wp_l
             echo(lwpinfo.pl_tdname);
         }
 
+        
         if ((ret = ptrace(PT_SETDBREGS, lwpid_list[i], (caddr_t) &regs, 0)) != 0)
         {
             printf("ERROR:\n# PT_SETDBREGS failed with code (%s) %d\n", strerror(ret), ret);
