@@ -118,6 +118,8 @@ int detach(int pid, const char * from)
         notify("Detached, exiting.");
     }
 
+    kill(pid, SIGCONT);
+
     return status;
 }
 
@@ -705,7 +707,7 @@ int write_single(int pid, unsigned long address, float value)
 // Returns the amount of characters written, or -1 if a null pointer was provided for either the source or the destination
 int read_string(int pid, void * address, char * buffer)
 {
-    echo("reading string from 0x%llX", address);
+    // echo("reading string from 0x%llX", address);
 
     if (address == 0)
     {

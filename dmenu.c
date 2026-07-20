@@ -270,19 +270,17 @@ int load_item(pid_t pid, void * address, dmenu_item_t * item)
 static void * find_dmenu_entry(nd_game_t nd_game, const char * expected_entry_name, dmenu_simple_type_t expected_base_type, char parent_index)
 {
     dmenu_menu_base_t * parent_base;
-
-    parent_base = (dmenu_menu_base_t *) ((unsigned long) &nd_game.dev_menu_base) + 8 * (parent_index < 0 ? 0 : parent_index > 2 ? 2 : parent_index);
+    parent_base = (dmenu_menu_base_t *) ((unsigned long) (&nd_game.dev_menu_base) + sizeof(dmenu_menu_base_t) * (parent_index < 0 ? 0 : parent_index > 2 ? 2 : parent_index));
 
     if (parent_base->menu == 0)
     {
-        echo("ERROR: Empty menu base pointer provided.");
+        echo("ERROR: Empty menu base pointer provided. (%s)", parent_base->item_text);
         return nullptr;
     }
 
 
     char parent_name[0x40];
     read_string(nd_game.pid, parent_base->item_text, parent_name);
-    echo("Loading from parent \"%s\"", parent_name);
 
     dmenu_menu_t menu;
     read_bytes(nd_game.pid, sizeof(dmenu_menu_t), parent_base->menu, &menu);
@@ -297,7 +295,7 @@ static void * find_dmenu_entry(nd_game_t nd_game, const char * expected_entry_na
     
     bzero(parent_name, 0x40);
     read_string(nd_game.pid, menu.item_text, parent_name);
-    echo("Searching menu \"%s\"", parent_name);
+    echo("Searching %s for %s", parent_name, expected_entry_name);
     
     
     char next_is_menu = 0;
@@ -325,9 +323,9 @@ static void * find_dmenu_entry(nd_game_t nd_game, const char * expected_entry_na
         {
             read_bytes(nd_game.pid, sizeof(dmenu_menu_t), entry_ptr, &menu);
             
-            echo("Reading string (menu @%llX)...", entry_ptr);
+            // echo("Reading string (menu @%llX)...", entry_ptr);
             read_string(nd_game.pid, menu.item_text, entry_name);
-            echo("!!!!!! %s !!!!!!", entry_name);
+            // echo("!!!!!! %s !!!!!!", entry_name);
 
             if (expected_base_type == base_type && !strncmp(expected_entry_name, entry_name, len))
             {
@@ -348,9 +346,9 @@ static void * find_dmenu_entry(nd_game_t nd_game, const char * expected_entry_na
                 goto no_text;
             }
             
-            echo("Reading string (item @%llX)...", entry_ptr);
+            // echo("Reading string (item @%llX)...", entry_ptr);
             read_string(nd_game.pid, item.item_text, entry_name);
-            echo("!!!!!! %s !!!!!!", entry_name);
+            // echo("!!!!!! %s !!!!!!", entry_name);
 
 
             if (expected_base_type == base_type && !strncmp(expected_entry_name, entry_name, len))

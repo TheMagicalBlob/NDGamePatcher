@@ -384,7 +384,6 @@ void cleanup()
         echo("Clearing watchpoints and detaching from process");
 
         proc_suspend(nd_game.pid);
-        // kill(nd_game.pid, SIGSTOP);
 
         clear_watchpoint(nd_game.pid, -1);
         detach(nd_game.pid, __FUNCTION__);
