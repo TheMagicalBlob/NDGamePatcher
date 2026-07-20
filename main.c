@@ -117,6 +117,8 @@ void notify(const char * message, ...)
 
 void log_message(const char * base_string, ...)
 {
+    return;
+
     va_list args;
     va_start(args, base_string);
 
@@ -342,21 +344,11 @@ static int start(int module_pid)
         echo("ERROR: Unable to load game");
     }
 
-
-    echo("\n\n\n");
-    dump_menu_entries(nd_game, &nd_game.dev_menu_base);
-    echo("\n\n\n");
-    dump_menu_entries(nd_game, &nd_game.quick_menu_base);
-    echo("\n\n\n");
-    // dump_menu_entries(nd_game, &nd_game.favorites_menu_base);
-    goto _detach;
-
-
     // Make sure novis is present
-    add_novis_option(&nd_game);
+    add_novis_option(nd_game);
     
     dmenu_item_t item;
-    load_item(nd_game.pid, find_item(nd_game.pid, &nd_game.quick_menu_base, "Manual Camera"), &item);
+    load_item(nd_game.pid, find_item(nd_game, "Manual Camera", 1), &item);
     ret = set_watchpoint(nd_game.pid, 0, item.event_handler, DBREG_DR7_EXEC, DBREG_DR7_LEN_1);
     if (ret)
     {
@@ -390,6 +382,10 @@ void cleanup()
     if (*(char *)&nd_game)
     {
         echo("Clearing watchpoints and detaching from process");
+
+        proc_suspend(nd_game.pid);
+        // kill(nd_game.pid, SIGSTOP);
+
         clear_watchpoint(nd_game.pid, -1);
         detach(nd_game.pid, __FUNCTION__);
     }

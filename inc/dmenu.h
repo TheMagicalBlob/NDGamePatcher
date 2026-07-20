@@ -7,6 +7,7 @@ typedef struct dmenu_menu_base dmenu_menu_base_t;
 #define T2RDMENU_QUICK_MENU_BASE_PTR     (dmenu_menu_base_t *) 0x6b64670
 #define T2RDMENU_FAVORITES_MENU_BASE_PTR (dmenu_menu_base_t *) 0x6b639a0
 
+
 #define T2R_FREE (void *) 0x02a8f680
 #define T2R_MALLOC (void *) 0x02a8f690
 
@@ -293,8 +294,8 @@ typedef struct nd_game
     game_id_t game_id;
     char title_id[0xA];
     uint32_t app_id;
-    dmenu_menu_base_t quick_menu_base;
     dmenu_menu_base_t dev_menu_base;
+    dmenu_menu_base_t quick_menu_base;
     dmenu_menu_base_t favorites_menu_base;
 
     int8_t * novis_address;
@@ -311,9 +312,10 @@ int get_dmenu_entry_base_type(pid_t pid, void * item);
 char * get_dmenu_entry_type_as_string(long long type);
 
 
-dmenu_item_t * find_item(pid_t pid, dmenu_menu_base_t * parent, const char * item_name);
-dmenu_menu_t * find_menu(pid_t pid, dmenu_menu_base_t * parent, const char * item_name);
-dmenu_item_t * find_submenu(pid_t pid, dmenu_menu_base_t * parent, const char * item_name);
+dmenu_item_t * find_item(nd_game_t nd_game, const char * item_name, char parent_index);
+dmenu_menu_t * find_menu(nd_game_t nd_game, const char * menu_name, char parent_index);
+dmenu_item_t * find_submenu(nd_game_t nd_game, const char * submenu_name, char parent_index);
+
 
 void dump_menu_entries(nd_game_t nd_game, dmenu_menu_base_t * menu);
 
@@ -324,5 +326,4 @@ int load_item(pid_t pid, void * address, dmenu_item_t * item);
 
 int t2_example_call(pid_t pid);
 
-void add_novis_option(nd_game_t * game);
-
+void add_novis_option(nd_game_t nd_game);

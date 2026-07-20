@@ -1,7 +1,7 @@
 #include "inc/include.h"
 #include "inc/dmenu.h"
 
-#define printf(s, ...) klog_printf(s, __VA_ARGS__)
+#define printf(s, ...) klog_echo(s, __VA_ARGS__)
 
 #define _SHELLCORE_AUTHID 0x4800000000010003L
 
@@ -105,12 +105,9 @@ int attach(int pid)
     return status;
 }
 
-int proc_suspend(pid_t pid);
 int detach(int pid, const char * from)
 {
     echo("Detaching from process %d (%s)", pid, from);
-    
-    // proc_suspend(pid);
 
     int status;
     if ((status = ptrace(PT_DETACH, pid, 0, 0)) != 0)
@@ -137,13 +134,15 @@ void proc_wait(pid_t pid)
 
 int proc_suspend(pid_t pid)
 {
-    int status;
-    if ((status = ptrace(PT_SUSPEND, pid, 0, 0)) != 0)
+    // fairly sure I'd need to use PT_SUSPEND on every thread, so screw it, I'll just use the stop signal
+    if (kill(pid, SIGSTOP) < 0)
     {
-        perror("PT_SUSPEND ERROR: ");
+        perror("SIGSTOP ERROR: ");
+        echo("Error suspending process; whatever we're doing is about to crash this payload and kill the game process");
+        return 1;
     }
 
-    return status;
+    return 0;
 }
 
 
@@ -158,7 +157,7 @@ int proc_continue(pid_t pid, void * resume)
 
     if ((ret = ptrace(PT_CONTINUE, pid, resume, 0)) != 0)
     {
-        printf("ERROR:\n# PT_CONTINUE failed with code %d (%s)\n", ret, strerror(ret));
+        echo("ERROR:\n# PT_CONTINUE failed with code %d (%s)\n", ret, strerror(ret));
     }
 
     return ret;
@@ -172,7 +171,7 @@ int get_regs(pid_t pid, struct reg * regs)
     int ret;
     if ((ret = ptrace(PT_GETREGS, pid, (caddr_t) regs, 0)) != 0)
     {
-        printf("ERROR:\n# PT_GETREGS failed with code %d (%s)\n", ret, strerror(ret));
+        echo("ERROR:\n# PT_GETREGS failed with code %d (%s)\n", ret, strerror(ret));
     }
 
     return ret;
@@ -184,7 +183,7 @@ int set_regs(pid_t pid, struct reg * regs)
     int ret;
     if ((ret = ptrace(PT_SETREGS, pid, (caddr_t) regs, 0)) != 0)
     {
-        printf("ERROR:\n# PT_SETREGS failed with code %d (%s)\n", ret, strerror(ret));
+        echo("ERROR:\n# PT_SETREGS failed with code %d (%s)\n", ret, strerror(ret));
     }
     
     return ret;
@@ -214,6 +213,7 @@ int set_watchpoint(pid_t pid, short index, void * address, int wp_type, int wp_l
         return 1;
     }
     
+
     lwpid_list = (lwpid_t *) malloc(thread_count * sizeof(lwpid_t));
 
     if ((ret = ptrace(PT_GETLWPLIST, pid, (caddr_t) lwpid_list, thread_count)) != thread_count)
@@ -263,7 +263,7 @@ int set_watchpoint(pid_t pid, short index, void * address, int wp_type, int wp_l
             // Print thread names for shits and giggles (making sure the lwpinfo struct is all good)
             if ((ret = ptrace(PT_LWPINFO, lwpid_list[i], (caddr_t) &lwpinfo, sizeof(struct ptrace_lwpinfo))) != 0)
             {
-                printf("ERROR:\n# PT_LWPINFO failed with code (%s) %d\n", strerror(ret), ret);
+                echo("ERROR:\n# PT_LWPINFO failed with code (%s) %d\n", strerror(ret), ret);
                 break;
             }
             echo(lwpinfo.pl_tdname);
@@ -272,7 +272,7 @@ int set_watchpoint(pid_t pid, short index, void * address, int wp_type, int wp_l
 
         if ((ret = ptrace(PT_SETDBREGS, lwpid_list[i], (caddr_t) &regs, 0)) != 0)
         {
-            printf("ERROR:\n# PT_SETDBREGS failed with code (%s) %d\n", strerror(ret), ret);
+            echo("ERROR:\n# PT_SETDBREGS failed with code (%s) %d\n", strerror(ret), ret);
             break;
         }
     }
@@ -389,7 +389,7 @@ int proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr
     {
         if ((ret = ptrace(PT_STEP, pid, 0, 0)) != 0)
         {
-            printf("ERROR:\n# PT_STEP failed with code %d (%s) while checking rip.\n", ret, strerror(ret));
+            echo("ERROR:\n# PT_STEP failed with code %d (%s) while checking rip.\n", ret, strerror(ret));
             return 1;
         }
         waitpid(pid, 0, 0);
@@ -516,7 +516,7 @@ static int proc_read(pid_t pid, int len, void * addr, void * buffer, const char 
     int ret;
     if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
     {
-        printf("ERROR:\n# ptrace PT_IO (read) failed with code %d (%s)\n\n# Address: %llX\n# Function: %s\n", ret, strerror(ret), addr, caller);
+        echo("ERROR:\n# ptrace PT_IO (read) failed with code %d (%s)\n\n# Address: %llX\n# Function: %s\n", ret, strerror(ret), addr, caller);
         return 1;
     }
 
@@ -540,7 +540,7 @@ static int proc_write(pid_t pid, int len, void * addr, void * value, const char 
     int ret;
     if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
     {
-        printf("ERROR:\n# ptrace PT_IO (read) failed with code %d (%s)\n\n# Address: %llX\n# Function: %s\n", ret, strerror(ret), addr, caller);
+        echo("ERROR:\n# ptrace PT_IO (read) failed with code %d (%s)\n\n# Address: %llX\n# Function: %s\n", ret, strerror(ret), addr, caller);
         return 1;
     }
 
@@ -705,11 +705,14 @@ int write_single(int pid, unsigned long address, float value)
 // Returns the amount of characters written, or -1 if a null pointer was provided for either the source or the destination
 int read_string(int pid, void * address, char * buffer)
 {
+    echo("reading string from 0x%llX", address);
+
     if (address == 0)
     {
         echo("null string pointer provided.");
         return -1;
     }
+    
 
     if (read_byte(pid, address) <= 0) 
     {
