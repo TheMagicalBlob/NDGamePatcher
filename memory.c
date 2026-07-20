@@ -209,16 +209,16 @@ int set_watchpoint(pid_t pid, short index, void * address, int wp_type, int wp_l
     // # Get the amount of threads, and the threads themselves
     if ((thread_count = ptrace(PT_GETNUMLWPS, pid, null, 0)) == -1)
     {
+        perror("PT_GETNUMLWPS: ");
         echo("ERROR:\n# PT_GETNUMLWPS failed with code %d (%s)", thread_count, strerror(thread_count));
         return 1;
     }
     
-    echo("thread count: %d", thread_count);
     lwpid_list = (lwpid_t *) malloc(thread_count * sizeof(lwpid_t));
 
     if ((ret = ptrace(PT_GETLWPLIST, pid, (caddr_t) lwpid_list, thread_count)) != thread_count)
     {
-        perror("PT_GETLWPLIST");
+        perror("PT_GETLWPLIST: ");
         echo("ERROR:\n# PT_GETLWPLIST failed. Did not fill all array entries. (%d != %d)", ret, thread_count);
         goto _ret;
     }
@@ -269,7 +269,7 @@ int set_watchpoint(pid_t pid, short index, void * address, int wp_type, int wp_l
             echo(lwpinfo.pl_tdname);
         }
 
-        
+
         if ((ret = ptrace(PT_SETDBREGS, lwpid_list[i], (caddr_t) &regs, 0)) != 0)
         {
             printf("ERROR:\n# PT_SETDBREGS failed with code (%s) %d\n", strerror(ret), ret);

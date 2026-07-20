@@ -36,7 +36,7 @@ typedef enum dmenu_typeid : u_long
 
     t2r_typeid_id_menu = 0x322E5B0,
     t2r_typeid_dyn_menu = 0x31B5248, // slightly larger than normal menus, I think these are ones generated when opened. //! check when headache gone
-    t2r_typeid_unk_menu = 0x32280B0,
+    t2r_typeid_weapon_upgrades_menu = 0x32280B0,
 
     t2r_typeid_submenu_item = 0x322E488,
     t2r_typeid_task_submenu_item = 0x3252D58,
@@ -54,7 +54,7 @@ typedef enum dmenu_typeid : u_long
     t2r_typeid_task_item = 0x3252B08,
     t2r_typeid_user_item = 0x3243BF0, // Entirely useless, maybe it's meant to be replaced by an actual user name? idk
     t2r_typeid_timer_item = 0x3117960,
-    t2r_typeid_unk_item = 0x322DB40,
+    t2r_typeid_checkpoint_item = 0x322DB40,
 
 
 
@@ -62,29 +62,26 @@ typedef enum dmenu_typeid : u_long
 
 
     // The Last of Us Remake / The Last of Us Part I
-    t1x_typeid_menu_base = 0xFFFFFFFFFFFFFFFF,
+    t1x_typeid_menu_base = 0x3938C78,
 
-    t1x_typeid_id_menu = 0xFFFFFFFFFFFFFFFF,
-    t1x_typeid_id_dyn_menu = 0xFFFFFFFFFFFFFFFF,
-    t1x_typeid_id_unk_menu = 0xFFFFFFFFFFFFFFFF,
+    t1x_typeid_id_menu = 0x3938BA8,
+    t1x_typeid_dyn_menu = 0x38C40B8,
+    t1x_typeid_weapon_upgrades_menu = 0x3932BB0,
 
     t1x_typeid_submenu_item = 0x3938A90,
-    t1x_typeid_task_submenu_item = 0xFFFFFFFFFFFFFFFF,
-    t1x_typeid_noreturn_task_submenu_item = 0xFFFFFFFFFFFFFFFF,
+    t1x_typeid_task_submenu_item = 0x39611F8,
 
-    t1x_typeid_bool_item = 0xFFFFFFFFFFFFFFFF,
-    t1x_typeid_exec_item = 0xFFFFFFFFFFFFFFFF,
-    t1x_typeid_alt_exec_item = 0xFFFFFFFFFFFFFFFF,
-    t1x_typeid_string_item = 0xFFFFFFFFFFFFFFFF,
-    t1x_typeid_string_list_item = 0xFFFFFFFFFFFFFFFF,
-    t1x_typeid_float_item = 0xFFFFFFFFFFFFFFFF,
-    t1x_typeid_decimal_item = 0xFFFFFFFFFFFFFFFF,
-    t1x_typeid_separator_item = 0xFFFFFFFFFFFFFFFF,
-    t1x_typeid_task_history_item = 0xFFFFFFFFFFFFFFFF,
-    t1x_typeid_task_item = 0xFFFFFFFFFFFFFFFF,
-    t1x_typeid_user_item = 0xFFFFFFFFFFFFFFFF,
-    t1x_typeid_timer_item = 0xFFFFFFFFFFFFFFFF,
-    t1x_typeid_unk_item = 0xFFFFFFFFFFFFFFFF,
+    t1x_typeid_bool_item = 0x39380B0,
+    t1x_typeid_exec_item = 0x3938860,
+    t1x_typeid_alt_exec_item = 0x3938978,
+    t1x_typeid_string_list_item = 0x39382E0,
+    t1x_typeid_float_item = 0x3938748,
+    t1x_typeid_decimal_item = 0x3938510,
+    t1x_typeid_separator_item = 0x3937D68,
+    t1x_typeid_task_history_item = 0x3960EB0,
+    t1x_typeid_task_item = 0x3960FC8,
+    t1x_typeid_user_item = 0x39507E8,
+    t1x_typeid_timer_item = 0x381C180,
 
 
 
@@ -100,7 +97,8 @@ typedef enum dmenu_typeid : u_long
     
     uc4r_typeid_submenu_item = 0xFFFFFFFFFFFFFFFF,
     uc4r_typeid_task_submenu_item = 0xFFFFFFFFFFFFFFFF,
-    uc4r_typeid_noreturn_task_submenu_item = 0xFFFFFFFFFFFFFFFF,
+    uc4r_typeid_multiplayer_task_submenu_item = 0xFFFFFFFFFFFFFFFF,
+    uc4r_typeid_survival_task_submenu_item = 0xFFFFFFFFFFFFFFFF,
     
     uc4r_typeid_bool_item = 0xFFFFFFFFFFFFFFFF,
     uc4r_typeid_exec_item = 0xFFFFFFFFFFFFFFFF,
@@ -114,7 +112,7 @@ typedef enum dmenu_typeid : u_long
     uc4r_typeid_task_item = 0xFFFFFFFFFFFFFFFF,
     uc4r_typeid_user_item = 0xFFFFFFFFFFFFFFFF,
     uc4r_typeid_timer_item = 0xFFFFFFFFFFFFFFFF,
-    uc4r_typeid_unk_item = 0xFFFFFFFFFFFFFFFF,
+    uc4r_typeid_checkpoint_item = 0xFFFFFFFFFFFFFFFF,
 
 
 

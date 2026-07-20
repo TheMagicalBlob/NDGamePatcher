@@ -53,11 +53,11 @@ typedef enum wp_type
 
 
 
-extern uint sceShellCoreUtilGetAppLaunchedParamString(int appid, const char * name, char * dst , size_t max);
 
 extern int sceKernelSendNotificationRequest(int, notify_request_t*, size_t, int);
 extern int sceKernelGetAppInfo(pid_t pid, app_info_t *info);
 // extern int sceKernelLoadStartModule(const char *name, uint64_t argc, const void *argv, uint32_t flags, void *, int *result);
+// extern uint sceShellCoreUtilGetAppLaunchedParamString(int appid, const char * name, char * dst , size_t max);
 
 // Not being used atm.
 //! TODO: Reimplement once sigterm is being handled and we can actually close the file handles properly
@@ -298,7 +298,6 @@ static int find_and_trace_game()
             load_menu_base(nd_game.pid, T2RDMENU_DEV_MENU_BASE_PTR, &nd_game.dev_menu_base);
             load_menu_base(nd_game.pid, T2RDMENU_QUICK_MENU_BASE_PTR, &nd_game.quick_menu_base);
             load_menu_base(nd_game.pid, T2RDMENU_FAVORITES_MENU_BASE_PTR, &nd_game.favorites_menu_base);
-            echo("TEST PRINT game title id read (%s -> %lld)", ((char *) ((unsigned long) nd_game.title_id + 1)), *((unsigned long *) ((unsigned long) nd_game.title_id + 1)));
             break;
 
         // T1X
@@ -312,7 +311,6 @@ static int find_and_trace_game()
             load_menu_base(nd_game.pid, T1xDMENU_DEV_MENU_BASE_PTR, &nd_game.dev_menu_base);
             load_menu_base(nd_game.pid, T1xDMENU_QUICK_MENU_BASE_PTR, &nd_game.quick_menu_base);
             load_menu_base(nd_game.pid, T1xDMENU_FAVORITES_MENU_BASE_PTR, &nd_game.favorites_menu_base);
-            echo("TEST PRINT game title id read (%s -> %lld)", ((char *) ((unsigned long) nd_game.title_id + 1)), *((unsigned long *) ((unsigned long) nd_game.title_id + 1)));
             break;
 
 
@@ -327,6 +325,14 @@ static int find_and_trace_game()
 
 
 
+
+
+
+
+
+
+
+// Main payload loop (well, it will be a loop eventually)
 static int start(int module_pid)
 {
     int ret;
@@ -335,10 +341,13 @@ static int start(int module_pid)
     {
         echo("ERROR: Unable to load game");
     }
-    
 
+
+    echo("\n\n\n");
     dump_menu_entries(nd_game, &nd_game.dev_menu_base);
+    echo("\n\n\n");
     dump_menu_entries(nd_game, &nd_game.quick_menu_base);
+    echo("\n\n\n");
     // dump_menu_entries(nd_game, &nd_game.favorites_menu_base);
     goto _detach;
 
@@ -370,7 +379,8 @@ static int start(int module_pid)
 
 void print_exit_message()
 {
-    klog_printf("\n\n========================\n");
+    klog_printf("\n");
+    klog_printf("========================\n");
     klog_printf("| DMenu Payload Exited |\n");
     klog_printf("========================\n\n");
 }
@@ -396,7 +406,17 @@ void cleanup()
 
 void sighandler(int signal)
 {
-    echo("Signal recieved, exiting (%d)", signal);
+    if (signal == SIGSEGV)
+    {
+        echo("Segmentation fault received! Process exiting with error.");
+    }
+    else if (signal == SIGTERM)
+    {
+        echo("Process termiation signal received, process exiting without error.");
+    }
+    else {
+        echo("Miscellaneous signal recieved, exiting (sig: %d)", signal);
+    }
 
     cleanup();
 }

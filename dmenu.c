@@ -24,19 +24,115 @@ int get_dmenu_entry_base_type(pid_t pid, void * item)
         case t2r_typeid_task_item:
         case t2r_typeid_timer_item:
         case t2r_typeid_user_item:
-        case t2r_typeid_unk_item:
+        case t2r_typeid_checkpoint_item:
             return simple_typeid_item;
         
         case t2r_typeid_submenu_item:
-        case t1x_typeid_submenu_item:
         case t2r_typeid_task_submenu_item:
         case t2r_typeid_noreturn_task_submenu_item:
             return simple_typeid_submenu;
 
         case t2r_typeid_dyn_menu:
-        case t2r_typeid_unk_menu:
+        case t2r_typeid_weapon_upgrades_menu:
         case t2r_typeid_id_menu:
             return simple_typeid_menu;
+
+            
+
+
+
+
+        case t1x_typeid_menu_base:
+            return simple_typeid_menu_base;
+
+        case t1x_typeid_bool_item:
+        case t1x_typeid_exec_item:
+        case t1x_typeid_alt_exec_item:
+        case t1x_typeid_float_item:
+        case t1x_typeid_decimal_item:
+        case t1x_typeid_separator_item:
+        case t1x_typeid_string_list_item:
+        case t1x_typeid_task_history_item:
+        case t1x_typeid_task_item:
+        case t1x_typeid_timer_item:
+        case t1x_typeid_user_item:
+            return simple_typeid_item;
+
+        case t1x_typeid_submenu_item:
+        case t1x_typeid_task_submenu_item:
+            return simple_typeid_submenu;
+
+        case t1x_typeid_dyn_menu:
+        case t1x_typeid_weapon_upgrades_menu:
+        case t1x_typeid_id_menu:
+            return simple_typeid_menu;
+
+        
+            
+
+
+
+        // case uc4r_typeid_menu_base:
+        //     return simple_typeid_menu_base;
+
+        // case uc4r_typeid_bool_item:
+        // case uc4r_typeid_exec_item:
+        // case uc4r_typeid_alt_exec_item:
+        // case uc4r_typeid_float_item:
+        // case uc4r_typeid_decimal_item:
+        // case uc4r_typeid_separator_item:
+        // case uc4r_typeid_string_list_item:
+        // case uc4r_typeid_string_item:
+        // case uc4r_typeid_task_history_item:
+        // case uc4r_typeid_task_item:
+        // case uc4r_typeid_timer_item:
+        // case uc4r_typeid_user_item:
+        // case uc4r_typeid_unk_item:
+        //     return simple_typeid_item;
+        
+        // case uc4r_typeid_submenu_item:
+        // case uc4r_typeid_task_submenu_item:
+        // case uc4r_typeid_noreturn_task_submenu_item:
+        //     return simple_typeid_submenu;
+
+        // case uc4r_typeid_dyn_menu:
+        // case uc4r_typeid_unk_menu:
+        // case uc4r_typeid_id_menu:
+        //     return simple_typeid_menu;
+
+        
+            
+
+
+
+        // case tllr_typeid_menu_base:
+        //     return simple_typeid_menu_base;
+        
+        // case tllr_typeid_bool_item:
+        // case tllr_typeid_exec_item:
+        // case tllr_typeid_alt_exec_item:
+        // case tllr_typeid_float_item:
+        // case tllr_typeid_decimal_item:
+        // case tllr_typeid_separator_item:
+        // case tllr_typeid_string_list_item:
+        // case tllr_typeid_string_item:
+        // case tllr_typeid_task_history_item:
+        // case tllr_typeid_task_item:
+        // case tllr_typeid_timer_item:
+        // case tllr_typeid_user_item:
+        // case tllr_typeid_unk_item:
+        //     return simple_typeid_item;
+        
+        // case tllr_typeid_submenu_item:
+        // case tllr_typeid_task_submenu_item:
+        // case tllr_typeid_noreturn_task_submenu_item:
+        //     return simple_typeid_submenu;
+        
+        // case tllr_typeid_dyn_menu:
+        // case tllr_typeid_unk_menu:
+        // case tllr_typeid_id_menu:
+        //     return simple_typeid_menu;
+
 
         default:
             // echo("Unknown value read when getting dmenu item type: %lld", chk);
@@ -51,57 +147,55 @@ char * get_dmenu_entry_type_as_string(long long type)
     switch (type)
     {
         case t2r_typeid_bool_item:
-        // case t1x_typeid_bool_item:
+        case t1x_typeid_bool_item:
             return "bool_item";
         
         case t2r_typeid_exec_item:
-        // case t1x_typeid_exec_item:
+        case t1x_typeid_exec_item:
             return "exec_item";
     
         case t2r_typeid_alt_exec_item:
-        // case t1x_typeid_alt_exec_item:
+        case t1x_typeid_alt_exec_item:
             return "alt_exec_item";
     
         case t2r_typeid_float_item:
-        // case t1x_typeid_float_item:
+        case t1x_typeid_float_item:
             return "float_item";
     
         case t2r_typeid_decimal_item:
-        // case t1x_typeid_decimal_item:
+        case t1x_typeid_decimal_item:
             return "decimal_item";
     
         case t2r_typeid_separator_item:
-        // case t1x_typeid_separator_item:
+        case t1x_typeid_separator_item:
             return "separator_item";
     
         case t2r_typeid_string_list_item:
-        // case t1x_typeid_string_list_item:
+        case t1x_typeid_string_list_item:
             return "string_list_item";
     
         case t2r_typeid_task_history_item:
-        // case t1x_typeid_task_history_item:
+        case t1x_typeid_task_history_item:
             return "task_history_item";
     
         case t2r_typeid_task_item:
-        // case t1x_typeid_task_item:
+        case t1x_typeid_task_item:
             return "task_item";
     
         case t2r_typeid_user_item:
-        // case t1x_typeid_user_item:
+        case t1x_typeid_user_item:
             return "user_item";
     
         case t2r_typeid_timer_item:
-        // case t1x_typeid_timer_item:
+        case t1x_typeid_timer_item:
             return "timer_item";
     
-        case t2r_typeid_unk_item:
-        // case t1x_typeid_unk_item:
-            return "unk_item";
+        case t2r_typeid_checkpoint_item:
+            return "checkpoint_item";
 
 
     
         case t2r_typeid_string_item:
-        // case t1x_typeid_string_item:
             return "string_item";
     
     
@@ -110,26 +204,25 @@ char * get_dmenu_entry_type_as_string(long long type)
             return "submenu_item";
     
         case t2r_typeid_task_submenu_item:
-        // case t1x_typeid_task_submenu_item:
+        case t1x_typeid_task_submenu_item:
             return "task_submenu_item";
     
         case t2r_typeid_noreturn_task_submenu_item:
-        // case t1x_typeid_noreturn_task_submenu_item:
             return "noreturn_task_submenu_item";
 
     
 
         case t2r_typeid_id_menu:
-        // case t1x_typeid_id_menu:
+        case t1x_typeid_id_menu:
             return "menu";
 
         case t2r_typeid_dyn_menu:
-        // case t1x_typeid_dyn_menu:
+        case t1x_typeid_dyn_menu:
             return "dyn_menu";
 
-        case t2r_typeid_unk_menu:
-        // case t1x_typeid_unk_menu:
-            return "unk_menu";
+        case t2r_typeid_weapon_upgrades_menu:
+        case t1x_typeid_weapon_upgrades_menu:
+            return "weapon_upgrades_menu";
 
         // case t1x_typeid_menu_base:
         // case t1x_typeid_menu_base:
