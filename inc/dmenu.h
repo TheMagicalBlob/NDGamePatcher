@@ -70,10 +70,12 @@ typedef enum dmenu_typeid : u_long
 
     t1x_typeid_submenu_item = 0x3938A90,
     t1x_typeid_task_submenu_item = 0x39611F8,
+    t1x_typeid_subtask_submenu_item = 0x39610E0,
 
     t1x_typeid_bool_item = 0x39380B0,
     t1x_typeid_exec_item = 0x3938860,
     t1x_typeid_alt_exec_item = 0x3938978,
+    t1x_typeid_string_item = 0x3938630,
     t1x_typeid_string_list_item = 0x39382E0,
     t1x_typeid_float_item = 0x3938748,
     t1x_typeid_decimal_item = 0x3938510,
@@ -82,6 +84,7 @@ typedef enum dmenu_typeid : u_long
     t1x_typeid_task_item = 0x3960FC8,
     t1x_typeid_user_item = 0x39507E8,
     t1x_typeid_timer_item = 0x381C180,
+    t1x_typeid_checkpoint_item = 0x39381C8,
 
 
 
