@@ -24,14 +24,28 @@ typedef struct app_info
 
 
 
-// from john-tornblom
-pid_t find_pid(const char *name)
+// from john-tornblom. Modified to skip known pids for testing reasons
+pid_t find_pid(const char *name, pid_t pids[])
 {
     int mib[4] = {1, 14, 8, 0};
     pid_t mypid = getpid();
     pid_t pid = -1;
     size_t buf_size;
     uint8_t *buf;
+    int pids_len = -1;
+
+    if (pids)
+    {
+        pids_len = 0;
+
+        for(;; pids_len++)
+        {
+            if (!pids[pids_len])
+            {
+                break;
+            }
+        }
+    }
 
     if (sysctl(mib, 4, 0, &buf_size, 0, 0)) {
         return -1;
@@ -52,7 +66,16 @@ pid_t find_pid(const char *name)
         char *ki_tdname = (char *)&ptr[447];
 
         ptr += ki_structsize;
-        if (!strcmp(name, ki_tdname) && ki_pid != mypid) {
+        if (!strcmp(name, ki_tdname) && ki_pid != mypid)
+        {
+            for(int i = 0; i < pids_len;)
+            {
+                if (ki_pid == pids[i++])
+                {
+                    continue;
+                }
+            }
+
             pid = ki_pid;
         }
     }
@@ -114,7 +137,6 @@ int detach(nd_game_t * nd_game, const char * from)
         return 1;
     }
     echo("Detaching from process %d (%s)", nd_game->pid, from);
-
 
 
     int status;
@@ -483,7 +505,7 @@ void * proc_malloc(nd_game_t * game, int amount)
     regs.r_rdi = amount;
 
 
-    ret = proc_call(game->pid, (void *) game->malloc, (unsigned long *) &allocated_mem, &regs);
+    ret = proc_call(game->pid, (void *) game->func_malloc, (unsigned long *) &allocated_mem, &regs);
     if (ret)
     {
         echo("ERROR: malloc call failed! (ret: %d, amount: %d)", ret, amount);
@@ -507,7 +529,7 @@ int proc_free(nd_game_t * game, void * allocated_mem)
     {
         echo("ERROR: free get_regs call failed!");
     }
-    else if ((ret = proc_call(game->pid, (void *) game->free, NULL, &regs)))
+    else if ((ret = proc_call(game->pid, (void *) game->func_free, NULL, &regs)))
     {
         echo("ERROR: free call failed!");
     }

@@ -26,6 +26,3 @@ int echo(const char * message, ...);
 void log_message(const char * base_string, ...);
 
 void notify(const char * message, ...);
-
-typedef struct nd_game nd_game_t;
-const nd_game_t * get_nd_game();

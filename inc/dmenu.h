@@ -12,6 +12,7 @@ typedef struct dmenu_menu_base dmenu_menu_base_t;
 #define T2R_MALLOC (void *) 0x02a8f690
 
 #define T2R_NOVIS (int8_t *) 0x70cc124
+#define T2R_LOOKUPSYMBOL (void *) 0x051c0c0
 
 
 
@@ -23,7 +24,7 @@ typedef struct dmenu_menu_base dmenu_menu_base_t;
 #define T1x_MALLOC (void *) 0x30ed260
 
 #define T1x_NOVIS (int8_t *) 0x3a10794
-
+#define T1x_LOOKUPSYMBOL (void *) 0x9a9150
 
 
 
@@ -299,9 +300,12 @@ typedef struct nd_game
     dmenu_menu_base_t * quick_menu_base;
     dmenu_menu_base_t * favorites_menu_base;
 
-    int8_t * novis_address;
-    void * malloc;
-    void * free;
+
+    // Addresses of various functions/variables in the game process
+    int8_t * dat_novis;
+    void * func_malloc;
+    void * func_free;
+    void * func_lookup_symbol;
 
 } nd_game_t;
 

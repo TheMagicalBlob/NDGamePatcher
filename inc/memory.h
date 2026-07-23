@@ -5,7 +5,7 @@
 
 
 
-pid_t find_pid(const char * process_name);
+pid_t find_pid(const char * process_name, pid_t pids[]);
 
 int set_dbg_perms();
 

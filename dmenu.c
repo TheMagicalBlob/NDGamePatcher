@@ -627,7 +627,7 @@ void add_novis_option(nd_game_t nd_game)
         {
             //! testing thing, remove
             {
-                echo("\nTemporary address check %llX | %llX\n", read_ulong(nd_game.pid, (unsigned long *) &item_ptr->item_variable_ptr), (unsigned long) nd_game.novis_address);
+                echo("\nTemporary address check %llX | %llX\n", read_ulong(nd_game.pid, (unsigned long *) &item_ptr->item_variable_ptr), (unsigned long) nd_game.dat_novis);
             }
 
             echo("novis already present");
@@ -643,7 +643,7 @@ void add_novis_option(nd_game_t nd_game)
     load_item(nd_game.pid, item_ptr, &item);
 
     write_string(nd_game.pid, item.item_text, "Enable novis");
-    write_ulong(nd_game.pid, (unsigned long *) &item_ptr->item_variable_ptr, (unsigned long) nd_game.novis_address);
+    write_ulong(nd_game.pid, (unsigned long *) &item_ptr->item_variable_ptr, (unsigned long) nd_game.dat_novis);
 
     echo("Novis option added, hopefully");
 }

@@ -66,7 +66,7 @@ static int logfile;
 // The title id of the game being traced
 const char _active_game_id[0xA];
 
-static const nd_game_t * nd_game_ptr;
+const nd_game_t * nd_game_ptr;
 
 
 
@@ -155,12 +155,6 @@ void log_message(const char * base_string, ...)
 }
 
 
-const nd_game_t * get_nd_game()
-{
-    return nd_game_ptr;
-}
-
-
 
 
 
@@ -196,7 +190,7 @@ static int wait_for_game_launch(nd_game_t * nd_game)
 
     // Check for any running eboot.bin //! remember to check for the other possible T2R executable names
 _retry:
-    pid = find_pid("eboot.bin");
+    pid = find_pid("eboot.bin", null);
 
     if (pid <= 0)
     {
@@ -204,7 +198,7 @@ _retry:
         
         do {
             sleep(7);
-            pid = find_pid("eboot.bin");
+            pid = find_pid("eboot.bin", null);
         }
         while (pid <= 0);
 
@@ -312,13 +306,15 @@ static int find_and_trace_game(nd_game_t * nd_game)
         case 3544672884293194576: // PSA15511
         case 3616730478331122512: // PSA15512
             nd_game->game_id = T2R;
-            nd_game->novis_address = T2R_NOVIS;
-            nd_game->malloc = T2R_MALLOC;
-            nd_game->free = T2R_FREE;
             
             nd_game->dev_menu_base = T2RDMENU_DEV_MENU_BASE_PTR;
             nd_game->quick_menu_base = T2RDMENU_QUICK_MENU_BASE_PTR;
             nd_game->favorites_menu_base = T2RDMENU_FAVORITES_MENU_BASE_PTR;
+
+            nd_game->dat_novis = T2R_NOVIS;
+            nd_game->func_malloc = T2R_MALLOC;
+            nd_game->func_free = T2R_FREE;
+            nd_game->func_lookup_symbol = T2R_LOOKUPSYMBOL;
             break;
 
         // T1X
@@ -326,13 +322,15 @@ static int find_and_trace_game(nd_game_t * nd_game)
         case 3617576011346039632: // PSA07642 
         case 3689633605383967568: // PSA07643
             nd_game->game_id = T1x;
-            nd_game->novis_address = T1x_NOVIS;
-            nd_game->malloc = T1x_MALLOC;
-            nd_game->free = T1x_FREE;
             
             nd_game->dev_menu_base = T1xDMENU_DEV_MENU_BASE_PTR;
             nd_game->quick_menu_base = T1xDMENU_QUICK_MENU_BASE_PTR;
             nd_game->favorites_menu_base = T1xDMENU_FAVORITES_MENU_BASE_PTR;
+
+            nd_game->dat_novis = T1x_NOVIS;
+            nd_game->func_malloc = T1x_MALLOC;
+            nd_game->func_free = T1x_FREE;
+            nd_game->func_lookup_symbol = T1x_LOOKUPSYMBOL;
             break;
 
 
@@ -427,24 +425,23 @@ void print_exit_message()
 void cleanup(int exit_code)
 {
     echo("Running cleanup");
-    nd_game_t * nd_game = (nd_game_t *) get_nd_game();
 
-    if (nd_game->pid == (pid_t) 218)
+    if (nd_game_ptr->pid == (pid_t) 218)
     {
         echo("weird duplicate bs caught, exiting");
         exit(0);
     }
 
-    if (nd_game && nd_game->pid)
+    if (nd_game_ptr && nd_game_ptr->pid)
     {
-        echo("Clearing watchpoints and detaching from process %d", nd_game->pid);
-        if (proc_suspend(nd_game->pid))
+        echo("Clearing watchpoints and detaching from process %d", nd_game_ptr->pid);
+        if (proc_suspend(nd_game_ptr->pid))
         {
-            echo("Unable to suspend process %d", nd_game->pid);
+            echo("Unable to suspend process %d", nd_game_ptr->pid);
         }
 
-        clear_watchpoint(nd_game->pid, -1);
-        detach(nd_game, __FUNCTION__);
+        clear_watchpoint(nd_game_ptr->pid, -1);
+        detach((nd_game_t *) nd_game_ptr, __FUNCTION__);
     }
 
     if (logfile)
@@ -490,25 +487,49 @@ int main()
     
     atexit(print_exit_message);
 
-
-    // Kill any previous instances
-    pid_t pid;
-    if ((pid = find_pid(PAYLOAD_NAME)) > 0)
-    {
-        printf("Killing old instance (pid: %d)...\n", pid);
-
-        if (kill(pid, SIGTERM))
-        {
-            perror("SIGTERM ERROR: ");
-            return 1;
-        }
-
-        notify("Killed previous %s instance, exiting", PAYLOAD_NAME);
-        return 0;
-    }
-
     sigaction(SIGTERM, &handler, NULL);
     sigaction(SIGSEGV, &handler, NULL);
+
+
+
+    // Kill any previous instances
+    int saved_pids = 0;
+    pid_t pid, pids[0x10];
+    if ((pid = find_pid(PAYLOAD_NAME, pids)) > 0)
+    {
+        do{
+            printf("Killing old instance (pid: %d)...\n", pid);
+
+            if (kill(pid, SIGTERM))
+            {
+                echo("SIGTERM ERROR (%d)", pid);
+                break;
+            }
+
+            sleep(5);
+            if (find_pid(PAYLOAD_NAME, pids))
+            {
+                echo("Old payload instance still running, sending kill signal instead");
+                if (kill(pid, SIGKILL))
+                {
+                    echo("SIGKILL ERROR (%d)", pid);
+                }
+
+                pids[saved_pids++] = pid;
+            }
+            else {
+                notify("Sent termination signal to previous %s instance", PAYLOAD_NAME);
+            }
+
+        }
+        while ((pid = find_pid(PAYLOAD_NAME, pids)) > 0);
+
+
+        echo("exiting");
+        exit(0);
+
+        return 1;
+    }
 
     
 
