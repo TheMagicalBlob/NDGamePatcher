@@ -23,7 +23,7 @@ else
     $(error PS5_PAYLOAD_SDK is undefined)
 endif
 
-ELF := t2r.prx
+ELF := dmenu_payload.bin
 
 CFLAGS := -Wall -g
 

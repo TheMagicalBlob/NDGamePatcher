@@ -224,7 +224,7 @@ typedef struct dmenu_menu // 0xE0
     void * function_array;
     char unused1[0x8]; // Always zero
     char item_text_buffer[0x20];
-    char * item_text;
+    char * menu_name;
     dmenu_menu_t * parent_menu;
     const char * next_item; // Next item in the regular entries. seems to still be read here, though
     const unsigned short horizontal_padding;
@@ -291,12 +291,13 @@ typedef struct dmenu_menu_base // x >= 0x328
 typedef struct nd_game
 {
     pid_t pid;
+    int status;
     game_id_t game_id;
     char title_id[0xA];
     uint32_t app_id;
-    dmenu_menu_base_t dev_menu_base;
-    dmenu_menu_base_t quick_menu_base;
-    dmenu_menu_base_t favorites_menu_base;
+    dmenu_menu_base_t * dev_menu_base;
+    dmenu_menu_base_t * quick_menu_base;
+    dmenu_menu_base_t * favorites_menu_base;
 
     int8_t * novis_address;
     void * malloc;

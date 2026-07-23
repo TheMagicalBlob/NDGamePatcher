@@ -17,7 +17,7 @@ along with this program; see the file COPYING. If not, see
 #include "inc/memory.h"
 #include "inc/dmenu.h"
 
-#define MODULE_NAME "t2p.prx"
+#define PAYLOAD_NAME "dmenu_payload.bin"
 #define printf(s, ...) klog_printf(s, __VA_ARGS__)
 
 
@@ -66,7 +66,7 @@ static int logfile;
 // The title id of the game being traced
 const char _active_game_id[0xA];
 
-nd_game_t nd_game;
+static const nd_game_t * nd_game_ptr;
 
 
 
@@ -89,7 +89,14 @@ int echo(const char * str, ...)
     char msg[4000];
     len = vsnprintf(msg, sizeof(msg) - 2, str, list);
     
-    klog_printf("%s\n", msg);
+    if (nd_game_ptr)
+    {
+        klog_printf("%d: %s\n", nd_game_ptr->pid, msg);
+    }
+    else{
+        klog_printf("%d: %s\n", 0, msg);
+    }
+
     log_message("%s\n", msg);
     va_end(list);
     
@@ -148,6 +155,11 @@ void log_message(const char * base_string, ...)
 }
 
 
+const nd_game_t * get_nd_game()
+{
+    return nd_game_ptr;
+}
+
 
 
 
@@ -167,7 +179,8 @@ void log_message(const char * base_string, ...)
 //! TODO: Add support for the other naughtydog executable names so the payload works regardless of which is running
 static int wait_for_game_launch(nd_game_t * nd_game)
 {
-    pid_t pid;
+    pid_t pid, skipped_ids[0x10];
+
     int ret, attempts = 0;
     char * titleids[7] =
     {
@@ -180,8 +193,6 @@ static int wait_for_game_launch(nd_game_t * nd_game)
         "PPSA07643",
     };
 
-    pid_t skipped_ids[0x10];
-
 
     // Check for any running eboot.bin //! remember to check for the other possible T2R executable names
 _retry:
@@ -190,16 +201,15 @@ _retry:
     if (pid <= 0)
     {
         echo("Unable to find eboot, waiting a few seconds before retrying");
-        sleep(7);
         
         do {
+            sleep(7);
             pid = find_pid("eboot.bin");
         }
         while (pid <= 0);
 
-
-        // process started- wait 20 seconds for the game to finish launching
-        sleep(20);
+        // process started- wait 25 seconds for the game to finish launching
+        sleep(25);
     }
 
     // Skip any pid's that have already been checked and fell through
@@ -215,8 +225,10 @@ _retry:
         }
     }
     
-    echo("Found eboot.bin (pid %d), getting title id...", pid);
+
+
     
+    echo("Found eboot.bin (pid %d), getting title id...", pid);
     
     app_info_t app_info;
     ret = sceKernelGetAppInfo(pid, &app_info);
@@ -229,6 +241,7 @@ _retry:
 
     
 
+
     for (int i = 0; i < sizeof(titleids); i++)
     {
         if (!strncmp(app_info.title_id, titleids[i], 0xA))
@@ -240,23 +253,21 @@ _retry:
                 echo("ERROR: unknown issue setting debug perms. (set_dbg_perms returned %d)", status);
                 return 1;
             }
+
+            echo("Saving app info...");
+            nd_game->pid = pid;
+            nd_game->app_id = app_info.app_id;
+            strncpy(nd_game->title_id, app_info.title_id, 0xA);
             
-            if ((status = attach(pid)))
+            if ((status = attach(*nd_game)))
             {
                 return 1;
             }
 
 
-            echo("Saving app info...");
-            nd_game->app_id = app_info.app_id;
-            nd_game->pid = pid;
-            strncpy(nd_game->title_id, app_info.title_id, 9);
-
-
             notify("Attached to game process.\nTitle ID: %s\nApp ID: %lX\nProcess ID: %d", nd_game->title_id, nd_game->app_id, pid);
             
-            echo("Waiting for pid...");
-            proc_wait(pid);
+            proc_wait(nd_game);
             echo("Process paused");
             return 0;
         }
@@ -264,8 +275,8 @@ _retry:
 
 
     echo("Application did not match any known title ids, retrying in 5 seconds");
-    skipped_ids[attempts++] = pid;
-    sleep(5);
+    skipped_ids[attempts++] = pid; // Only add the pid to skipped processes if we don't recognize the title id
+    sleep(4);
     goto _retry;
 }
 
@@ -274,54 +285,65 @@ _retry:
 
 
 
-static int find_and_trace_game()
+static int find_and_trace_game(nd_game_t * nd_game)
 {
-    bzero(&nd_game, sizeof(nd_game_t));
+    // Reset the current game instance
+    bzero(nd_game, sizeof(nd_game_t));
 
-    while (wait_for_game_launch(&nd_game))
+    // unsigned long id_check;
+    unsigned char retries = 0;
+    while (wait_for_game_launch(nd_game) && (retries < (unsigned char) 4))
     {
-        echo("Error occured when waiting for game launch, waiting moment and retrying (10 seconds)");
+        ++retries;
+        echo("Error occured when waiting for game launch, waiting moment and retrying (5 seconds)");
         sleep(5);
-        echo("5 seconds");
+        echo("Retrying now.");
     }
 
     
-    switch(*((unsigned long *) ((unsigned long) nd_game.title_id + 1)))
+
+    
+    // switch((id_check = *(unsigned long *) ((unsigned long) nd_game.title_id) + 1))
+    switch(*((unsigned long *) ((unsigned long) nd_game->title_id + 1)))
     {
         // T2R
         case 3618138931251467088: // PSA10662
         case 4048794567581979472: // PSA15508
         case 3544672884293194576: // PSA15511
         case 3616730478331122512: // PSA15512
-            nd_game.game_id = T2R;
-            nd_game.novis_address = T2R_NOVIS;
-            nd_game.malloc = T2R_MALLOC;
-            nd_game.free = T2R_FREE;
-            load_menu_base(nd_game.pid, T2RDMENU_DEV_MENU_BASE_PTR, &nd_game.dev_menu_base);
-            load_menu_base(nd_game.pid, T2RDMENU_QUICK_MENU_BASE_PTR, &nd_game.quick_menu_base);
-            load_menu_base(nd_game.pid, T2RDMENU_FAVORITES_MENU_BASE_PTR, &nd_game.favorites_menu_base);
+            nd_game->game_id = T2R;
+            nd_game->novis_address = T2R_NOVIS;
+            nd_game->malloc = T2R_MALLOC;
+            nd_game->free = T2R_FREE;
+            
+            nd_game->dev_menu_base = T2RDMENU_DEV_MENU_BASE_PTR;
+            nd_game->quick_menu_base = T2RDMENU_QUICK_MENU_BASE_PTR;
+            nd_game->favorites_menu_base = T2RDMENU_FAVORITES_MENU_BASE_PTR;
             break;
 
         // T1X
         case 3907210446666552144: // PSA03396
         case 3617576011346039632: // PSA07642 
         case 3689633605383967568: // PSA07643
-            nd_game.game_id = T1x;
-            nd_game.novis_address = T1x_NOVIS;
-            nd_game.malloc = T1x_MALLOC;
-            nd_game.free = T1x_FREE;
-            load_menu_base(nd_game.pid, T1xDMENU_DEV_MENU_BASE_PTR, &nd_game.dev_menu_base);
-            load_menu_base(nd_game.pid, T1xDMENU_QUICK_MENU_BASE_PTR, &nd_game.quick_menu_base);
-            load_menu_base(nd_game.pid, T1xDMENU_FAVORITES_MENU_BASE_PTR, &nd_game.favorites_menu_base);
+            nd_game->game_id = T1x;
+            nd_game->novis_address = T1x_NOVIS;
+            nd_game->malloc = T1x_MALLOC;
+            nd_game->free = T1x_FREE;
+            
+            nd_game->dev_menu_base = T1xDMENU_DEV_MENU_BASE_PTR;
+            nd_game->quick_menu_base = T1xDMENU_QUICK_MENU_BASE_PTR;
+            nd_game->favorites_menu_base = T1xDMENU_FAVORITES_MENU_BASE_PTR;
             break;
 
 
         default:
-            bzero(&nd_game, sizeof(nd_game_t));
-            echo("Unknown game title id read (%s -> %lld)", ((char *) ((unsigned long) nd_game.title_id + 1)), *((unsigned long *) ((unsigned long) nd_game.title_id + 1)));
+            echo("Unknown game title id read (%llu)", *((unsigned long *) ((unsigned long) nd_game->title_id + 1)));
+            detach(nd_game, __FUNCTION__);
+            bzero(nd_game, sizeof(nd_game_t));
             return 1;
     }
 
+    echo("Game id: %d", nd_game->game_id);
     return 0;
 }
 
@@ -335,31 +357,59 @@ static int find_and_trace_game()
 
 
 // Main payload loop (well, it will be a loop eventually)
-static int start(int module_pid)
+static int start(nd_game_t * nd_game, int module_pid)
 {
     int ret;
-    ret = find_and_trace_game();
+
+_start:
+    ret = find_and_trace_game(nd_game);
     if (ret)
     {
         echo("ERROR: Unable to load game");
+        sleep(5);
+        goto _start;
     }
 
+    echo("Adding novis option");
     // Make sure novis is present
-    add_novis_option(nd_game);
+    add_novis_option(*nd_game);
     
+
     dmenu_item_t item;
-    load_item(nd_game.pid, find_item(nd_game, "Manual Camera", 1), &item);
-    ret = set_watchpoint(nd_game.pid, 0, item.event_handler, DBREG_DR7_EXEC, DBREG_DR7_LEN_1);
+    dmenu_item_t * mancam_ptr;
+
+    echo("Adding wp to manual camera eh option");
+    mancam_ptr = find_item(*nd_game, "Manual Camera", 1);
+
+    if (mancam_ptr != nullptr)
+    {
+        load_item(nd_game->pid, mancam_ptr, &item);
+    }
+
+
+
+    ret = set_watchpoint(nd_game->pid, 0, item.event_handler, DBREG_DR7_EXEC, DBREG_DR7_LEN_1);
     if (ret)
     {
-        echo("Error setting watchpoint, aborting.");
+        echo("Error setting watchpoint, aborting as something has gone wrong.");
         goto _detach;
     }
 
-    // Resume the process now that the breakpoint's set on all threads
-    proc_continue(nd_game.pid, nullptr);
-    proc_wait(nd_game.pid); // Wait for it to be hit
+    // Resume the process and wait for the watchpoint to be hit
+    proc_continue(nd_game->pid, nullptr);
+    if (proc_wait(nd_game))
+    {
+        // Process has exited, reset and wait for it to respawn
+        echo("%s has exited.", nd_game->title_id);
+        goto _start;
+    }
 
+
+    echo("==================");
+    echo("| Watchpoint Hit |");
+    echo("==================");
+    clear_watchpoint(nd_game->pid, 0);
+    proc_continue(nd_game->pid, nullptr);
 
     _detach:
     return 0;
@@ -371,22 +421,30 @@ static int start(int module_pid)
 
 void print_exit_message()
 {
-    klog_printf("\n");
-    klog_printf("========================\n");
-    klog_printf("| DMenu Payload Exited |\n");
-    klog_printf("========================\n\n");
+    klog_printf("\n========================\n| DMenu Payload Exited |\n========================\n\n");
 }
 
-void cleanup()
+void cleanup(int exit_code)
 {
-    if (*(char *)&nd_game)
+    echo("Running cleanup");
+    nd_game_t * nd_game = (nd_game_t *) get_nd_game();
+
+    if (nd_game->pid == (pid_t) 218)
     {
-        echo("Clearing watchpoints and detaching from process");
+        echo("weird duplicate bs caught, exiting");
+        exit(0);
+    }
 
-        proc_suspend(nd_game.pid);
+    if (nd_game && nd_game->pid)
+    {
+        echo("Clearing watchpoints and detaching from process %d", nd_game->pid);
+        if (proc_suspend(nd_game->pid))
+        {
+            echo("Unable to suspend process %d", nd_game->pid);
+        }
 
-        clear_watchpoint(nd_game.pid, -1);
-        detach(nd_game.pid, __FUNCTION__);
+        clear_watchpoint(nd_game->pid, -1);
+        detach(nd_game, __FUNCTION__);
     }
 
     if (logfile)
@@ -395,13 +453,16 @@ void cleanup()
         close(logfile);
     }
 
-    exit(0);
+    echo("Exiting");
+    exit(exit_code);
 }
 
 
 void sighandler(int signal)
 {
-    if (signal == SIGSEGV)
+    int exit_code = signal == SIGSEGV;
+
+    if (exit_code)
     {
         echo("Segmentation fault received! Process exiting with error.");
     }
@@ -413,14 +474,14 @@ void sighandler(int signal)
         echo("Miscellaneous signal recieved, exiting (sig: %d)", signal);
     }
 
-    cleanup();
+    cleanup(exit_code);
 }
 
 
 int main()
 {
     // Set thread name
-    syscall(SYS_thr_set_name, -1, MODULE_NAME);
+    syscall(SYS_thr_set_name, -1, PAYLOAD_NAME);
     
     // Set cleanup shit so I can stop rebooting the game every time the payload is killed
     struct sigaction handler;
@@ -428,36 +489,39 @@ int main()
     handler.__sigaction_u.__sa_handler = sighandler;
     
     atexit(print_exit_message);
-    sigaction(SIGTERM, &handler, NULL);
-    sigaction(SIGSEGV, &handler, NULL);
-    
 
 
     // Kill any previous instances
-    int ret, pid;
-    while ((pid = find_pid(MODULE_NAME)) > 0)
+    pid_t pid;
+    if ((pid = find_pid(PAYLOAD_NAME)) > 0)
     {
         printf("Killing old instance (pid: %d)...\n", pid);
 
-        if ((ret = kill(pid, SIGTERM)))
+        if (kill(pid, SIGTERM))
         {
-            perror("SIGKILL ERROR: ");
-            break;
+            perror("SIGTERM ERROR: ");
+            return 1;
         }
-        
-        const char * msg = "Killed previous %s instance, exiting.";
-        notify(msg, MODULE_NAME);
-        echo(msg, MODULE_NAME);
+
+        notify("Killed previous %s instance, exiting", PAYLOAD_NAME);
         return 0;
     }
+
+    sigaction(SIGTERM, &handler, NULL);
+    sigaction(SIGSEGV, &handler, NULL);
+
     
 
 
     // Payload start
-    echo("Proceeding with new %s instance", MODULE_NAME);
-    start(getpid());
+    echo("Proceeding with new %s instance", PAYLOAD_NAME);
+
+    nd_game_t nd_game;
+    nd_game_ptr = (const nd_game_t *) &nd_game;
     
-    cleanup();
+    start(&nd_game, getpid());
+    
+    cleanup(0);
     return 0;
 }
 

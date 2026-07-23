@@ -9,9 +9,11 @@ pid_t find_pid(const char * process_name);
 
 int set_dbg_perms();
 
-int attach(int pid);
-int detach(int pid, const char * from);
-void proc_wait(pid_t pid);
+
+typedef struct nd_game nd_game_t;
+int attach(nd_game_t nd_game);
+int detach(nd_game_t * nd_game, const char * from);
+int proc_wait(nd_game_t * md_game);
 
 int proc_suspend(pid_t pid);
 int proc_continue(pid_t pid, void * resume);
@@ -45,6 +47,6 @@ int write_double(int pid, void * address, double value);
 float read_single(int pid, unsigned long address);
 int write_single(int pid, unsigned long address, float value);
 
-int read_string(int pid, void * address, char * buffer);
+int read_string(int pid, const char * address, char * buffer);
 int write_string(int pid, void * address, const char * str);
 

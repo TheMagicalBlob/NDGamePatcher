@@ -88,29 +88,37 @@ int set_dbg_perms()
 //## ptrace debugging functions
 //#
 
-int attach(int pid)
+int attach(nd_game_t nd_game)
 {
-    int status;
-    if ((status = ptrace(PT_ATTACH, pid, 0, 0)) != 0)
+    int ret;
+    if ((ret = ptrace(PT_ATTACH, nd_game.pid, 0, 0)) != 0)
     {
-        notify("PT_ATTACH ERROR: %s\n", strerror(status));
+        notify("PT_ATTACH ERROR: %s\n", strerror(ret));
         
-        if(kill(pid, SIGCONT))
+        if(kill(nd_game.pid, SIGCONT))
         {
             echo("WARNING: Unable to resume process through SIGCONT");
         }
     }
     
-    echo("Attached to pid %d", pid);
-    return status;
+    echo("Attached to pid %d", nd_game.pid);
+    return ret;
 }
 
-int detach(int pid, const char * from)
+
+int detach(nd_game_t * nd_game, const char * from)
 {
-    echo("Detaching from process %d (%s)", pid, from);
+    if (nd_game->pid <= 0)
+    {
+        echo("%s: Invalid pid provided (%d).", __FUNCTION__, nd_game->pid);
+        return 1;
+    }
+    echo("Detaching from process %d (%s)", nd_game->pid, from);
+
+
 
     int status;
-    if ((status = ptrace(PT_DETACH, pid, 0, 0)) != 0)
+    if ((status = ptrace(PT_DETACH, nd_game->pid, 0, 0)) != 0)
     {
         perror("PT_DETACH ERROR: ");
     }
@@ -118,28 +126,45 @@ int detach(int pid, const char * from)
         notify("Detached, exiting.");
     }
 
-    kill(pid, SIGCONT);
+    echo("Detached from process, sending sigcont and zeroing nd_game struct");
+    kill(nd_game->pid, SIGCONT);
+    bzero(nd_game, sizeof(nd_game_t));
 
     return status;
 }
 
 
-void proc_wait(pid_t pid)
-{
-    int status;
 
-    echo("waiting for %d.", pid);
-    waitpid(pid, &status, 0);
-    echo("Status of stopped process: %lX", status);
+
+
+
+// Wait for the secified process to either be trapped, or exit
+// Returns the result of WIFEXITED
+int proc_wait(nd_game_t * game)
+{
+    echo("waiting for pid %d.", game->pid);
+
+    if (waitpid(game->pid, &game->status, WTRAPPED | WEXITED/*| WUNTRACED*/) == -1) // WTRAPPED and WEXITED are set implicitly for waitpid, but I'm leaving them to remind me what the args are without re-reading the docs if I forget
+    {
+        echo("waitpid: no children not previously awaited");
+    }
+
+    echo("Status of stopped process: %lX", game->status);
+
+
+    return WIFEXITED(game->status);
 }
+
+
+
+
 
 
 int proc_suspend(pid_t pid)
 {
     // fairly sure I'd need to use PT_SUSPEND on every thread, so screw it, I'll just use the stop signal
-    if (kill(pid, SIGSTOP) < 0)
+    if (kill(pid, SIGSTOP) != 0)
     {
-        perror("SIGSTOP ERROR: ");
         echo("Error suspending process; whatever we're doing is about to crash this payload and kill the game process");
         return 1;
     }
@@ -149,10 +174,13 @@ int proc_suspend(pid_t pid)
 
 
 
+
+
+
 int proc_continue(pid_t pid, void * resume)
 {
     int ret;
-    if (!resume)
+    if (resume == nullptr)
     {
         resume = (void *) 1; // (continue where it left off)
     }
@@ -164,6 +192,8 @@ int proc_continue(pid_t pid, void * resume)
 
     return ret;
 }
+
+
 
 
 
@@ -190,6 +220,9 @@ int set_regs(pid_t pid, struct reg * regs)
     
     return ret;
 }
+
+
+
 
 
 
@@ -288,6 +321,8 @@ _ret:
 }
 
 
+
+
 int clear_watchpoint(pid_t pid, short index)
 {
     echo("Clearing watchpoint #%d", index);
@@ -326,10 +361,8 @@ int clear_watchpoint(pid_t pid, short index)
 
 
 
-
 unsigned long long read_ulong(int pid, unsigned long * address);
 int write_ulong(int pid, unsigned long * address, unsigned long value);
-
 // Setup a function call at the specified function_address in the tracee.
 int proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr, struct reg * arg_regs)
 {
@@ -508,7 +541,7 @@ static int proc_read(pid_t pid, int len, void * addr, void * buffer, const char 
 {
     if (!addr || !buffer)
     {
-        echo("ERROR:\n# ptrace PT_IO (read)\nInput or output address was null");
+        echo("ERROR:\n# %s->ptrace PT_IO (read)\nInput or output address was null (addr: %llX  buffer: %llX)", caller, addr, buffer);
         return 1;
     }
 
@@ -704,11 +737,9 @@ int write_single(int pid, unsigned long address, float value)
 
 
 // Read a null-terminated string of characters from the traced process' memory from the provided address.
-// Returns the amount of characters written, or -1 if a null pointer was provided for either the source or the destination
-int read_string(int pid, void * address, char * buffer)
+// Returns the amount of characters written, or 0 if there were any errors such as a null string or buffer pointer, or an I/O issue
+int read_string(int pid, const char * address, char * buffer)
 {
-    // echo("reading string from 0x%llX", address);
-
     if (address == 0)
     {
         echo("null string pointer provided.");
@@ -716,18 +747,19 @@ int read_string(int pid, void * address, char * buffer)
     }
     
 
-    if (read_byte(pid, address) <= 0) 
+    if (read_byte(pid, (void *) address) <= 0) 
     {
         echo("Empty string at address 0x%llX.", (unsigned long long) address);
         return 0;
     }
     
  
+    // Get string length
     int len = 0;
-    for (; read_byte(pid, address + len) != 0; ++len);
+    for (; read_byte(pid, (void *) address + len) != 0; ++len);
     
     
-    
+    // Read string for len bytes
     for(long long i = 0; i < len; ++i)
     {
         *(char *) (buffer + i) = read_byte(pid, (void *) address + i);
@@ -736,6 +768,7 @@ int read_string(int pid, void * address, char * buffer)
 
     return len;
 }
+
 
 
 // Write a null-terminated string of characters to the traced process' memory.

@@ -246,63 +246,94 @@ char * get_dmenu_entry_type_as_string(long long type)
 
 static void * find_dmenu_entry(nd_game_t nd_game, const char * expected_entry_name, dmenu_simple_type_t expected_base_type, char parent_index)
 {
-    dmenu_menu_base_t * parent_base;
-    parent_base = (dmenu_menu_base_t *) ((unsigned long) (&nd_game.dev_menu_base) + sizeof(dmenu_menu_base_t) * (parent_index < 0 ? 0 : parent_index > 2 ? 2 : parent_index));
+    dmenu_menu_base_t parent_base;
+    dmenu_menu_base_t * p_parent_base;
 
-    if (parent_base->menu == 0)
+    if (parent_index < 0 || parent_index > 2)
     {
-        echo("ERROR: Empty menu base pointer provided. (%s)", parent_base->item_text);
-        return nullptr;
+        echo("Invalid parent menu index provided, defaulting to dev menu");
+        parent_index = 0;
     }
 
+    // Determine which menu base pointer to use
+    switch(parent_index)
+    {
+        case 0:
+            p_parent_base = nd_game.dev_menu_base;
+            break;
 
-    char parent_name[0x40];
-    read_string(nd_game.pid, parent_base->item_text, parent_name);
+        case 1:
+            p_parent_base = nd_game.quick_menu_base;
+            break;
+        
+        case 2:
+            p_parent_base = nd_game.favorites_menu_base;
+            break;
+    }
 
-    dmenu_menu_t menu;
-    read_bytes(nd_game.pid, sizeof(dmenu_menu_t), parent_base->menu, &menu);
+    echo("Parent base: 0x%llX", p_parent_base);
+
+    load_menu_base(nd_game.pid, p_parent_base, &parent_base);
+
+    if (parent_base.menu == 0)
+    {
+        echo("ERROR: Empty menu base pointer provided. (%s)", parent_base.item_text ? parent_base.item_text : (char *) &parent_base.item_text_buffer);
+        return nullptr;
+    }
     
+    
+    echo("Reading menu from %llX", parent_base.menu);
+    dmenu_menu_t menu;
+    read_bytes(nd_game.pid, sizeof(dmenu_menu_t), parent_base.menu, &menu);
+    
+    char parent_name[0x40];
     void * entry_ptr;
+
+    bzero(parent_name, 0x40);
+    read_string(nd_game.pid, menu.menu_name, parent_name);
+
     if((entry_ptr = menu.first_item) == 0)
     {
-        echo("menu contains no items, aborting");
+        echo("menu %s contains no items, aborting", parent_name);
         return nullptr;
     }
     
-    
-    bzero(parent_name, 0x40);
-    read_string(nd_game.pid, menu.item_text, parent_name);
     echo("Searching %s for %s", parent_name, expected_entry_name);
     
     
     char next_is_menu = 0;
 
     void * history[0x20]; // surely there's no place with a submenu depth even approaching 32, so this should be more than sufficient in size
-    
     dmenu_item_t item;
     char entry_name[0x80];
     
     dmenu_simple_type_t base_type;
     
     
-    int depth = 0;
     size_t len;
     len = strlen(expected_entry_name);
-
+    
+    int depth = 0, ret;
     while(entry_ptr != nullptr)
     {
-        bzero(&item, sizeof(item));
-        bzero(&menu, sizeof(menu));
         base_type = get_dmenu_entry_base_type(nd_game.pid, entry_ptr);
         
         // Menu
         if (next_is_menu)
         {
-            read_bytes(nd_game.pid, sizeof(dmenu_menu_t), entry_ptr, &menu);
-            
-            // echo("Reading string (menu @%llX)...", entry_ptr);
-            read_string(nd_game.pid, menu.item_text, entry_name);
-            // echo("!!!!!! %s !!!!!!", entry_name);
+            ret = read_bytes(nd_game.pid, sizeof(dmenu_menu_t), entry_ptr, &menu);
+            if (ret)
+            {
+                break;
+            }
+
+            ret = read_string(nd_game.pid, menu.menu_name, entry_name);
+            if (!ret)
+            {
+                break;
+            }
+
+
 
             if (expected_base_type == base_type && !strncmp(expected_entry_name, entry_name, len))
             {
@@ -323,9 +354,7 @@ static void * find_dmenu_entry(nd_game_t nd_game, const char * expected_entry_na
                 goto no_text;
             }
             
-            // echo("Reading string (item @%llX)...", entry_ptr);
             read_string(nd_game.pid, item.item_text, entry_name);
-            // echo("!!!!!! %s !!!!!!", entry_name);
 
 
             if (expected_base_type == base_type && !strncmp(expected_entry_name, entry_name, len))
@@ -403,7 +432,7 @@ dmenu_item_t * find_submenu(nd_game_t nd_game, const char * submenu_name, char p
 
 
 
-// Copy the dmenu_menu_base_t at the provided address in the traced process' memory into the provided menu base struct
+// Copy the dmenu_menu_base_t pointed to by the dmenu_menu_base_t * at the provided address in the traced process' memory into the provided menu base struct
 int load_menu_base(pid_t pid, void * address, dmenu_menu_base_t * menu_base)
 {
     return read_bytes(pid, sizeof(dmenu_menu_base_t), (void *) read_ulong(pid, (unsigned long *) address), menu_base);
@@ -443,7 +472,7 @@ void dump_menu_entries(nd_game_t nd_game, dmenu_menu_base_t * parent_base)
     void * entry_ptr;
     if((entry_ptr = menu.first_item) == 0)
     {
-        echo("ERROR:\n# %s %s has no entries (%d).\n# Aborting.", get_dmenu_entry_type_as_string(*(unsigned long long *) &menu), menu.item_text, entry_ptr);
+        echo("ERROR:\n# %s %s has no entries (%d).\n# Aborting.", get_dmenu_entry_type_as_string(*(unsigned long long *) &menu), menu.menu_name, entry_ptr);
     }
     
     
@@ -483,8 +512,8 @@ void dump_menu_entries(nd_game_t nd_game, dmenu_menu_base_t * parent_base)
         {
             read_bytes(nd_game.pid, sizeof(dmenu_menu_t), entry_ptr, &menu);
             
-            read_string(nd_game.pid, menu.item_text, item_name);
-            read_string(nd_game.pid, (void *) read_ulong(nd_game.pid, (unsigned long *) &menu.parent_menu->item_text), parent_name);
+            read_string(nd_game.pid, menu.menu_name, item_name);
+            read_string(nd_game.pid, (void *) read_ulong(nd_game.pid, (unsigned long *) &menu.parent_menu->menu_name), parent_name);
 
             echo(output_format, entry_ptr, padding, item_name, dtype, type, parent_name);
             
@@ -506,7 +535,7 @@ void dump_menu_entries(nd_game_t nd_game, dmenu_menu_base_t * parent_base)
 
 
 
-            read_string(nd_game.pid, (void *) read_ulong(nd_game.pid, (unsigned long *) &item.parent_menu->item_text), parent_name);
+            read_string(nd_game.pid, (void *) read_ulong(nd_game.pid, (unsigned long *) &item.parent_menu->menu_name), parent_name);
 
             echo(output_format, entry_ptr, padding, item_name, dtype, type, parent_name);
             
@@ -591,6 +620,7 @@ void add_novis_option(nd_game_t nd_game)
 {
     dmenu_item_t * item_ptr;
     item_ptr = find_item(nd_game, "Draw World Axes", 0);
+
     if (!item_ptr)
     {
         if ((item_ptr = find_item(nd_game, "novis", 0)))
