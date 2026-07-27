@@ -271,7 +271,6 @@ static void * find_dmenu_entry(nd_game_t nd_game, const char * expected_entry_na
             break;
     }
 
-    echo("Parent base: 0x%llX", p_parent_base);
 
     load_menu_base(nd_game.pid, p_parent_base, &parent_base);
 
@@ -282,7 +281,6 @@ static void * find_dmenu_entry(nd_game_t nd_game, const char * expected_entry_na
     }
     
     
-    echo("Reading menu from %llX", parent_base.menu);
     dmenu_menu_t menu;
     read_bytes(nd_game.pid, sizeof(dmenu_menu_t), parent_base.menu, &menu);
     
@@ -390,7 +388,6 @@ static void * find_dmenu_entry(nd_game_t nd_game, const char * expected_entry_na
     }
 
 
-    echo("Unable to find item \"%s\"", expected_entry_name);
     return nullptr;
 }
 
@@ -597,14 +594,10 @@ int t2_example_call(pid_t pid)
     }
 
 
-
-    dmenu_menu_base_t * fav;
-    fav = (dmenu_menu_base_t *) read_ulong(pid, (u_long *) T2RDMENU_FAVORITES_MENU_BASE_PTR);
     
-    args.r_rdi = (long long) &fav->open_menu;
-    args.r_rsi = (long long) !read_byte(pid, &fav->open_menu);
+    args.r_rsi = 5;
 
-    if ((ret = proc_call(pid, (unsigned long *) 0x16c7bf0, (unsigned long *) &check, &args)) != 0)
+    if ((ret = proc_call(pid, (unsigned long *) 0x16cc660, (unsigned long *) &check, &args)) != 0)
     {
         echo("ERROR: %s call failed! (ret: %d)", __FUNCTION__);
     }
@@ -625,12 +618,6 @@ void add_novis_option(nd_game_t nd_game)
     {
         if ((item_ptr = find_item(nd_game, "novis", 0)))
         {
-            //! testing thing, remove
-            {
-                echo("\nTemporary address check %llX | %llX\n", read_ulong(nd_game.pid, (unsigned long *) &item_ptr->item_variable_ptr), (unsigned long) nd_game.dat_novis);
-            }
-
-            echo("novis already present");
             return;
         }
 
@@ -644,6 +631,4 @@ void add_novis_option(nd_game_t nd_game)
 
     write_string(nd_game.pid, item.item_text, "Enable novis");
     write_ulong(nd_game.pid, (unsigned long *) &item_ptr->item_variable_ptr, (unsigned long) nd_game.dat_novis);
-
-    echo("Novis option added, hopefully");
 }

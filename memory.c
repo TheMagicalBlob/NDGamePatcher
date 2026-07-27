@@ -345,9 +345,9 @@ _ret:
 
 
 
+// Clear the watchpoint in the process at the specified index, or all watchpoints if a value less than zero is provided
 int clear_watchpoint(pid_t pid, short index)
 {
-    echo("Clearing watchpoint #%d", index);
     int ret;
     if (index > 3)
     {
@@ -360,10 +360,12 @@ int clear_watchpoint(pid_t pid, short index)
         return 1;
     }
 
-
-
-    if (index < 0) // clear all watchpoints
+    
+    
+    if (index < 0)
     {
+        echo("Clearing all watchpoints");
+
         for (int i = 0; i < 4; i++)
         {
             ret = set_watchpoint(pid, i, NULL, 0, 0);
@@ -374,7 +376,8 @@ int clear_watchpoint(pid_t pid, short index)
         }
         return ret;
     }
-
+    
+    echo("Clearing watchpoint #%d", index);
     return set_watchpoint(pid, index, NULL, 0, 0);
 }
 
@@ -444,6 +447,7 @@ int proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr
     // Step through until we return from the called function, then restore the original register values (and read the return value if a pointer to store it at was provided)
     while (1)
     {
+        
         if ((ret = ptrace(PT_STEP, pid, 0, 0)) != 0)
         {
             echo("ERROR:\n# PT_STEP failed with code %d (%s) while checking rip.\n", ret, strerror(ret));
@@ -473,9 +477,11 @@ int proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr
                 error_source = __LINE__ - 2;
                 goto _err;
             }
-
+            
             break;
         }
+        
+        echo("%llX != %llX", arg_regs->r_rip, (__int64_t) og_stack_ptr);
     }
 
 

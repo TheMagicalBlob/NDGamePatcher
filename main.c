@@ -54,7 +54,7 @@ typedef enum wp_type
 
 
 
-extern int sceKernelSendNotificationRequest(int, notify_request_t*, size_t, int);
+extern int sceKernelSendNotificationRequest(int, notify_request_t *, size_t, int);
 extern int sceKernelGetAppInfo(pid_t pid, app_info_t *info);
 // extern int sceKernelLoadStartModule(const char *name, uint64_t argc, const void *argv, uint32_t flags, void *, int *result);
 // extern uint sceShellCoreUtilGetAppLaunchedParamString(int appid, const char * name, char * dst , size_t max);
@@ -62,9 +62,6 @@ extern int sceKernelGetAppInfo(pid_t pid, app_info_t *info);
 // Not being used atm.
 //! TODO: Reimplement once sigterm is being handled and we can actually close the file handles properly
 static int logfile;
-
-// The title id of the game being traced
-const char _active_game_id[0xA];
 
 const nd_game_t * nd_game_ptr;
 
@@ -298,7 +295,8 @@ static int find_and_trace_game(nd_game_t * nd_game)
 
     
     // switch((id_check = *(unsigned long *) ((unsigned long) nd_game.title_id) + 1))
-    switch(*((unsigned long *) ((unsigned long) nd_game->title_id + 1)))
+
+    switch(* ((unsigned long *) ((unsigned long) nd_game->title_id + 1)))
     {
         // T2R
         case 3618138931251467088: // PSA10662
@@ -352,75 +350,12 @@ static int find_and_trace_game(nd_game_t * nd_game)
 
 
 
-
-
-// Main payload loop (well, it will be a loop eventually)
-static int start(nd_game_t * nd_game, int module_pid)
-{
-    int ret;
-
-_start:
-    ret = find_and_trace_game(nd_game);
-    if (ret)
-    {
-        echo("ERROR: Unable to load game");
-        sleep(5);
-        goto _start;
-    }
-
-    echo("Adding novis option");
-    // Make sure novis is present
-    add_novis_option(*nd_game);
-    
-
-    dmenu_item_t item;
-    dmenu_item_t * mancam_ptr;
-
-    echo("Adding wp to manual camera eh option");
-    mancam_ptr = find_item(*nd_game, "Manual Camera", 1);
-
-    if (mancam_ptr != nullptr)
-    {
-        load_item(nd_game->pid, mancam_ptr, &item);
-    }
-
-
-
-    ret = set_watchpoint(nd_game->pid, 0, item.event_handler, DBREG_DR7_EXEC, DBREG_DR7_LEN_1);
-    if (ret)
-    {
-        echo("Error setting watchpoint, aborting as something has gone wrong.");
-        goto _detach;
-    }
-
-    // Resume the process and wait for the watchpoint to be hit
-    proc_continue(nd_game->pid, nullptr);
-    if (proc_wait(nd_game))
-    {
-        // Process has exited, reset and wait for it to respawn
-        echo("%s has exited.", nd_game->title_id);
-        goto _start;
-    }
-
-
-    echo("==================");
-    echo("| Watchpoint Hit |");
-    echo("==================");
-    clear_watchpoint(nd_game->pid, 0);
-    proc_continue(nd_game->pid, nullptr);
-
-    _detach:
-    return 0;
-}
-
-
-
-
-
 void print_exit_message()
 {
     klog_printf("\n========================\n| DMenu Payload Exited |\n========================\n\n");
 }
+
+
 
 void cleanup(int exit_code)
 {
@@ -455,6 +390,7 @@ void cleanup(int exit_code)
 }
 
 
+
 void sighandler(int signal)
 {
     int exit_code = signal == SIGSEGV;
@@ -475,12 +411,84 @@ void sighandler(int signal)
 }
 
 
+
+
+
+
+
+
+// Main payload loop (well, it will be a loop eventually)
+static int start(nd_game_t * nd_game, int module_pid)
+{
+    int ret;
+
+_start:
+    ret = find_and_trace_game(nd_game);
+    if (ret)
+    {
+        echo("ERROR: Unable to load game");
+        sleep(5);
+        goto _start;
+    }
+
+    // Make sure novis is present
+    add_novis_option(*nd_game);
+
+    
+
+    dmenu_item_t item;
+    dmenu_item_t * mancam_ptr;
+
+    echo("Adding wp to manual camera eh option");
+    mancam_ptr = find_item(*nd_game, "Manual Camera", 1);
+
+    if (mancam_ptr != nullptr)
+    {
+        load_item(nd_game->pid, mancam_ptr, &item);
+    }
+
+
+
+    ret = set_watchpoint(nd_game->pid, 0, item.event_handler, DBREG_DR7_EXEC, DBREG_DR7_LEN_1);
+    if (ret)
+    {
+        echo("Error setting watchpoint, aborting as something has gone wrong.");
+        goto _detach;
+    }
+
+    // Resume the process and wait for the watchpoint to be hit
+    proc_continue(nd_game->pid, nullptr);
+    if (proc_wait(nd_game))
+    {
+        // Process has exited, reset and wait for it to respawn
+        echo("%s has exited.", nd_game->title_id);
+        goto _start;
+    }
+
+
+    t2_example_call(nd_game->pid);
+
+
+
+    echo("==================");
+    echo("| Watchpoint Hit |");
+    echo("==================");
+    clear_watchpoint(nd_game->pid, 0);
+    proc_continue(nd_game->pid, nullptr);
+
+    _detach:
+    return 0;
+}
+
+
+
+
 int main()
 {
     // Set thread name
     syscall(SYS_thr_set_name, -1, PAYLOAD_NAME);
     
-    // Set cleanup shit so I can stop rebooting the game every time the payload is killed
+    // Set some handlers for secleanup shit so I can stop rebooting the game every time the payload is killed
     struct sigaction handler;
     bzero(&handler, sizeof(struct sigaction));
     handler.__sigaction_u.__sa_handler = sighandler;
@@ -506,20 +514,8 @@ int main()
                 break;
             }
 
-            sleep(5);
-            if (find_pid(PAYLOAD_NAME, pids))
-            {
-                echo("Old payload instance still running, sending kill signal instead");
-                if (kill(pid, SIGKILL))
-                {
-                    echo("SIGKILL ERROR (%d)", pid);
-                }
-
-                pids[saved_pids++] = pid;
-            }
-            else {
-                notify("Sent termination signal to previous %s instance", PAYLOAD_NAME);
-            }
+            
+            notify("Sent termination signal to previous %s instance", PAYLOAD_NAME);
 
         }
         while ((pid = find_pid(PAYLOAD_NAME, pids)) > 0);
