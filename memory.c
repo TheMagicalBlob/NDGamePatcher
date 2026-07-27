@@ -24,8 +24,8 @@ typedef struct app_info
 
 
 
-// from john-tornblom. Modified to skip known pids for testing reasons
-pid_t find_pid(const char *name, pid_t pids[])
+// from john-tornblom. Modified to skip known pids for testing purposes
+pid_t find_pid(const char *name, pid_t ignored_pids[])
 {
     int mib[4] = {1, 14, 8, 0};
     pid_t mypid = getpid();
@@ -34,13 +34,13 @@ pid_t find_pid(const char *name, pid_t pids[])
     uint8_t *buf;
     int pids_len = -1;
 
-    if (pids)
+    if (ignored_pids)
     {
         pids_len = 0;
 
         for(;; pids_len++)
         {
-            if (!pids[pids_len])
+            if (!ignored_pids[pids_len])
             {
                 break;
             }
@@ -70,7 +70,7 @@ pid_t find_pid(const char *name, pid_t pids[])
         {
             for(int i = 0; i < pids_len;)
             {
-                if (ki_pid == pids[i++])
+                if (ki_pid == ignored_pids[i++])
                 {
                     continue;
                 }
@@ -145,7 +145,7 @@ int detach(nd_game_t * nd_game, const char * from)
         perror("PT_DETACH ERROR: ");
     }
     else{
-        notify("Detached, exiting.");
+        notify("Detached from %d, exiting.", nd_game->pid);
     }
 
     echo("Detached from process, sending sigcont and zeroing nd_game struct");
@@ -396,6 +396,98 @@ int proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr
         echo("ERROR: Null address provided for function.");
         return 1;
     }
+
+
+
+
+
+
+    u_long error_source;
+
+
+
+    // Back the regisers up
+    echo("getting og regisers");
+    struct reg og_registers;
+    if (get_regs(pid, &og_registers))
+    {
+        error_source = __LINE__ - 2;
+        goto _err;
+    }
+
+
+    
+    // Make a copy of the current register values if no existing struct ref was provided
+    struct reg registers;
+    if (arg_regs == nullptr)
+    {
+        echo("no args provided, copying og regisers to use instead");
+        memcpy(&registers, &og_registers, sizeof(struct reg));
+        arg_regs = &registers;
+    }
+    
+    
+    
+
+    // Set up the function call
+    unsigned long og_next_instruction  = (long long) arg_regs->r_rip; // save return stack pointer
+
+    write_ulong(pid, (void *) arg_regs->r_rsp - 8, (unsigned long) arg_regs->r_rip); // set return address
+
+    arg_regs->r_rip = (long long) function_address; // Set next instruction address
+    
+    if (set_regs(pid, arg_regs))
+    {
+        error_source = __LINE__ - 2;
+        goto _err;
+    }
+
+
+
+
+
+    int ret;
+    ret = set_watchpoint(pid, 0, (void *) og_next_instruction, DBREG_DR7_EXEC, DBREG_DR7_LEN_1);
+    if (ret)
+    {
+        echo("error setting watchpoint");
+        error_source = __LINE__;
+        goto _err;
+    }
+
+    proc_continue(pid, null);
+
+    nd_game_t * nd_game;
+    nd_game = (nd_game_t *) get_nd_game();
+
+    proc_wait(nd_game);
+
+
+    // Get return value
+
+
+
+
+    clear_watchpoint(pid, 0);
+
+
+    return 0;
+_err:
+    echo("Unable to complete function call (failed at line %d)", error_source);
+    return 1;
+}
+
+
+
+
+
+int old_proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr, struct reg * arg_regs)
+{
+    if (function_address == 0)
+    {
+        echo("ERROR: Null address provided for function.");
+        return 1;
+    }
     
     int ret;
     u_long error_source;
@@ -480,7 +572,7 @@ int proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr
             
             break;
         }
-        
+
         echo("%llX != %llX", arg_regs->r_rip, (__int64_t) og_stack_ptr);
     }
 

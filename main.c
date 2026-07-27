@@ -88,10 +88,10 @@ int echo(const char * str, ...)
     
     if (nd_game_ptr)
     {
-        klog_printf("%d: %s\n", nd_game_ptr->pid, msg);
+        klog_printf("%d:%d: %s\n", getpid(), nd_game_ptr->pid, msg);
     }
     else{
-        klog_printf("%d: %s\n", 0, msg);
+        klog_printf("%d:%d: %s\n", getpid(), 0, msg);
     }
 
     log_message("%s\n", msg);
@@ -149,6 +149,12 @@ void log_message(const char * base_string, ...)
 
     // Write the message to the log file
     write(logfile, message, strlen(message));
+}
+
+
+const nd_game_t * get_nd_game()
+{
+    return nd_game_ptr;
 }
 
 
@@ -361,12 +367,6 @@ void cleanup(int exit_code)
 {
     echo("Running cleanup");
 
-    if (nd_game_ptr->pid == (pid_t) 218)
-    {
-        echo("weird duplicate bs caught, exiting");
-        exit(0);
-    }
-
     if (nd_game_ptr && nd_game_ptr->pid)
     {
         echo("Clearing watchpoints and detaching from process %d", nd_game_ptr->pid);
@@ -376,6 +376,7 @@ void cleanup(int exit_code)
         }
 
         clear_watchpoint(nd_game_ptr->pid, -1);
+
         detach((nd_game_t *) nd_game_ptr, __FUNCTION__);
     }
 
@@ -432,10 +433,10 @@ _start:
     }
 
     // Make sure novis is present
-    add_novis_option(*nd_game);
+    // add_novis_option(*nd_game);
 
     
-
+    goto _skip_wp;
     dmenu_item_t item;
     dmenu_item_t * mancam_ptr;
 
@@ -464,7 +465,7 @@ _start:
         echo("%s has exited.", nd_game->title_id);
         goto _start;
     }
-
+_skip_wp:
 
     t2_example_call(nd_game->pid);
 
@@ -473,8 +474,8 @@ _start:
     echo("==================");
     echo("| Watchpoint Hit |");
     echo("==================");
-    clear_watchpoint(nd_game->pid, 0);
-    proc_continue(nd_game->pid, nullptr);
+    // clear_watchpoint(nd_game->pid, 0);
+    // proc_continue(nd_game->pid, nullptr);
 
     _detach:
     return 0;
@@ -501,11 +502,13 @@ int main()
 
 
     // Kill any previous instances
-    int saved_pids = 0;
-    pid_t pid, pids[0x10];
-    if ((pid = find_pid(PAYLOAD_NAME, pids)) > 0)
+    pid_t pid;
+    if ((pid = find_pid(PAYLOAD_NAME, NULL)) > 0)
     {
-        do{
+        // int saved_pids = 0;
+        // pid_t pids_to_skip[0x10];
+        
+        do {
             printf("Killing old instance (pid: %d)...\n", pid);
 
             if (kill(pid, SIGTERM))
@@ -516,9 +519,10 @@ int main()
 
             
             notify("Sent termination signal to previous %s instance", PAYLOAD_NAME);
-
+            // pids_to_skip[saved_pids++] = pid;
         }
-        while ((pid = find_pid(PAYLOAD_NAME, pids)) > 0);
+        while (0);
+        // while ((pid = find_pid(PAYLOAD_NAME, pids_to_skip)) > 0);
 
 
         echo("exiting");
@@ -531,12 +535,14 @@ int main()
 
 
     // Payload start
-    echo("Proceeding with new %s instance", PAYLOAD_NAME);
+    pid_t this;
+    this = getpid();
+    echo("Proceeding with new %s instance (%d)", PAYLOAD_NAME, this);
 
     nd_game_t nd_game;
     nd_game_ptr = (const nd_game_t *) &nd_game;
     
-    start(&nd_game, getpid());
+    start(&nd_game, this);
     
     cleanup(0);
     return 0;
