@@ -63,7 +63,9 @@ extern int sceKernelGetAppInfo(pid_t pid, app_info_t *info);
 //! TODO: Reimplement once sigterm is being handled and we can actually close the file handles properly
 static int logfile;
 
-const nd_game_t * nd_game_ptr;
+static const nd_game_t * nd_game_ptr;
+
+static int watchpoint_count;
 
 
 
@@ -156,6 +158,12 @@ const nd_game_t * get_nd_game()
 {
     return nd_game_ptr;
 }
+
+int * get_watchpoint_count()
+{
+    return &watchpoint_count;
+}
+
 
 
 
@@ -432,50 +440,70 @@ _start:
         goto _start;
     }
 
+
     // Make sure novis is present
     // add_novis_option(*nd_game);
 
     
-    goto _skip_wp;
-    dmenu_item_t item;
-    dmenu_item_t * mancam_ptr;
-
-    echo("Adding wp to manual camera eh option");
-    mancam_ptr = find_item(*nd_game, "Manual Camera", 1);
-
-    if (mancam_ptr != nullptr)
+    if (1)
     {
-        load_item(nd_game->pid, mancam_ptr, &item);
+        dmenu_item_t item;
+        dmenu_item_t * mancam_ptr;
+
+        echo("Adding wp to manual camera event handler option");
+        mancam_ptr = find_item(*nd_game, "Manual Camera", 1);
+        echo("Event handler address: 0x%llX", mancam_ptr);
+
+        if (mancam_ptr != nullptr)
+        {
+            load_item(nd_game->pid, mancam_ptr, &item);
+        }
+
+
+
+        ret = set_watchpoint(nd_game->pid, 1, item.event_handler, DBREG_DR7_EXEC, DBREG_DR7_LEN_1);
+        if (ret)
+        {
+            echo("Error setting watchpoint, aborting as something has gone wrong.");
+            goto _detach;
+        }
+
+        // Resume the process and wait for the watchpoint to be hit
+        proc_continue(nd_game->pid, nullptr);
+        if (proc_wait(nd_game))
+        {
+            // Process has exited, reset and wait for it to respawn
+            echo("%s has exited.", nd_game->title_id);
+            goto _start;
+        }
+        echo("==================");
+        echo("| Watchpoint Hit |");
+        echo("==================");
+
+        clear_watchpoint(nd_game->pid, 1);
     }
 
 
 
-    ret = set_watchpoint(nd_game->pid, 0, item.event_handler, DBREG_DR7_EXEC, DBREG_DR7_LEN_1);
-    if (ret)
+
+    
+    struct reg args;
+    if ((ret = proc_get_regs(nd_game->pid, &args)) != 0)
     {
-        echo("Error setting watchpoint, aborting as something has gone wrong.");
-        goto _detach;
+        echo("Unable to get register values, aborting 'cause something's clearly wrong.");
+        return ret;
+    }
+    
+
+    args.r_rsi = 5;
+    unsigned long long check; 
+    if ((ret = proc_call(nd_game, (unsigned long *) 0x16cc660, (unsigned long *) &check, &args)) != 0)
+    {
+        echo("ERROR: %s call failed! (ret: %d)", __FUNCTION__);
     }
 
-    // Resume the process and wait for the watchpoint to be hit
+
     proc_continue(nd_game->pid, nullptr);
-    if (proc_wait(nd_game))
-    {
-        // Process has exited, reset and wait for it to respawn
-        echo("%s has exited.", nd_game->title_id);
-        goto _start;
-    }
-_skip_wp:
-
-    t2_example_call(nd_game->pid);
-
-
-
-    echo("==================");
-    echo("| Watchpoint Hit |");
-    echo("==================");
-    // clear_watchpoint(nd_game->pid, 0);
-    // proc_continue(nd_game->pid, nullptr);
 
     _detach:
     return 0;
@@ -498,6 +526,14 @@ int main()
 
     sigaction(SIGTERM, &handler, NULL);
     sigaction(SIGSEGV, &handler, NULL);
+
+
+    int ass = -1;
+    if(ass)
+    {
+        notify("AAAAAAAAAAAAAAAA");
+    }
+    return 0;
 
 
 
@@ -533,15 +569,22 @@ int main()
 
     
 
+    //#
+    //## Payload start
+    //#
 
-    // Payload start
+    // Assign values to global variables
     pid_t this;
     this = getpid();
     echo("Proceeding with new %s instance (%d)", PAYLOAD_NAME, this);
 
-    nd_game_t nd_game;
+    static nd_game_t nd_game;
     nd_game_ptr = (const nd_game_t *) &nd_game;
+
+    watchpoint_count = 0;
     
+
+    // Paylod start
     start(&nd_game, this);
     
     cleanup(0);

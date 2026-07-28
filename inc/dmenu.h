@@ -329,6 +329,5 @@ int load_menu_base(pid_t pid, void * address, dmenu_menu_base_t * menu_base);
 int load_menu(pid_t pid, void * address, dmenu_menu_t * menu);
 int load_item(pid_t pid, void * address, dmenu_item_t * item);
 
-int t2_example_call(pid_t pid);
 
 void add_novis_option(nd_game_t nd_game);

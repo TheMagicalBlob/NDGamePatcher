@@ -582,30 +582,6 @@ void dump_menu_entries(nd_game_t nd_game, dmenu_menu_base_t * parent_base)
 
 
 
-int t2_example_call(pid_t pid)
-{
-    int ret;
-    unsigned long long check; 
-    struct reg args;
-    if ((ret = get_regs(pid, &args)) != 0)
-    {
-        echo("Unable to get register values, aborting 'cause something's clearly wrong.");
-        return ret;
-    }
-
-
-    
-    args.r_rsi = 5;
-
-    if ((ret = proc_call(pid, (unsigned long *) 0x16cc660, (unsigned long *) &check, &args)) != 0)
-    {
-        echo("ERROR: %s call failed! (ret: %d)", __FUNCTION__);
-    }
-
-    return ret;
-}
-
-
 
 
 

@@ -19,6 +19,10 @@
 
 #define null NULL
 #define nullptr (void *) 0
+#define true 1
+#define false 0
+#define TRUE true
+#define FALSE false
 
 
 int echo(const char * message, ...);
@@ -29,3 +33,4 @@ void notify(const char * message, ...);
 
 typedef struct nd_game nd_game_t;
 const nd_game_t * get_nd_game();
+int * get_watchpoint_count();
