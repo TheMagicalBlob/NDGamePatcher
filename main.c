@@ -357,7 +357,7 @@ static int find_and_trace_game(ndgame_t * nd_game)
 
 void print_exit_message()
 {
-    klog_printf("\n========================\n| DMenu Payload Exited |\n========================\n\n");
+    klog_printf("\n=============================\n| DMenu Payload Exited (%d) |\n=============================\n\n", getpid());
 }
 
 
@@ -436,7 +436,7 @@ _start:
     // Make sure novis is present
     // add_novis_option(*nd_game);
 
-    if (1)
+    if (0)
     {
         goto _ffs;
         dmenu_item_t item;
@@ -485,7 +485,8 @@ _start:
     _skip_wp:{}
 
     
-    return 0;
+
+
 
     // Get args to modify and pass as args //! this is clunky
     struct reg args;
@@ -554,10 +555,8 @@ int main()
         while (0); //((pid = find_pid(PAYLOAD_NAME, pids_to_skip)) > 0);
 
 
-        // echo("exiting");
-        // exit(0);
-
-        // return 1;
+        exit(0);
+        return 1;
     }
 
     

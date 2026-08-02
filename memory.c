@@ -233,11 +233,24 @@ pid_t proc_wait(ndgame_t * game, int wait)
 
         struct ptrace_lwpinfo thread_info;
         ret = ptrace(PT_LWPINFO, pid, (caddr_t) &thread_info, sizeof(struct ptrace_lwpinfo));
-        if (ret != 0){
-            echo("Error getting lwp info for thread %d", pid);
+        if (ret != 0)
+        {
+            if (errno)
+            {
+                perror("PT_LWPINFO: ");
+            }
+            else{
+                if (ret > 0)
+                {
+                    echo("Error getting lwp info. (%s)", strerror(ret));
+                }
+                else{
+                    echo("Unknown error getting lwp info for stopped tracee. PT_LWPINFO returned %d", ret);
+                }
+            }
         }
         else{
-            echo("Stopped thread: %s (%d)", thread_info.pl_tdname, thread_info.pl_child_pid);
+            echo("Thread that stopped / terminated: %s (%d)", thread_info.pl_tdname, thread_info.pl_child_pid);
         }
     }
     else{
@@ -695,7 +708,8 @@ int clear_watchpoint(pid_t pid, short index)
 
 
 
-unsigned long long read_ulong(int pid, unsigned long * address);
+unsigned char read_byte(int pid, void * address);
+unsigned long read_ulong(int pid, unsigned long * address);
 int write_ulong(int pid, unsigned long * address, unsigned long value);
 // Setup a function call at the specified function_address in the tracee.
 int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return_val_ptr, struct reg * arg_regs)
@@ -714,6 +728,12 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
     pid_t pid;
     pid = ndgame->pid;
     
+
+    int ret;
+    if ((ret = read_byte(pid, (void *) 0x400000)) != 0xCC)
+    {
+        echo("ERROR: Unexpected value read from expected image base. Expected to find INT3 (0xCC) breakpoint instruction, read %lX instead. Aborting function call.", ret);
+    }
     
     
     
@@ -725,6 +745,7 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
         error_source = __LINE__ - 2;
         goto _err;
     }
+
 
 
     
@@ -740,11 +761,11 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
     
     
 
-    // Set up the function call
-    write_ulong(pid, (void *) (arg_regs->r_rsp -= 8), (unsigned long) 0x400000); // set return address
+    // Set return address
+    write_ulong(pid, (void *) (arg_regs->r_rsp -= 8), (unsigned long) 0x400000);
 
-
-    arg_regs->r_rip = (long long) function_address; // Set next instruction address
+    // Set next instruction address
+    arg_regs->r_rip = (critical_t) function_address;
     
     if (proc_set_regs(pid, arg_regs))
     {
@@ -755,24 +776,14 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
     
 
 
-
-
-    int wp_index;
-    wp_index = * get_watchpoint_count();
-    if (wp_index > 3)
-    {
-        echo("ERROR: Too many fuckin' watchpoints.");
-        return 1;
-    }
-
-
-
+    // Resume execution until the function returns and hits the breakpoint
     proc_continue(pid);
-    proc_wait(ndgame, 0);
+    proc_wait(ndgame, true);
 
 
-    // Get return value
-    int ret;
+
+
+    // Read return value
     struct reg return_regs;
     ret = proc_get_regs(pid, &return_regs);
     if (ret)
@@ -783,21 +794,20 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
     if (return_val_ptr > 0)
     {
         *((long long *) return_val_ptr) = return_regs.r_rax;
-        echo("Return Val: %llX\nRIP: 0x%llX\nRSP: 0x%llX\nRBP: 0x%llX", *return_val_ptr, return_regs.r_rip, return_regs.r_rsp, return_regs.r_rbp);
+        echo("Function at 0x%llX returned: 0x%llX", function_address, *return_val_ptr);
     }
     
-    // Restore the registers 
+
+
+
+    // Restore the initial register values 
     if (proc_set_regs(pid, &og_registers))
     {
         error_source = __LINE__ - 2;
         goto _err;
     }
-    
 
 
-
-    clear_watchpoint(pid, wp_index);
-    
     proc_continue(pid);
     return 0;
 
@@ -1081,9 +1091,9 @@ int write_byte(int pid, void * address, unsigned char data)
 
 
 
-unsigned long long read_ulong(int pid, unsigned long * address)
+unsigned long read_ulong(int pid, unsigned long * address)
 {
-    unsigned long long data;
+    unsigned long data;
 
     if (proc_read(pid, 8, address, &data, __FUNCTION__))
     {

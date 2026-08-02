@@ -39,7 +39,7 @@ int write_bytes(pid_t pid, size_t len, void * address, void * buffer);
 unsigned char read_byte(int pid, void * address);
 int write_byte(int pid, void * address, unsigned char data);
 
-unsigned long long read_ulong(int pid, unsigned long * address);
+unsigned long read_ulong(int pid, unsigned long * address);
 int write_ulong(int pid, unsigned long * address, unsigned long value);
 
 unsigned int read_uint(int pid, void * address);
