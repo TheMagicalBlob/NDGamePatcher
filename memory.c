@@ -1,7 +1,7 @@
 #include "inc/include.h"
 #include "inc/dmenu.h"
 
-#define printf(s, ...) klog_echo(s, __VA_ARGS__)
+#define printf(s, ...) klog_printf(s, __VA_ARGS__)
 
 #define _SHELLCORE_AUTHID 0x4800000000010003L
 
@@ -88,8 +88,12 @@ pid_t find_pid(const char *name, pid_t ignored_pids[])
 
 
 
+//#
+//## ptrace debugging functions
+//#
 
-int set_dbg_perms()
+// Set the uncred_authid of the current payload to allow for attaching via ptrace
+int set_authid_for_ptrace()
 {
     int this = getpid();
     long authid = kernel_get_ucred_authid(this);
@@ -107,52 +111,79 @@ int set_dbg_perms()
 
 
 
-//#
-//## ptrace debugging functions
-//#
 
-int attach(nd_game_t nd_game)
+int attach(ndgame_t ndgame)
 {
     int ret;
-    if ((ret = ptrace(PT_ATTACH, nd_game.pid, 0, 0)) != 0)
+    errno = 0;
+
+    
+    ret = set_authid_for_ptrace();
+    if (errno)
+    {
+        echo("ERROR: Unable to set ucred authid for ptrace (Error: %s)", strerror(errno));
+        return 1;
+    }
+
+
+    if ((ret = ptrace(PT_ATTACH, ndgame.pid, 0, 0)) != 0)
     {
         notify("PT_ATTACH ERROR: %s\n", strerror(ret));
         
-        if(kill(nd_game.pid, SIGCONT))
+        if(kill(ndgame.pid, SIGCONT))
         {
             echo("WARNING: Unable to resume process through SIGCONT");
         }
     }
     
-    echo("Attached to pid %d", nd_game.pid);
+    echo("Attached to pid %d", ndgame.pid);
     return ret;
 }
 
 
-int detach(nd_game_t * nd_game, const char * from)
+
+
+
+
+pid_t proc_wait(ndgame_t * game, int wait);
+// //!
+int detach(ndgame_t * ndgame, const char * from)
 {
-    if (nd_game->pid <= 0)
+    if (ndgame->pid < 1)
     {
-        echo("%s: Invalid pid provided (%d).", __FUNCTION__, nd_game->pid);
+        echo("%s: Invalid pid provided (%d).", __FUNCTION__, ndgame->pid);
         return 1;
     }
-    echo("Detaching from process %d (%s)", nd_game->pid, from);
+    echo("Detaching from process %d (%s)", ndgame->pid, from);
 
 
-    int status;
-    if ((status = ptrace(PT_DETACH, nd_game->pid, 0, 0)) != 0)
+    kill(ndgame->pid, SIGSTOP);
+    
+    int ret;
+    ret = proc_wait(ndgame, false);
+    if (ret < 0)
     {
-        perror("PT_DETACH ERROR: ");
+        echo("Error waiting for process, but we're exiting anyway");
+    }
+
+    errno = 0;
+    if ((ret = ptrace(PT_DETACH, ndgame->pid, 0, 0)) != 0)
+    {
+        if (errno)
+        {
+            perror("PT_DETACH: ");
+        }
+        else {
+            echo("PT_DETACH: %s (verify code)", strerror(ret));
+        }
     }
     else{
-        notify("Detached from %d, exiting.", nd_game->pid);
+        notify("Detached from %d, exiting.", ndgame->pid);
     }
 
-    echo("Detached from process, sending sigcont and zeroing nd_game struct");
-    kill(nd_game->pid, SIGCONT);
-    bzero(nd_game, sizeof(nd_game_t));
-
-    return status;
+    kill(ndgame->pid, SIGCONT);
+    bzero(ndgame, sizeof(ndgame_t));
+    return ret;
 }
 
 
@@ -160,50 +191,86 @@ int detach(nd_game_t * nd_game, const char * from)
 
 
 
-// Wait for the secified process to either be trapped, or exit
-// Returns the result of WIFEXITED
-int proc_wait(nd_game_t * game)
+// Wait for the secified process to either be stopped, or exit
+// If waitpid experiences an error, returns -1
+// otherwise, returns the result of WIFEXITED
+pid_t proc_wait(ndgame_t * game, int wait)
 {
-    echo("waiting for pid %d.", game->pid);
-
-    if (waitpid(game->pid, &game->status, WTRAPPED | WEXITED/*| WUNTRACED*/) == -1) // WTRAPPED and WEXITED are set implicitly for waitpid, but I'm leaving them to remind me what the args are without re-reading the docs if I forget
+    int options;
+    options = WTRAPPED | WEXITED | WUNTRACED;
+    
+    if (!wait)
     {
-        echo("waitpid: no children not previously awaited");
+        options |= WNOHANG;
+        echo("waiting for pid %d w/ NOHANG", game->pid);
     }
-    echo("Process stopped with status: %llX. See Reason below.", game->status);
+    else{
+        echo("waiting for pid %d.", game->pid);
+    }
+    pid_t pid;
 
 
+    pid = waitpid(game->pid, &game->status, options); // WTRAPPED and WEXITED are set implicitly for waitpid, but meh
+    if (pid == -1)
+    {
+        if (errno == ECHILD)
+        {
+            echo("waitpid: no children not previously awaited (?\?)");
+        }
+        else {
+            echo("waitpid failed: %s", strerror(errno));
+        }
+        
+        return -1;
+    }
+    echo("Process stopped with status: 0x%llX.", game->status);
+    
+    if (pid)
+    {
+        //! TODO: Finish writing this.
+        int ret;
+        errno = 0;
 
-
-    // Get statuc of process once it has stopped
-    if(WIFCONTINUED(game->status))
+        struct ptrace_lwpinfo thread_info;
+        ret = ptrace(PT_LWPINFO, pid, (caddr_t) &thread_info, sizeof(struct ptrace_lwpinfo));
+        if (ret != 0){
+            echo("Error getting lwp info for thread %d", pid);
+        }
+        else{
+            echo("Stopped thread: %s (%d)", thread_info.pl_tdname, thread_info.pl_child_pid);
+        }
+    }
+    else{
+        echo("No processes wishing to report status");
+    }
+    
+    
+    // Get process' status once it has stopped
+    if (WIFEXITED(game->status))
+    {
+        echo("Exited (sig %d)", WEXITSTATUS(game->status));
+    }
+    else if(WIFCONTINUED(game->status))
     {
         echo("Continued (how? we're not even using WCONTINUED)");
     }
-    else if (WIFEXITED(game->status))
-    {
-        echo("Exited with code %d", WEXITSTATUS(game->status));
-    }
     else if (WIFSIGNALED(game->status))
     {
-        int core_dumped;
-        core_dumped = WCOREDUMP(game->status);
-        if (core_dumped)
+        if (WCOREDUMP(game->status))
         {
-            echo("Signaled (%d)", WTERMSIG(game->status));
+            echo("Signaled w/ coredump (sig: %d)", WTERMSIG(game->status));
         }
         else{
-            echo("Signaled (%d)", WTERMSIG(game->status));
+            echo("Signaled (sig: %d)", WTERMSIG(game->status));
         }
     }
     else if (WIFSTOPPED(game->status))
     {
-        echo("Stopped ", WSTOPSIG(game->status));
+        echo("Stopped (sig: %d)", WSTOPSIG(game->status));
     }
-    echo(" ");
 
 
-    return WIFEXITED(game->status);
+    return pid;
 }
 
 
@@ -212,7 +279,7 @@ int proc_wait(nd_game_t * game)
 
 
 // Resume execution on all threads in the traced process
-int proc_resume(pid_t pid)
+static int proc_resume_threads(pid_t pid)
 {
     int ret;
     int thread_count;
@@ -279,7 +346,7 @@ int proc_resume(pid_t pid)
 
 
 // Suspend execution on all threads in the traced process
-int proc_suspend(pid_t pid)
+static int proc_suspend_threads(pid_t pid)
 {
     int ret;
     int thread_count;
@@ -337,8 +404,17 @@ int proc_suspend(pid_t pid)
             return 1;
         }
     }
+    echo("Suspended all %d threads", thread_count);
 
 
+    ret = ptrace(PT_SUSPEND, pid, 0, 0);
+    if (errno != 0)
+    {
+        perror("PT_SUSPEND: ");
+        echo("Error suspending process %d", pid);
+        return 1;
+
+    }
     return 0;
 }
 
@@ -349,34 +425,55 @@ int proc_suspend(pid_t pid)
 
 
 
-
-int proc_continue(pid_t pid, void * resume, int signal)
+static int _proc_continue(pid_t pid, void * resume, int signal)
 {
     int ret;
     if (!resume)
     {
         resume = (void *) 1; // (continue where it left off)
     }
-    else {
-        echo("Resuming process %d from 0x%llX", pid, resume);
-    }
-    if (signal)
+    else if (resume != (void *) 1)
     {
-        echo("Sending signal %d when resuming");
+        echo("Resuming process %d from 0x%llX", pid, resume);
     }
 
 
     if ((ret = ptrace(PT_CONTINUE, pid, resume, signal)) != 0)
     {
-        echo("ERROR:\n# PT_CONTINUE failed with code %d (%s)", ret, strerror(errno));
+        echo("ERROR:\n# PT_CONTINUE failed with code %d (%s)", ret, strerror(ret));
     }
 
     return ret;
 }
 
+int proc_continue(pid_t pid)
+{
+    echo("Continuing %d", pid);
+    // int ret;
+    // if ((ret = kill(pid, SIGCONT)))
+    // {
+    //     echo("SIGCONT Error!!!");
+    //     return 1;
+    // }
+
+    _proc_continue(pid, 0, SIGCONT);
+
+    return 0;
+}
+
 int proc_stop(pid_t pid)
 {
-    return proc_continue(pid, (void *) 1, SIGCONT);
+    echo("Stopping %d", pid);
+
+    int ret;
+    if ((ret = kill(pid, SIGSTOP)))
+    {
+        echo("SIGSTOP Error!!!");
+        return 1;
+    }
+
+    proc_suspend_threads(pid);
+    return 0;
 }
 
 
@@ -411,7 +508,7 @@ int proc_set_regs(pid_t pid, struct reg * regs)
 }
 
 
-int proc_get_dbregs(pid_t pid, struct reg * dbregs)
+int proc_get_dbregs(pid_t pid, struct dbreg * dbregs)
 {
     errno = 0;
     int ret;
@@ -424,7 +521,7 @@ int proc_get_dbregs(pid_t pid, struct reg * dbregs)
 }
 
 
-int proc_set_dbregs(pid_t pid, struct reg * dbregs)
+int proc_set_dbregs(pid_t pid, struct dbreg * dbregs)
 {
     errno = 0;
     int ret;
@@ -601,32 +698,28 @@ int clear_watchpoint(pid_t pid, short index)
 unsigned long long read_ulong(int pid, unsigned long * address);
 int write_ulong(int pid, unsigned long * address, unsigned long value);
 // Setup a function call at the specified function_address in the tracee.
-int proc_call(nd_game_t * nd_game, void * function_address, unsigned long * return_val_ptr, struct reg * arg_regs)
+int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return_val_ptr, struct reg * arg_regs)
 {
     if (function_address == 0)
     {
         echo("ERROR: Null address provided for function.");
         return 1;
     }
-    if (!nd_game)
+    if (!ndgame)
     {
-        echo("ERROR: Null nd_game ptr provided");
+        echo("ERROR: Null ndgame ptr provided");
         return 1;
     }
     
-    unsigned long error_source;
     pid_t pid;
-    echo("wtf");
-    pid = nd_game->pid;
-    echo("wtf vro");
-
-
-
-
-    // Back the regisers up
-    echo("getting og regisers");
+    pid = ndgame->pid;
     
+    
+    
+    
+    // Back the regisers up
     struct reg og_registers;
+    unsigned long error_source;
     if (proc_get_regs(pid, &og_registers))
     {
         error_source = __LINE__ - 2;
@@ -648,9 +741,8 @@ int proc_call(nd_game_t * nd_game, void * function_address, unsigned long * retu
     
 
     // Set up the function call
-    unsigned long og_next_instruction = (long long) arg_regs->r_rip; // save return stack pointer
+    write_ulong(pid, (void *) (arg_regs->r_rsp -= 8), (unsigned long) 0x400000); // set return address
 
-    write_ulong(pid, (void *) arg_regs->r_rsp - 8, (unsigned long) arg_regs->r_rip); // set return address
 
     arg_regs->r_rip = (long long) function_address; // Set next instruction address
     
@@ -660,51 +752,53 @@ int proc_call(nd_game_t * nd_game, void * function_address, unsigned long * retu
         goto _err;
     }
 
+    
 
 
 
 
-    if (return_val_ptr)
+    int wp_index;
+    wp_index = * get_watchpoint_count();
+    if (wp_index > 3)
     {
-        int ret;
-        int wp_index = * get_watchpoint_count();
-        if (wp_index > 3)
-        {
-            echo("ERROR: Too many fuckin' watchpoints.");
-            return 1;
-        }
-
-
-
-        ret = set_watchpoint(pid, wp_index, (void *) og_next_instruction, DBREG_DR7_EXEC, DBREG_DR7_LEN_1);
-
-        if (ret)
-        {
-            echo("Unable to set watchpoint to await function call return, returning null early");
-            error_source = __LINE__;
-            goto _err;
-        }
-
-        proc_continue(pid, null, 0);
-
-        proc_wait(nd_game);
-
-
-        // Get return value
-        struct reg return_regs;
-        ret = proc_get_regs(pid, &return_regs);
-        if (ret)
-        {
-            echo("Unable to get registers after function call, cannot get return value");
-        }
-
-
-
-        clear_watchpoint(pid, wp_index);
+        echo("ERROR: Too many fuckin' watchpoints.");
+        return 1;
     }
 
+
+
+    proc_continue(pid);
+    proc_wait(ndgame, 0);
+
+
+    // Get return value
+    int ret;
+    struct reg return_regs;
+    ret = proc_get_regs(pid, &return_regs);
+    if (ret)
+    {
+        echo("Unable to get registers after function call, cannot get return value");
+    }
+
+    if (return_val_ptr > 0)
+    {
+        *((long long *) return_val_ptr) = return_regs.r_rax;
+        echo("Return Val: %llX\nRIP: 0x%llX\nRSP: 0x%llX\nRBP: 0x%llX", *return_val_ptr, return_regs.r_rip, return_regs.r_rsp, return_regs.r_rbp);
+    }
     
-    proc_continue(pid, null, 0);
+    // Restore the registers 
+    if (proc_set_regs(pid, &og_registers))
+    {
+        error_source = __LINE__ - 2;
+        goto _err;
+    }
+    
+
+
+
+    clear_watchpoint(pid, wp_index);
+    
+    proc_continue(pid);
     return 0;
 
 _err:
@@ -823,7 +917,7 @@ _err:
 
 
 
-void * proc_malloc(nd_game_t * game, int amount)
+void * proc_malloc(ndgame_t * game, int amount)
 {
     int ret;
     void * allocated_mem; 
@@ -851,7 +945,7 @@ void * proc_malloc(nd_game_t * game, int amount)
 }
 
 
-int proc_free(nd_game_t * game, void * allocated_mem)
+int proc_free(ndgame_t * game, void * allocated_mem)
 {
     int ret;
     struct reg regs;
@@ -869,6 +963,14 @@ int proc_free(nd_game_t * game, void * allocated_mem)
 
     return ret;
 }
+
+
+
+
+
+
+
+
 
 
 

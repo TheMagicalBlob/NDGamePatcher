@@ -244,7 +244,7 @@ char * get_dmenu_entry_type_as_string(long long type)
 
 
 
-static void * find_dmenu_entry(nd_game_t nd_game, const char * expected_entry_name, dmenu_simple_type_t expected_base_type, char parent_index)
+static void * find_dmenu_entry(ndgame_t nd_game, const char * expected_entry_name, dmenu_simple_type_t expected_base_type, char parent_index)
 {
     dmenu_menu_base_t parent_base;
     dmenu_menu_base_t * p_parent_base;
@@ -399,7 +399,7 @@ static void * find_dmenu_entry(nd_game_t nd_game, const char * expected_entry_na
 // <=0 == Dev Menu
 // 1 == Quick Menu
 // >=2 == Favorites Menu
-dmenu_item_t * find_item(nd_game_t nd_game, const char * item_name, char parent_index)
+dmenu_item_t * find_item(ndgame_t nd_game, const char * item_name, char parent_index)
 {
     return find_dmenu_entry(nd_game, item_name, simple_typeid_item, parent_index);
 }
@@ -409,7 +409,7 @@ dmenu_item_t * find_item(nd_game_t nd_game, const char * item_name, char parent_
 // <=0 == Dev Menu
 // 1 == Quick Menu
 // >=2 == Favorites Menu
-dmenu_menu_t * find_menu(nd_game_t nd_game, const char * menu_name, char parent_index)
+dmenu_menu_t * find_menu(ndgame_t nd_game, const char * menu_name, char parent_index)
 {
     return find_dmenu_entry(nd_game, menu_name, simple_typeid_menu, parent_index);
 }
@@ -419,7 +419,7 @@ dmenu_menu_t * find_menu(nd_game_t nd_game, const char * menu_name, char parent_
 // <=0 == Dev Menu
 // 1 == Quick Menu
 // >=2 == Favorites Menu
-dmenu_item_t * find_submenu(nd_game_t nd_game, const char * submenu_name, char parent_index)
+dmenu_item_t * find_submenu(ndgame_t nd_game, const char * submenu_name, char parent_index)
 {
     return find_dmenu_entry(nd_game, submenu_name, simple_typeid_submenu, parent_index);
 }
@@ -454,7 +454,7 @@ int load_item(pid_t pid, void * address, dmenu_item_t * item)
 
 
 
-void dump_menu_entries(nd_game_t nd_game, dmenu_menu_base_t * parent_base)
+void dump_menu_entries(ndgame_t nd_game, dmenu_menu_base_t * parent_base)
 {
     if (parent_base->menu == 0)
     {
@@ -585,7 +585,7 @@ void dump_menu_entries(nd_game_t nd_game, dmenu_menu_base_t * parent_base)
 
 
 
-void add_novis_option(nd_game_t nd_game)
+void add_novis_option(ndgame_t nd_game)
 {
     dmenu_item_t * item_ptr;
     item_ptr = find_item(nd_game, "Draw World Axes", 0);
@@ -607,4 +607,5 @@ void add_novis_option(nd_game_t nd_game)
 
     write_string(nd_game.pid, item.item_text, "Enable novis");
     write_ulong(nd_game.pid, (unsigned long *) &item_ptr->item_variable_ptr, (unsigned long) nd_game.dat_novis);
+
 }

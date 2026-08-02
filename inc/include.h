@@ -25,12 +25,56 @@
 #define FALSE false
 
 
+
+// Basic ID system for the loaded games. 
+// #pragma once
+typedef enum : char
+{
+    Invalid = -1, // Unknown or unsupported
+    T2R,
+    T1x,
+    UC4,
+    TLL
+
+} game_id_t;
+
+
+typedef struct dmenu_menu_base dmenu_menu_base_t;
+
+#pragma once
+// Structure for handling common app-specific variables //! re-write desc once sober
+typedef struct nd_game
+{
+    pid_t pid;
+    int status;
+    game_id_t game_id;
+    char title_id[0xA];
+    uint32_t app_id;
+    dmenu_menu_base_t * dev_menu_base;
+    dmenu_menu_base_t * quick_menu_base;
+    dmenu_menu_base_t * favorites_menu_base;
+
+
+    // Addresses of various functions/variables in the game process
+    int8_t * dat_novis;
+    void * func_malloc;
+    void * func_free;
+    void * func_lookup_symbol;
+
+} ndgame_t;
+
+
+
 int echo(const char * message, ...);
 
 void log_message(const char * base_string, ...);
 
 void notify(const char * message, ...);
 
-typedef struct nd_game nd_game_t;
-const nd_game_t * get_nd_game();
+const ndgame_t * get_nd_game();
 int * get_watchpoint_count();
+
+
+
+
+

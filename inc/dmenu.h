@@ -165,17 +165,6 @@ typedef enum dmenu_simple_type : char
 } dmenu_simple_type_t;
 
 
-// Basic ID system for the loaded games. 
-typedef enum game_id : char
-{
-    Invalid = -1, // Unknown or unsupported
-    T2R,
-    T1x,
-    UC4,
-    TLL
-
-} game_id_t;
-
 
 
 
@@ -288,41 +277,16 @@ typedef struct dmenu_menu_base // x >= 0x328
 
 
 
-//! O V E R   H E R E,  B L I N D - A S S
-typedef struct nd_game
-{
-    pid_t pid;
-    int status;
-    game_id_t game_id;
-    char title_id[0xA];
-    uint32_t app_id;
-    dmenu_menu_base_t * dev_menu_base;
-    dmenu_menu_base_t * quick_menu_base;
-    dmenu_menu_base_t * favorites_menu_base;
-
-
-    // Addresses of various functions/variables in the game process
-    int8_t * dat_novis;
-    void * func_malloc;
-    void * func_free;
-    void * func_lookup_symbol;
-
-} nd_game_t;
-
-
-
-
-
 int get_dmenu_entry_base_type(pid_t pid, void * item);
 char * get_dmenu_entry_type_as_string(long long type);
 
 
-dmenu_item_t * find_item(nd_game_t nd_game, const char * item_name, char parent_index);
-dmenu_menu_t * find_menu(nd_game_t nd_game, const char * menu_name, char parent_index);
-dmenu_item_t * find_submenu(nd_game_t nd_game, const char * submenu_name, char parent_index);
+dmenu_item_t * find_item(ndgame_t nd_game, const char * item_name, char parent_index);
+dmenu_menu_t * find_menu(ndgame_t nd_game, const char * menu_name, char parent_index);
+dmenu_item_t * find_submenu(ndgame_t nd_game, const char * submenu_name, char parent_index);
 
 
-void dump_menu_entries(nd_game_t nd_game, dmenu_menu_base_t * menu);
+void dump_menu_entries(ndgame_t nd_game, dmenu_menu_base_t * menu);
 
 
 int load_menu_base(pid_t pid, void * address, dmenu_menu_base_t * menu_base);
@@ -330,4 +294,4 @@ int load_menu(pid_t pid, void * address, dmenu_menu_t * menu);
 int load_item(pid_t pid, void * address, dmenu_item_t * item);
 
 
-void add_novis_option(nd_game_t nd_game);
+void add_novis_option(ndgame_t nd_game);

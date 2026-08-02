@@ -63,7 +63,7 @@ extern int sceKernelGetAppInfo(pid_t pid, app_info_t *info);
 //! TODO: Reimplement once sigterm is being handled and we can actually close the file handles properly
 static int logfile;
 
-static const nd_game_t * nd_game_ptr;
+static const ndgame_t * nd_game_ptr;
 
 static int watchpoint_count;
 
@@ -154,7 +154,7 @@ void log_message(const char * base_string, ...)
 }
 
 
-const nd_game_t * get_nd_game()
+const ndgame_t * get_nd_game()
 {
     return nd_game_ptr;
 }
@@ -182,7 +182,7 @@ int * get_watchpoint_count()
 // Saves the pid, app id, and title id of the attached process to the provided nd_game struct
 // 
 //! TODO: Add support for the other naughtydog executable names so the payload works regardless of which is running
-static int wait_for_game_launch(nd_game_t * nd_game)
+static int wait_for_game_launch(ndgame_t * nd_game)
 {
     pid_t pid, skipped_ids[0x10];
 
@@ -243,45 +243,36 @@ _retry:
         sleep(5);
         goto _retry;
     }
-
     
-
+    
 
     for (int i = 0; i < sizeof(titleids); i++)
     {
         if (!strncmp(app_info.title_id, titleids[i], 0xA))
         {
-            int status;
-            if ((status = set_dbg_perms()))
-            {
-                perror("set_dbg_perms(): ");
-                echo("ERROR: unknown issue setting debug perms. (set_dbg_perms returned %d)", status);
-                return 1;
-            }
-
             echo("Saving app info...");
             nd_game->pid = pid;
             nd_game->app_id = app_info.app_id;
             strncpy(nd_game->title_id, app_info.title_id, 0xA);
             
-            if ((status = attach(*nd_game)))
+            int ret;
+            if ((ret = attach(*nd_game)))
             {
                 return 1;
             }
 
 
-            notify("Attached to game process.\nTitle ID: %s\nApp ID: %lX\nProcess ID: %d", nd_game->title_id, nd_game->app_id, pid);
+            notify("\nGame Info: \n  -> Title ID: %s\n  -> App ID: %lX\n  -> Process ID: %d", nd_game->title_id, nd_game->app_id, pid);
             
-            proc_wait(nd_game);
-            echo("Process paused");
+            proc_wait(nd_game, 0);
             return 0;
         }
     }
 
 
-    echo("Application did not match any known title ids, retrying in 5 seconds");
+    echo("Application did not match any known title ids, adding pid %d to list of ingored processes, and retrying in 5 seconds", pid);
     skipped_ids[attempts++] = pid; // Only add the pid to skipped processes if we don't recognize the title id
-    sleep(4);
+    sleep(5);
     goto _retry;
 }
 
@@ -290,10 +281,10 @@ _retry:
 
 
 
-static int find_and_trace_game(nd_game_t * nd_game)
+static int find_and_trace_game(ndgame_t * nd_game)
 {
     // Reset the current game instance
-    bzero(nd_game, sizeof(nd_game_t));
+    bzero(nd_game, sizeof(ndgame_t));
 
     // unsigned long id_check;
     unsigned char retries = 0;
@@ -349,7 +340,7 @@ static int find_and_trace_game(nd_game_t * nd_game)
         default:
             echo("Unknown game title id read (%llu)", *((unsigned long *) ((unsigned long) nd_game->title_id + 1)));
             detach(nd_game, __FUNCTION__);
-            bzero(nd_game, sizeof(nd_game_t));
+            bzero(nd_game, sizeof(ndgame_t));
             return 1;
     }
 
@@ -377,15 +368,16 @@ void cleanup(int exit_code)
 
     if (nd_game_ptr && nd_game_ptr->pid)
     {
-        echo("Clearing watchpoints and detaching from process %d", nd_game_ptr->pid);
-        if (proc_suspend(nd_game_ptr->pid))
+        if (proc_stop(nd_game_ptr->pid))
         {
             echo("Unable to suspend process %d", nd_game_ptr->pid);
         }
-
+        proc_wait((ndgame_t *) nd_game_ptr, false);
+        
+        echo("Clearing watchpoints and detaching from process %d", nd_game_ptr->pid);
         clear_watchpoint(nd_game_ptr->pid, -1);
 
-        detach((nd_game_t *) nd_game_ptr, __FUNCTION__);
+        detach((ndgame_t *) nd_game_ptr, __FUNCTION__);
     }
 
     if (logfile)
@@ -427,7 +419,7 @@ void sighandler(int signal)
 
 
 // Main payload loop (well, it will be a loop eventually)
-static int start(nd_game_t * nd_game, int module_pid)
+static int start(ndgame_t * nd_game, int module_pid)
 {
     int ret;
 
@@ -444,68 +436,76 @@ _start:
     // Make sure novis is present
     // add_novis_option(*nd_game);
 
-    
     if (1)
     {
+        goto _ffs;
         dmenu_item_t item;
         dmenu_item_t * mancam_ptr;
-
-        echo("Adding wp to manual camera event handler option");
+        int wp_index;
+        
         mancam_ptr = find_item(*nd_game, "Manual Camera", 1);
-        echo("Event handler address: 0x%llX", mancam_ptr);
-
-        if (mancam_ptr != nullptr)
+        
+        if (!mancam_ptr)
         {
-            load_item(nd_game->pid, mancam_ptr, &item);
+            echo("Unable to find manual camera item.");
+            goto _skip_wp;
         }
 
-
-
-        ret = set_watchpoint(nd_game->pid, 1, item.event_handler, DBREG_DR7_EXEC, DBREG_DR7_LEN_1);
+        load_item(nd_game->pid, mancam_ptr, &item);
+        
+        // Address isn't gonna change any time soon, so we'll just hardcode it and skip getting it.
+        _ffs:
+        wp_index = * get_watchpoint_count();
+        
+        ret = set_watchpoint(nd_game->pid, wp_index, (void *) 0x12B8F80, DBREG_DR7_EXEC, DBREG_DR7_LEN_1);
         if (ret)
         {
             echo("Error setting watchpoint, aborting as something has gone wrong.");
-            goto _detach;
+            return 1;
         }
 
         // Resume the process and wait for the watchpoint to be hit
-        proc_continue(nd_game->pid, nullptr);
-        if (proc_wait(nd_game))
+        proc_continue(nd_game->pid);
+        echo("waiting for watchpoint to be hit");
+
+        pid_t stopped_thread;
+        stopped_thread = proc_wait(nd_game, true);
+        if (stopped_thread == -1)
         {
-            // Process has exited, reset and wait for it to respawn
-            echo("%s has exited.", nd_game->title_id);
-            goto _start;
+            echo("Error awaiting for mancam eh function watchpoint to be hit");
+            return 1;
         }
+
         echo("==================");
         echo("| Watchpoint Hit |");
         echo("==================");
-
-        clear_watchpoint(nd_game->pid, 1);
+        
+        clear_watchpoint(nd_game->pid, wp_index);
     }
-
-
-
+    _skip_wp:{}
 
     
+    return 0;
+
+    // Get args to modify and pass as args //! this is clunky
     struct reg args;
     if ((ret = proc_get_regs(nd_game->pid, &args)) != 0)
     {
         echo("Unable to get register values, aborting 'cause something's clearly wrong.");
         return ret;
     }
-    
+
 
     args.r_rsi = 5;
     unsigned long long check; 
-    if ((ret = proc_call(nd_game, (unsigned long *) 0x16cc660, (unsigned long *) &check, &args)) != 0)
+    if ((ret = proc_call(nd_game, (unsigned long *) 0x16cc530, (unsigned long *) &check, &args)) != 0)
     {
         echo("ERROR: %s call failed! (ret: %d)", __FUNCTION__);
     }
+    echo("waiting for function to return");
 
+    // proc_continue(nd_game->pid);
 
-    proc_continue(nd_game->pid, nullptr);
-
-    _detach:
     return 0;
 }
 
@@ -528,12 +528,6 @@ int main()
     sigaction(SIGSEGV, &handler, NULL);
 
 
-    int ass = -1;
-    if(ass)
-    {
-        notify("AAAAAAAAAAAAAAAA");
-    }
-    return 0;
 
 
 
@@ -557,17 +551,21 @@ int main()
             notify("Sent termination signal to previous %s instance", PAYLOAD_NAME);
             // pids_to_skip[saved_pids++] = pid;
         }
-        while (0);
-        // while ((pid = find_pid(PAYLOAD_NAME, pids_to_skip)) > 0);
+        while (0); //((pid = find_pid(PAYLOAD_NAME, pids_to_skip)) > 0);
 
 
-        echo("exiting");
-        exit(0);
+        // echo("exiting");
+        // exit(0);
 
-        return 1;
+        // return 1;
     }
 
     
+    // notify("Test Payload Message");
+    // return 0;
+
+
+
 
     //#
     //## Payload start
@@ -578,8 +576,8 @@ int main()
     this = getpid();
     echo("Proceeding with new %s instance (%d)", PAYLOAD_NAME, this);
 
-    static nd_game_t nd_game;
-    nd_game_ptr = (const nd_game_t *) &nd_game;
+    static ndgame_t nd_game;
+    nd_game_ptr = (const ndgame_t *) &nd_game;
 
     watchpoint_count = 0;
     
