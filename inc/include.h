@@ -43,7 +43,7 @@ typedef struct dmenu_menu_base dmenu_menu_base_t;
 
 #pragma once
 // Structure for handling common app-specific variables //! re-write desc once sober
-typedef struct nd_game
+typedef struct
 {
     pid_t pid;
     int status;

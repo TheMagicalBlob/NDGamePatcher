@@ -497,11 +497,10 @@ int proc_stop(pid_t pid)
 
 int proc_get_regs(pid_t pid, struct reg * regs)
 {
-    errno = 0;
     int ret;
     if ((ret = ptrace(PT_GETREGS, pid, (caddr_t) regs, 0)) != 0)
     {
-        echo("ERROR:\n# PT_GETREGS failed with code %d (%d -> %s)\n", ret, errno, strerror(errno));
+        echo("ERROR:\n# PT_GETREGS failed with code %d (%s)\n", ret, strerror(ret));
     }
 
     return ret;
@@ -510,11 +509,10 @@ int proc_get_regs(pid_t pid, struct reg * regs)
 
 int proc_set_regs(pid_t pid, struct reg * regs)
 {
-    errno = 0;
     int ret;
     if ((ret = ptrace(PT_SETREGS, pid, (caddr_t) regs, 0)) != 0)
     {
-        echo("ERROR:\n# PT_SETREGS failed with code %d (%d -> %s)\n", ret, errno, strerror(errno));
+        echo("ERROR:\n# PT_SETREGS failed with code %d (%s)\n", ret, strerror(ret));
     }
     
     return ret;
@@ -1004,21 +1002,29 @@ int proc_free(ndgame_t * game, void * allocated_mem)
 //     size_t  piod_len;	     /*	request	length */
 // };
 
-static int proc_read(pid_t pid, int len, void * addr, void * buffer, const char * caller)
+static int proc_read(pid_t pid, int len, void * source, void * dest, const char * caller)
 {
-    if (!addr || !buffer)
+    if (!source)
     {
-        echo("ERROR:\n# %s->ptrace PT_IO (read)\nInput or output address was null (addr: %llX  buffer: %llX)", caller, addr, buffer);
+        echo("ERROR:\n# %s->ptrace PT_IO (read)\nSource address was null (src addr: 0x%llX", caller, source);
+        return 1;
+    }
+    if (!dest)
+    {
+        echo("ERROR:\n# %s->ptrace PT_IO (read)\nDestination address was null (dest addr: 0x%llX", caller, dest);
         return 1;
     }
 
 
-    struct ptrace_io_desc iod = { PIOD_READ_D, addr, buffer, len };
+
+    
+    struct ptrace_io_desc iod = { PIOD_READ_D, source, dest, len };
+
 
     int ret;
     if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
     {
-        echo("ERROR:\n# ptrace PT_IO (read) failed with code %d (%s)\n\n# Address: %llX\n# Function: %s\n", ret, strerror(ret), addr, caller);
+        echo("ERROR:\n# %s->ptrace PT_IO (read) failed with code %d (%s)\n\n# Source address: %llX\n# Dest address: %llX\n# Function: %s\n", caller, ret, strerror(ret), source, dest, caller);
         return 1;
     }
 
@@ -1028,21 +1034,26 @@ static int proc_read(pid_t pid, int len, void * addr, void * buffer, const char 
 
 
 
-static int proc_write(pid_t pid, int len, void * addr, void * value, const char * caller)
+static int proc_write(pid_t pid, int len, void * dest, void * value, const char * caller)
 {
-    if (!addr || !value)
+    if (!dest)
     {
-        echo("ERROR:\n# ptrace PT_IO (write)\nInput or output address was null");
+        echo("ERROR:\n# %s->ptrace PT_IO (write)\nDestination address was invalid (src addr: 0x%llX", caller, dest);
+        return 1;
+    }
+    if (!value)
+    {
+        echo("ERROR:\n# %s->ptrace PT_IO (write)\nValue address was invalid (val addr: 0x%llX", caller, value);
         return 1;
     }
     
     
-    struct ptrace_io_desc iod = { PIOD_WRITE_D, addr, value, len };
+    struct ptrace_io_desc iod = { PIOD_WRITE_D, dest, value, len };
 
     int ret;
     if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
     {
-        echo("ERROR:\n# ptrace PT_IO (read) failed with code %d (%s)\n\n# Address: %llX\n# Function: %s\n", ret, strerror(ret), addr, caller);
+        echo("ERROR:\n# %s->ptrace PT_IO (write) failed with code %d (%s)\n\n# Destination address: %llX\n# Value Pointer: %llX (value as ulong: %llX)\n# Function: %s\n", caller, ret, strerror(ret), dest, value, *(unsigned long *) value, caller);
         return 1;
     }
 

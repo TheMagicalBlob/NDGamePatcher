@@ -179,7 +179,7 @@ typedef struct dmenu_item dmenu_item_t;
 
 typedef struct dmenu_item // Size 0xB8 (seems to vary for different item types, don't think there's one universal dmenu_item struct- seems to be more than just 3 or 4)
 {
-    void * function_array; // 0x00
+    void * vptr; // Item class vPtr/Virtual Table Pointer
     char unused1[0x8]; // 0x08 // Always zero
     char item_text_buffer[0x20]; // 32-byte buffer for the item text. If the string is too long, additional space is allocated instead and this is left unused. (it's also left null for separator lines) // 0x10
     char * item_text; // Item text pointer. Usually points to the item_text_buffer, but is redirected if the string is too long (or left null for separator lines) // 0x30
@@ -200,7 +200,7 @@ typedef struct dmenu_item // Size 0xB8 (seems to vary for different item types, 
     char unknown2[0x4];
     int selection_index;
     unsigned int item_count; // The amount of items in the root of the menu
-    unsigned int _entry_event_handler_type_id; // unsure
+    unsigned int entry_event_handler_type_id; // unsure
     void * event_handler;
     unsigned long item_event_buffer; // Bool for options that can be toggled, points to the header item for submenu entry items
     char padding1[0x10];
@@ -211,10 +211,10 @@ typedef struct dmenu_item // Size 0xB8 (seems to vary for different item types, 
 
 typedef struct dmenu_menu // 0xE0
 {
-    void * function_array;
+    void * vptr; // Item class vPtr/Virtual Table Pointer
     char unused1[0x8]; // Always zero
-    char item_text_buffer[0x20];
-    char * menu_name;
+    char menu_name_buffer[0x20]; // Default buffer space for the item text, if it fits the buffer. 
+    char * menu_name; // Pointer to the item's text; usually points to the item_text_buffer, but additional space is allocated and used instead if the string length is > 32. 
     dmenu_menu_t * parent_menu;
     const char * next_item; // Next item in the regular entries. seems to still be read here, though
     const unsigned short horizontal_padding;
@@ -232,14 +232,14 @@ typedef struct dmenu_menu // 0xE0
     char unknown2[0x4];
     int selection_index;
     unsigned int item_count; // The amount of items in the root of the menu
-    unsigned int _entry_event_handler_type_id; // 
+    unsigned int unk_filter_related_int; // Gets set to zero when removing all filter items
     int unknown_bool; // not quite sure exactly what it does yet. I've only got guesses
     const char alignment1[0x4];
     dmenu_item_t * first_item; // Points to the first/top item in the menu [0xB0]
     char unknown3[0x4];
     int menu_is_open;
-    char unknown4[0x8];
-    char unknown5[0x4];
+    unsigned long _filter_contents; // Something filter-related
+    unsigned int unknown5;
     int on_screen_item_count;
     char unknown6[0x10];
 
@@ -249,29 +249,36 @@ typedef struct dmenu_menu // 0xE0
 
 typedef struct dmenu_menu_base // x >= 0x328
 {
-    void * function_array;
+    void * vptr; // Item class vPtr/Virtual Table Pointer
     char unused1[0x8]; // Always zero
-    char item_text_buffer[0x20];
-    char * item_text; // Just Points 32 bytes above? I assume it gets used to redirect strings that are too long for the item_text_buffer
+    char item_text_buffer[0x20]; // Default buffer space for the item text, if it fits the buffer. 
+    char * item_text; // Pointer to the item's text; usually points to the item_text_buffer, but additional space is allocated and used instead if the string length is > 32. 
     char unused2[0x30]; // Always zero
-    unsigned int off_state_colour;
-    unsigned int on_state_colour;
-    unsigned int unknown_state_colour_1; // Not actually sure about this one, gotta check
-    unsigned int unknown_state_colour_2;
-    char unmapped2[0x30]; // Unmapped
-    dmenu_menu_t * menu; // 0xA8
-    unsigned long unknown_struct_pointer; // Menu Options, maybe?
-    char open_menu;
-    char draw_menu;
-    char unused4[0x6];
+    unsigned int off_state_colour; // unused for menu bases
+    unsigned int on_state_colour; // unused for menu bases
+    unsigned int unknown_state_colour_1; // unused for menu bases
+    unsigned int unknown_state_colour_2; // unused for menu bases
+    char unmapped1[0x30]; // Unmapped
+    dmenu_menu_t * menu; // The actual dmenu menu that gets populated with items and acts as this menu base's root submenu // 0xA8
+    void * unknown_struct_pointer1; // Menu Options, maybe?
+    char open_menu; // Open the menu
+    char render_menu; // Render the menu when open
+    char unmapped2[0x6];
     unsigned long unknown_long; // Gets changed every time the menu is opened or close, but it's different every time and doesn't look like a pointer //! check ghidra
-    char unused3[0x240]; // Why on earth does it allocate so much space for the struct???
-    char unmapped3[0x8];
-    void * unknown_struct_pointer1;
+    char unmapped3[0x240]; // Why on earth does it allocate so much space for the struct???
     char unmapped4[0x8];
     void * unknown_struct_pointer2;
+    char unmapped5[0x8];
+    void * unknown_struct_pointer3;
 
 } dmenu_menu_base_t;
+
+
+
+
+
+
+
 
 
 

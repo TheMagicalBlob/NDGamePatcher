@@ -478,7 +478,7 @@ void dump_menu_entries(ndgame_t nd_game, dmenu_menu_base_t * parent_base)
     int depth = 0;
     void * history[0x20]; // surely there's no place with a submenu depth even approaching 32, so this should be more than sufficient in size
     
-    char * output_format = "0x%llX %sItem: %s [Type: %s (%lX) | Parent: %s]";
+    char * output_format = "0x%llX %sItem: %s [Type: %s (%lX (%d)) | Parent: %s]";
     char padding[0x40]; // used for indentation during output
     
     char item_name[0x80];
@@ -512,7 +512,7 @@ void dump_menu_entries(ndgame_t nd_game, dmenu_menu_base_t * parent_base)
             read_string(nd_game.pid, menu.menu_name, item_name);
             read_string(nd_game.pid, (void *) read_ulong(nd_game.pid, (unsigned long *) &menu.parent_menu->menu_name), parent_name);
 
-            echo(output_format, entry_ptr, padding, item_name, dtype, type, parent_name);
+            echo(output_format, entry_ptr, padding, item_name, dtype, type, menu.unk_filter_related_int, parent_name);
             
             // Read next item pointer
             entry_ptr = menu.first_item;
@@ -534,7 +534,7 @@ void dump_menu_entries(ndgame_t nd_game, dmenu_menu_base_t * parent_base)
 
             read_string(nd_game.pid, (void *) read_ulong(nd_game.pid, (unsigned long *) &item.parent_menu->menu_name), parent_name);
 
-            echo(output_format, entry_ptr, padding, item_name, dtype, type, parent_name);
+            echo(output_format, entry_ptr, padding, item_name, dtype, type, item.entry_event_handler_type_id, parent_name);
             
             if (get_dmenu_entry_base_type(nd_game.pid, entry_ptr) == simple_typeid_submenu)
             {

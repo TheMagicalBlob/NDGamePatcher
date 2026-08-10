@@ -187,15 +187,18 @@ static int wait_for_game_launch(ndgame_t * nd_game)
     pid_t pid, skipped_ids[0x10];
 
     int ret, attempts = 0;
-    char * titleids[7] =
+    char * titleids[] =
     {
+        // R2R Ids
         "PPSA10662",
         "PPSA15508",
         "PPSA15511",
         "PPSA15512",
+
+        // T1X Ids
         "PPSA03396",
         "PPSA07642",
-        "PPSA07643",
+        "PPSA07643"
     };
 
 
@@ -244,9 +247,10 @@ _retry:
         goto _retry;
     }
     
-    
+    echo("Read title id");
 
-    for (int i = 0; i < sizeof(titleids); i++)
+    echo("uhh %d", sizeof(titleids) / 8);
+    for (int i = 0; i < sizeof(titleids) / 8; i++)
     {
         if (!strncmp(app_info.title_id, titleids[i], 0xA))
         {
@@ -264,7 +268,7 @@ _retry:
 
             notify("\nGame Info: \n  -> Title ID: %s\n  -> App ID: %lX\n  -> Process ID: %d", nd_game->title_id, nd_game->app_id, pid);
             
-            proc_wait(nd_game, 0);
+            proc_wait(nd_game, 1);
             return 0;
         }
     }
@@ -339,8 +343,8 @@ static int find_and_trace_game(ndgame_t * nd_game)
 
         default:
             echo("Unknown game title id read (%llu)", *((unsigned long *) ((unsigned long) nd_game->title_id + 1)));
-            detach(nd_game, __FUNCTION__);
-            bzero(nd_game, sizeof(ndgame_t));
+            // detach(nd_game, __FUNCTION__);
+            // bzero(nd_game, sizeof(ndgame_t));
             return 1;
     }
 
@@ -419,78 +423,45 @@ void sighandler(int signal)
 
 
 // Main payload loop (well, it will be a loop eventually)
-static int start(ndgame_t * nd_game, int module_pid)
+static int start(ndgame_t * ndgame, int module_pid)
 {
     int ret;
 
 _start:
-    ret = find_and_trace_game(nd_game);
-    if (ret)
-    {
-        echo("ERROR: Unable to load game");
-        sleep(5);
-        goto _start;
-    }
+    ret = find_and_trace_game(ndgame);
+    // if (ret)
+    // {
+    //     echo("ERROR: Unable to load game");
+    //     sleep(5);
+    //     goto _start;
+    // }
 
 
+    
     // Make sure novis is present
-    // add_novis_option(*nd_game);
-
-    if (0)
-    {
-        goto _ffs;
-        dmenu_item_t item;
-        dmenu_item_t * mancam_ptr;
-        int wp_index;
-        
-        mancam_ptr = find_item(*nd_game, "Manual Camera", 1);
-        
-        if (!mancam_ptr)
-        {
-            echo("Unable to find manual camera item.");
-            goto _skip_wp;
-        }
-
-        load_item(nd_game->pid, mancam_ptr, &item);
-        
-        // Address isn't gonna change any time soon, so we'll just hardcode it and skip getting it.
-        _ffs:
-        wp_index = * get_watchpoint_count();
-        
-        ret = set_watchpoint(nd_game->pid, wp_index, (void *) 0x12B8F80, DBREG_DR7_EXEC, DBREG_DR7_LEN_1);
-        if (ret)
-        {
-            echo("Error setting watchpoint, aborting as something has gone wrong.");
-            return 1;
-        }
-
-        // Resume the process and wait for the watchpoint to be hit
-        proc_continue(nd_game->pid);
-        echo("waiting for watchpoint to be hit");
-
-        pid_t stopped_thread;
-        stopped_thread = proc_wait(nd_game, true);
-        if (stopped_thread == -1)
-        {
-            echo("Error awaiting for mancam eh function watchpoint to be hit");
-            return 1;
-        }
-
-        echo("==================");
-        echo("| Watchpoint Hit |");
-        echo("==================");
-        
-        clear_watchpoint(nd_game->pid, wp_index);
-    }
-    _skip_wp:{}
-
+    add_novis_option(*ndgame);
     
 
 
 
+
+
+
+
+
+
+
+
+
+
+    return 0; // Keeping this crap below for integrity testing later
+    //#
+    //## Call t2r DetonateAllEnemies function (not the event handler, the function itself (assuming we're still calling 0x16cc530))
+    //#
+
     // Get args to modify and pass as args //! this is clunky
     struct reg args;
-    if ((ret = proc_get_regs(nd_game->pid, &args)) != 0)
+    if ((ret = proc_get_regs(ndgame->pid, &args)) != 0)
     {
         echo("Unable to get register values, aborting 'cause something's clearly wrong.");
         return ret;
@@ -499,13 +470,11 @@ _start:
 
     args.r_rsi = 5;
     unsigned long long check; 
-    if ((ret = proc_call(nd_game, (unsigned long *) 0x16cc530, (unsigned long *) &check, &args)) != 0)
+    if ((ret = proc_call(ndgame, (unsigned long *) 0x16cc530, (unsigned long *) &check, &args)) != 0)
     {
         echo("ERROR: %s call failed! (ret: %d)", __FUNCTION__);
     }
     echo("waiting for function to return");
-
-    // proc_continue(nd_game->pid);
 
     return 0;
 }
