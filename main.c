@@ -429,25 +429,105 @@ static int start(ndgame_t * ndgame, int module_pid)
 
 _start:
     ret = find_and_trace_game(ndgame);
-    // if (ret)
-    // {
-    //     echo("ERROR: Unable to load game");
-    //     sleep(5);
-    //     goto _start;
-    // }
+    if (ret)
+    {
+        echo("ERROR: Unable to load game");
+        return 1;
+
+        sleep(5);
+        goto _start;
+    }
 
 
-    
+
     // Make sure novis is present
-    add_novis_option(*ndgame);
+    // add_novis_option(*ndgame);
     
 
 
+    dmenu_item_t item;
+    ret = load_item(ndgame->pid, find_item(*ndgame, "Invincible Player", 1), &item);
+    if (ret)
+    {
+        echo("ERROR @ Line: %d", __LINE__ - 3);
+        return 1;
+    }
 
 
 
 
 
+    struct reg regs;
+    ret = proc_get_regs(ndgame->pid, &regs);
+    if (ret)
+    {
+        echo("ERROR @ Line: %d", __LINE__ - 3);
+        return 1;
+    }
+
+
+
+    ret = set_args(&regs, 0xD0, 0, 0, 0, 0, 0, 0);
+    if (ret)
+    {
+        echo("ERROR @ Line: %d", __LINE__ - 3);
+        return 1;
+    }
+
+
+    // call malloc
+    void * mem;
+    ret = proc_call(ndgame, ndgame->func_malloc, (unsigned long *) &mem, &regs);
+    if (ret)
+    {
+        echo("ERROR @ Line: %d", __LINE__ - 3);
+        return 1;
+    }
+
+
+    echo("Allocated mem: 0x%llX", mem);
+
+
+    ret = proc_stop(ndgame->pid);
+    if (ret)
+    {
+        echo("ERROR @ Line: %d", __LINE__ - 3);
+        return 1;
+    }
+    
+    proc_wait(ndgame, true);
+
+    strcpy(item.item_text_buffer, "Disable All Visibility");
+
+    item.item_text = (char *) &((dmenu_item_t *) mem)->item_text_buffer;
+
+    item.item_variable = ndgame->dat_novis;
+    item.item_event_buffer = read_byte(ndgame->pid, ndgame->dat_novis);
+
+
+    ret = write_bytes(ndgame->pid, sizeof(dmenu_item_t), mem, &item);
+    if (ret)
+    {
+        echo("ERROR @ Line: %d", __LINE__ - 3);
+        return 1;
+    }
+
+
+    ret = proc_get_regs(ndgame->pid, &regs);
+    if (ret)
+    {
+        echo("ERROR @ Line: %d", __LINE__ - 3);
+        return 1;
+    }
+
+    set_args(&regs, (uintptr_t) ((dmenu_menu_t *) read_ulong(ndgame->pid, (unsigned long *) &((dmenu_menu_base_t *) read_ulong(ndgame->pid, (unsigned long *) T2RDMENU_QUICK_MENU_BASE_PTR))->root_menu)), (uintptr_t) mem, 0, 0, 0, 0, 0);
+
+    ret = proc_call(ndgame, (void *) 0x10e7fe0, NULL, &regs);
+    if (ret)
+    {
+        echo("ERROR @ Line: %d", __LINE__ - 3);
+        return 1;
+    }
 
 
 
@@ -551,9 +631,14 @@ int main()
     
 
     // Paylod start
-    start(&nd_game, this);
+    int ret;
+    ret = start(&nd_game, this);
+    if (ret)
+    {
+        echo("Payload start exited with error");
+    }
     
-    cleanup(0);
-    return 0;
+    cleanup(ret);
+    return ret;
 }
 

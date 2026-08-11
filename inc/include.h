@@ -39,7 +39,7 @@ typedef enum : char
 } game_id_t;
 
 
-typedef struct dmenu_menu_base dmenu_menu_base_t;
+typedef struct dmenu_menu_base_s dmenu_menu_base_t;
 
 #pragma once
 // Structure for handling common app-specific variables //! re-write desc once sober

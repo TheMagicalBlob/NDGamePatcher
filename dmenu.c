@@ -274,15 +274,15 @@ static void * find_dmenu_entry(ndgame_t nd_game, const char * expected_entry_nam
 
     load_menu_base(nd_game.pid, p_parent_base, &parent_base);
 
-    if (parent_base.menu == 0)
+    if (parent_base.root_menu == 0)
     {
-        echo("ERROR: Empty menu base pointer provided. (%s)", parent_base.item_text ? parent_base.item_text : (char *) &parent_base.item_text_buffer);
+        echo("ERROR: Empty menu base pointer provided. (%s)", parent_base.menu_base_name ? parent_base.menu_base_name : (char *) &parent_base.menu_base_name_buffer);
         return nullptr;
     }
     
     
     dmenu_menu_t menu;
-    read_bytes(nd_game.pid, sizeof(dmenu_menu_t), parent_base.menu, &menu);
+    read_bytes(nd_game.pid, sizeof(dmenu_menu_t), parent_base.root_menu, &menu);
     
     char parent_name[0x40];
     void * entry_ptr;
@@ -446,6 +446,7 @@ int load_menu(pid_t pid, void * address, dmenu_menu_t * menu)
 // Copy the dmenu_item_t at the provided address in the traced process' memory into the provided item struct
 int load_item(pid_t pid, void * address, dmenu_item_t * item)
 {
+    echo("Loading item");
     return read_bytes(pid, sizeof(dmenu_item_t), address, item);
 }
 
@@ -456,7 +457,7 @@ int load_item(pid_t pid, void * address, dmenu_item_t * item)
 
 void dump_menu_entries(ndgame_t nd_game, dmenu_menu_base_t * parent_base)
 {
-    if (parent_base->menu == 0)
+    if (parent_base->root_menu == 0)
     {
         echo("ERROR: Empty menu base pointer provided.");
         return;
@@ -464,14 +465,16 @@ void dump_menu_entries(ndgame_t nd_game, dmenu_menu_base_t * parent_base)
 
 
     dmenu_menu_t menu;
-    read_bytes(nd_game.pid, sizeof(dmenu_menu_t), parent_base->menu, &menu);
+    read_bytes(nd_game.pid, sizeof(dmenu_menu_t), parent_base->root_menu, &menu);
     
     void * entry_ptr;
     if((entry_ptr = menu.first_item) == 0)
     {
         echo("ERROR:\n# %s %s has no entries (%d).\n# Aborting.", get_dmenu_entry_type_as_string(*(unsigned long long *) &menu), menu.menu_name, entry_ptr);
     }
-    
+
+
+
     
     
     
@@ -491,7 +494,7 @@ void dump_menu_entries(ndgame_t nd_game, dmenu_menu_base_t * parent_base)
     
     while(entry_ptr != null)
     {
-        dmenu_typeid_t type = (dmenu_typeid_t) read_ulong(nd_game.pid, entry_ptr);
+        dmenu_vptr_t type = (dmenu_vptr_t) read_ulong(nd_game.pid, entry_ptr);
         char * dtype = get_dmenu_entry_type_as_string(type);
         
 
@@ -606,6 +609,6 @@ void add_novis_option(ndgame_t nd_game)
     load_item(nd_game.pid, item_ptr, &item);
 
     write_string(nd_game.pid, item.item_text, "Enable novis");
-    write_ulong(nd_game.pid, (unsigned long *) &item_ptr->item_variable_ptr, (unsigned long) nd_game.dat_novis);
+    write_ulong(nd_game.pid, (unsigned long *) &item_ptr->item_variable, (unsigned long) nd_game.dat_novis);
 
 }

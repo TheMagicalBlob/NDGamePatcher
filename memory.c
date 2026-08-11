@@ -485,7 +485,7 @@ int proc_stop(pid_t pid)
         return 1;
     }
 
-    proc_suspend_threads(pid);
+    // proc_suspend_threads(pid);
     return 0;
 }
 
@@ -685,6 +685,7 @@ int clear_watchpoint(pid_t pid, short index)
 
     
     
+    // Clear all watchpoints
     if (index < 0)
     {
         for (int i = 0; i < 4; i++)
@@ -695,11 +696,61 @@ int clear_watchpoint(pid_t pid, short index)
                 echo("ERROR\nclear_watchpoint(): error clearing watchpoint #%d", i);
             }
         }
+
         return ret;
     }
     
+
+
+    // Set specified watchpoint
     return set_watchpoint(pid, index, NULL, 0, 0);
 }
+
+
+
+
+int clear_args(struct reg * regs)
+{
+    if (!regs)
+    {
+        echo("ERROR: %s->Null regs pointer provided.", __FUNCTION__);
+        return 1;
+    }
+
+    regs->r_rdi = 0;
+    regs->r_rsi = 0;
+    regs->r_rdx = 0;
+    regs->r_rcx = 0;
+    regs->r_rbx = 0;
+    regs->r_r8 = 0;
+    regs->r_r9 = 0;
+
+    return 0;
+}
+
+
+
+
+
+int set_args(struct reg * regs, uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rcx, uintptr_t rbx, uintptr_t r8, uintptr_t r9)
+{
+    if (!regs)
+    {
+        echo("ERROR: %s->Null regs pointer provided.", __FUNCTION__);
+        return 1;
+    }
+
+    regs->r_rdi = rdi;
+    regs->r_rsi = rsi;
+    regs->r_rdx = rdx;
+    regs->r_rcx = rcx;
+    regs->r_rbx = rbx;
+    regs->r_r8 = r8;
+    regs->r_r9 = r9;
+
+    return 0;
+}
+
 
 
 
@@ -728,10 +779,12 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
     
 
     int ret;
-    if ((ret = read_byte(pid, (void *) 0x400000)) != 0xCC)
-    {
-        echo("ERROR: Unexpected value read from expected image base. Expected to find INT3 (0xCC) breakpoint instruction, read %lX instead. Aborting function call.", ret);
-    }
+    // I guess we can't actually read from that address? I assume we can only read after the header?
+    // if ((ret = read_byte(pid, (void *) 0x400000)) != 0xCC)
+    // {
+    //     echo("ERROR: Unexpected value read from expected image base. Expected to find INT3 (0xCC) breakpoint instruction, read %lX instead. Aborting function call.", ret);
+    //     return 1;
+    // }
     
     
     
@@ -747,13 +800,10 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
 
 
     
-    // Make a copy of the current register values if no existing struct ref was provided
-    struct reg registers;
     if (!arg_regs)
     {
-        echo("no args provided, copying og regisers to use instead");
-        memcpy(&registers, &og_registers, sizeof(struct reg));
-        arg_regs = &registers;
+        arg_regs = &og_registers;
+        clear_args(&og_registers);
     }
     
     
@@ -793,6 +843,9 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
     {
         *((long long *) return_val_ptr) = return_regs.r_rax;
         echo("Function at 0x%llX returned: 0x%llX", function_address, *return_val_ptr);
+    }
+    else {
+        echo("Function at 0x%llX returned.", function_address);
     }
     
 
@@ -1083,9 +1136,11 @@ unsigned char read_byte(int pid, void * address)
 {
     int ret;
     unsigned char data;
+    errno = 0;
 
     if ((ret = proc_read(pid, 1, address, &data, __FUNCTION__)) != 0)
     {
+        errno = ret;
         return -1;
     }
 

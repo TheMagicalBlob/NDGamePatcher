@@ -2,7 +2,7 @@
 
 
 
-typedef struct dmenu_menu_base dmenu_menu_base_t;
+typedef struct dmenu_menu_base_s dmenu_menu_base_t;
 #define T2RDMENU_DEV_MENU_BASE_PTR       (dmenu_menu_base_t *) 0x6b63998
 #define T2RDMENU_QUICK_MENU_BASE_PTR     (dmenu_menu_base_t *) 0x6b64670
 #define T2RDMENU_FAVORITES_MENU_BASE_PTR (dmenu_menu_base_t *) 0x6b639a0
@@ -31,7 +31,7 @@ typedef struct dmenu_menu_base dmenu_menu_base_t;
 
 
 // Just the function array pointer at the start of each dmenu struct read as an unsigned 64bit integer
-typedef enum dmenu_typeid : u_long
+typedef enum : u_long
 {
     // The Last of Us Part II Remastered
     t2r_typeid_menu_base = 0x322E688,
@@ -149,7 +149,7 @@ typedef enum dmenu_typeid : u_long
     tllr_typeid_timer_item = 0xFFFFFFFFFFFFFFFF,
     tllr_typeid_unk_item = 0xFFFFFFFFFFFFFFFF
 
-} dmenu_typeid_t;
+} dmenu_vptr_t;
 
 
 // simplified dmenu type enum boiling it down to structurally different items
@@ -174,10 +174,10 @@ typedef enum dmenu_simple_type : char
 
 
 
-typedef struct dmenu_menu dmenu_menu_t;
-typedef struct dmenu_item dmenu_item_t;
+typedef struct dmenu_menu_s dmenu_menu_t;
+typedef struct dmenu_item_s dmenu_item_t;
 
-typedef struct dmenu_item // Size 0xB8 (seems to vary for different item types, don't think there's one universal dmenu_item struct- seems to be more than just 3 or 4)
+typedef struct dmenu_item_s // Size 0xB8 - 0xC8 depending on which derived class it is. do this properly later 
 {
     void * vptr; // Item class vPtr/Virtual Table Pointer
     char unused1[0x8]; // 0x08 // Always zero
@@ -189,15 +189,18 @@ typedef struct dmenu_item // Size 0xB8 (seems to vary for different item types, 
     const unsigned short vertical_padding; 
     const unsigned short width; 
     const unsigned short height; 
-    char unknown0[0x10];
-    void * item_variable_ptr;
+    char unmapped0[0x8];
+    unsigned long unmapped1;
+    void * item_variable;
     unsigned int off_state_colour;
     unsigned int on_state_colour;
     unsigned int unknown_state_colour_1;
     unsigned int unknown_state_colour_2;
-    char unknown1[0x18];
+    char unmapped2[0x8];
+    unsigned long unmapped3;
+    char unmapped4[0x8];
     dmenu_menu_base_t * menu_base; // Points to the dmenu base entry [0x90] 
-    char unknown2[0x4];
+    char unmapped5[0x4];
     int selection_index;
     unsigned int item_count; // The amount of items in the root of the menu
     unsigned int entry_event_handler_type_id; // unsure
@@ -209,57 +212,62 @@ typedef struct dmenu_item // Size 0xB8 (seems to vary for different item types, 
 
 
 
-typedef struct dmenu_menu // 0xE0
+
+
+
+typedef struct dmenu_menu_s // 0xE0
 {
     void * vptr; // Item class vPtr/Virtual Table Pointer
     char unused1[0x8]; // Always zero
     char menu_name_buffer[0x20]; // Default buffer space for the item text, if it fits the buffer. 
     char * menu_name; // Pointer to the item's text; usually points to the item_text_buffer, but additional space is allocated and used instead if the string length is > 32. 
     dmenu_menu_t * parent_menu;
-    const char * next_item; // Next item in the regular entries. seems to still be read here, though
+    dmenu_item_t * next_item; // Next item in the regular entries. seems to still be read here, though
     const unsigned short horizontal_padding;
     const unsigned short vertical_padding;
     const unsigned short width;
     const unsigned short height;
-    char unknown0[0x10];
+    char unmapped0[0x10];
     void * unknown_struct_pointer;
     unsigned int off_state_colour;
     unsigned int on_state_colour;
     unsigned int unknown_state_colour_1;
     unsigned int unknown_state_colour_2;
-    char unknown1[0x18];
+    void * event_handler;
+    unsigned long unknown2;
+    char unmapped2[0x8];
     dmenu_menu_base_t * menu_base; // Points to the dmenu base entry [0x90] 
-    char unknown2[0x4];
+    char unmapped3[0x4];
     int selection_index;
     unsigned int item_count; // The amount of items in the root of the menu
     unsigned int unk_filter_related_int; // Gets set to zero when removing all filter items
     int unknown_bool; // not quite sure exactly what it does yet. I've only got guesses
     const char alignment1[0x4];
     dmenu_item_t * first_item; // Points to the first/top item in the menu [0xB0]
-    char unknown3[0x4];
+    char unmapped4[0x4];
     int menu_is_open;
     unsigned long _filter_contents; // Something filter-related
-    unsigned int unknown5;
+    unsigned int unmapped5;
     int on_screen_item_count;
-    char unknown6[0x10];
+    char unmapped6[0x10];
 
 } dmenu_menu_t;
 
 
 
-typedef struct dmenu_menu_base // x >= 0x328
+typedef struct dmenu_menu_base_s // x >= 0x328
 {
     void * vptr; // Item class vPtr/Virtual Table Pointer
     char unused1[0x8]; // Always zero
-    char item_text_buffer[0x20]; // Default buffer space for the item text, if it fits the buffer. 
-    char * item_text; // Pointer to the item's text; usually points to the item_text_buffer, but additional space is allocated and used instead if the string length is > 32. 
+    char menu_base_name_buffer[0x20]; // Default buffer space for the menu base name, if it fits the buffer. 
+    char * menu_base_name; // Pointer to the menu base's text; usually points to the menu_base_name_buffer, but additional space is allocated and used instead if the string length is > 32. 
     char unused2[0x30]; // Always zero
     unsigned int off_state_colour; // unused for menu bases
     unsigned int on_state_colour; // unused for menu bases
     unsigned int unknown_state_colour_1; // unused for menu bases
     unsigned int unknown_state_colour_2; // unused for menu bases
     char unmapped1[0x30]; // Unmapped
-    dmenu_menu_t * menu; // The actual dmenu menu that gets populated with items and acts as this menu base's root submenu // 0xA8
+    dmenu_menu_t * root_menu; // The actual dmenu menu that gets populated with items and acts as this menu base's root submenu // 0xA8
     void * unknown_struct_pointer1; // Menu Options, maybe?
     char open_menu; // Open the menu
     char render_menu; // Render the menu when open
