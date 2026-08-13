@@ -112,7 +112,7 @@ int set_authid_for_ptrace()
 
 
 
-int attach(ndgame_t ndgame)
+int attach(ndgame_t * ndgame)
 {
     int ret;
     errno = 0;
@@ -126,17 +126,17 @@ int attach(ndgame_t ndgame)
     }
 
 
-    if ((ret = ptrace(PT_ATTACH, ndgame.pid, 0, 0)) != 0)
+    if ((ret = ptrace(PT_ATTACH, ndgame->pid, 0, 0)) != 0)
     {
         notify("PT_ATTACH ERROR: %s\n", strerror(ret));
         
-        if(kill(ndgame.pid, SIGCONT))
+        if(kill(ndgame->pid, SIGCONT))
         {
             echo("WARNING: Unable to resume process through SIGCONT");
         }
     }
     
-    echo("Attached to pid %d", ndgame.pid);
+    echo("Attached to pid %d", ndgame->pid);
     return ret;
 }
 
@@ -851,15 +851,19 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
 
 
 
-    // Restore the initial register values 
+    // Restore the initial register values
     if (proc_set_regs(pid, &og_registers))
     {
         error_source = __LINE__ - 2;
         goto _err;
     }
+    // Single step one instruction to get back to actual code before doing anything else
+    if (ptrace(PT_STEP, ndgame->pid, 0, 0))
+    {
+        error_source = __LINE__ - 2;
+        goto _err;
+    }
 
-
-    proc_continue(pid);
     return 0;
 
 _err:
@@ -1116,16 +1120,16 @@ static int proc_write(pid_t pid, int len, void * dest, void * value, const char 
 
 
 
-int read_bytes(pid_t pid, size_t len, void * address, void * buffer)
+int read_bytes(pid_t pid, size_t len, void * source, void * destination)
 {
-    return proc_read(pid, len, address, buffer, __FUNCTION__);
+    return proc_read(pid, len, source, destination, __FUNCTION__);
 }
 
 
 
-int write_bytes(pid_t pid, size_t len, void * address, void * buffer)
+int write_bytes(pid_t pid, size_t len, void * destination, void * value)
 {
-    return proc_write(pid, len, address, buffer, __FUNCTION__);
+    return proc_write(pid, len, destination, value, __FUNCTION__);
 }
 
 
@@ -1342,3 +1346,19 @@ int write_string(int pid, void * address, const char * str)
     return written;
 }
 
+
+
+// Lazily align the provided by rounding it up to the nearest tenth (unless it's already aligned to 16 bytes). This isn't really needed right now, but I'm keeping it just-in-case
+unsigned long align(unsigned long value)
+{
+    unsigned long buf;
+    buf = value & ~0xF;
+
+    if (buf < value)
+    {
+        buf += 16ul;
+    }
+
+
+    return buf;
+}

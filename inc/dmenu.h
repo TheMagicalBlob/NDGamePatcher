@@ -2,6 +2,10 @@
 
 
 
+
+//#
+//## The Last of Us Part II Remastered / T1x
+//#
 typedef struct dmenu_menu_base_s dmenu_menu_base_t;
 #define T2RDMENU_DEV_MENU_BASE_PTR       (dmenu_menu_base_t *) 0x6b63998
 #define T2RDMENU_QUICK_MENU_BASE_PTR     (dmenu_menu_base_t *) 0x6b64670
@@ -11,12 +15,20 @@ typedef struct dmenu_menu_base_s dmenu_menu_base_t;
 #define T2R_FREE (void *) 0x02a8f680
 #define T2R_MALLOC (void *) 0x02a8f690
 
-#define T2R_NOVIS (int8_t *) 0x70cc124
 #define T2R_LOOKUPSYMBOL (void *) 0x051c0c0
 
 
+#define T2R_NOVIS (int8_t *) 0x70cc124
 
-#define T1xDMENU_DEV_MENU_BASE_PTR      (dmenu_menu_base_t *) 0x6a34a68
+
+
+
+
+
+//#
+//## The Last of Us Part I / T1x
+//#
+#define T1xDMENU_DEV_MENU_BASE_PTR       (dmenu_menu_base_t *) 0x6a34a68
 #define T1xDMENU_QUICK_MENU_BASE_PTR     (dmenu_menu_base_t *) 0x6a35720
 #define T1xDMENU_FAVORITES_MENU_BASE_PTR (dmenu_menu_base_t *) 0x6a34a70
 
@@ -202,7 +214,7 @@ typedef struct dmenu_item_s // Size 0xB8 - 0xC8 depending on which derived class
     dmenu_menu_base_t * menu_base; // Points to the dmenu base entry [0x90] 
     char unmapped5[0x4];
     int selection_index;
-    unsigned int item_count; // The amount of items in the root of the menu
+    unsigned int item_count; //!
     unsigned int entry_event_handler_type_id; // unsure
     void * event_handler;
     unsigned long item_event_buffer; // Bool for options that can be toggled, points to the header item for submenu entry items
@@ -292,21 +304,21 @@ typedef struct dmenu_menu_base_s // x >= 0x328
 
 
 
-int get_dmenu_entry_base_type(pid_t pid, void * item);
+int get_dmenu_entry_base_type(ndgame_t * ndgame, void * item);
 char * get_dmenu_entry_type_as_string(long long type);
 
 
-dmenu_item_t * find_item(ndgame_t nd_game, const char * item_name, char parent_index);
-dmenu_menu_t * find_menu(ndgame_t nd_game, const char * menu_name, char parent_index);
-dmenu_item_t * find_submenu(ndgame_t nd_game, const char * submenu_name, char parent_index);
+dmenu_item_t * find_item(ndgame_t * ndgame, const char * item_name, char parent_index);
+dmenu_menu_t * find_menu(ndgame_t * ndgame, const char * menu_name, char parent_index);
+dmenu_item_t * find_submenu(ndgame_t * ndgame, const char * submenu_name, char parent_index);
 
 
-void dump_menu_entries(ndgame_t nd_game, dmenu_menu_base_t * menu);
+void dump_menu_entries(ndgame_t * nd_game, dmenu_menu_base_t * menu);
 
 
-int load_menu_base(pid_t pid, void * address, dmenu_menu_base_t * menu_base);
-int load_menu(pid_t pid, void * address, dmenu_menu_t * menu);
-int load_item(pid_t pid, void * address, dmenu_item_t * item);
+int load_menu_base(ndgame_t * ndgame, void * address, dmenu_menu_base_t * menu_base);
+int load_menu(ndgame_t * ndgame, void * address, dmenu_menu_t * menu);
+int load_item(ndgame_t * ndgame, void * address, dmenu_item_t * item);
 
 
-void add_novis_option(ndgame_t nd_game);
+void add_novis_option(ndgame_t * nd_game);

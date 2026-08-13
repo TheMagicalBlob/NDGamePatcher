@@ -260,7 +260,7 @@ _retry:
             strncpy(nd_game->title_id, app_info.title_id, 0xA);
             
             int ret;
-            if ((ret = attach(*nd_game)))
+            if ((ret = attach(nd_game)))
             {
                 return 1;
             }
@@ -441,18 +441,8 @@ _start:
 
 
     // Make sure novis is present
-    // add_novis_option(*ndgame);
+    // add_novis_option(ndgame);
     
-
-
-    dmenu_item_t item;
-    ret = load_item(ndgame->pid, find_item(*ndgame, "Invincible Player", 1), &item);
-    if (ret)
-    {
-        echo("ERROR @ Line: %d", __LINE__ - 3);
-        return 1;
-    }
-
 
 
 
@@ -466,8 +456,11 @@ _start:
     }
 
 
+    unsigned long allocated_amount;
+    allocated_amount = align(sizeof(dmenu_item_t));
 
-    ret = set_args(&regs, 0xD0, 0, 0, 0, 0, 0, 0);
+
+    ret = set_args(&regs, allocated_amount, 0, 0, 0, 0, 0, 0);
     if (ret)
     {
         echo("ERROR @ Line: %d", __LINE__ - 3);
@@ -485,8 +478,6 @@ _start:
     }
 
 
-    echo("Allocated mem: 0x%llX", mem);
-
 
     ret = proc_stop(ndgame->pid);
     if (ret)
@@ -497,13 +488,58 @@ _start:
     
     proc_wait(ndgame, true);
 
+
+
+
+
+
+
+
+    dmenu_item_t item;
+    bzero(&item, sizeof(dmenu_item_t));
+
+    if (0)
+    {
+        dmenu_item_t * ptr;
+        ptr = find_item(ndgame, "Enable Color Picker", 1);
+        if (!ptr)
+        {
+            echo("Unable to find menu item");
+            return 1;
+        }
+        echo("Item is at: 0x%llX", ptr);
+
+
+        ret = read_bytes(ndgame->pid, sizeof(dmenu_item_t), ptr, &item);
+        if (ret)
+        {
+            echo("ERROR @ Line: %d", __LINE__ - 3);
+            return 1;
+        }
+    }
+    else {
+        * (unsigned int *) &item = t2r_typeid_bool_item;
+    
+        item.entry_event_handler_type_id = 3; // Bool item
+        item.event_handler = (void *) 0x0114d100; // Bool event handler
+        item.item_event_buffer = read_byte(ndgame->pid, ndgame->dat_novis);
+    
+        item.off_state_colour = 0xEFFFFFFF; // White
+        item.on_state_colour = 0xEFFFFF00;  // Yellow
+        item.unknown_state_colour_1 = 0xFF0000FF; // Red
+        item.unknown_state_colour_2 = 0xFF00FF00; // Green
+        item.selection_index = 1;
+        item.item_count = 1;
+    }
+
+    
     strcpy(item.item_text_buffer, "Disable All Visibility");
 
     item.item_text = (char *) &((dmenu_item_t *) mem)->item_text_buffer;
 
     item.item_variable = ndgame->dat_novis;
-    item.item_event_buffer = read_byte(ndgame->pid, ndgame->dat_novis);
 
+    echo("Writing new item to allocated spot 0x%llX", mem);
 
     ret = write_bytes(ndgame->pid, sizeof(dmenu_item_t), mem, &item);
     if (ret)
@@ -520,7 +556,14 @@ _start:
         return 1;
     }
 
-    set_args(&regs, (uintptr_t) ((dmenu_menu_t *) read_ulong(ndgame->pid, (unsigned long *) &((dmenu_menu_base_t *) read_ulong(ndgame->pid, (unsigned long *) T2RDMENU_QUICK_MENU_BASE_PTR))->root_menu)), (uintptr_t) mem, 0, 0, 0, 0, 0);
+    
+    uintptr_t one;
+    one = (uintptr_t) ((dmenu_menu_t *) read_ulong(ndgame->pid, (unsigned long *) &((dmenu_menu_base_t *) read_ulong(ndgame->pid, (unsigned long *) T2RDMENU_QUICK_MENU_BASE_PTR))->root_menu));
+    echo("ONE: %llX", one);
+    
+    // return 0;
+
+    set_args(&regs, one, (uintptr_t) mem, 0, 0, 0, 0, 0);
 
     ret = proc_call(ndgame, (void *) 0x10e7fe0, NULL, &regs);
     if (ret)
@@ -637,6 +680,8 @@ int main()
     {
         echo("Payload start exited with error");
     }
+
+    echo("\n==================================\n| DMenu Payload Exiting... (%d) |\n==================================", getpid());
     
     cleanup(ret);
     return ret;

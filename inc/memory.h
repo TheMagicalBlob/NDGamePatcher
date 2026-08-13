@@ -10,7 +10,7 @@ pid_t find_pid(const char * process_name, pid_t pids[]);
 int set_authid_for_ptrace();
 
 
-int attach(ndgame_t nd_game);
+int attach(ndgame_t * nd_game);
 int detach(ndgame_t * nd_game, const char * from);
 pid_t proc_wait(ndgame_t * game, int wait);
 
@@ -36,8 +36,8 @@ int proc_call(ndgame_t * nd_game, void * function_address, unsigned long * retur
 void * proc_malloc(pid_t pid, int amount);
 int proc_free(pid_t pid, void * mem_ptr);
 
-int read_bytes(pid_t pid, size_t len, void * address, void * buffer);
-int write_bytes(pid_t pid, size_t len, void * address, void * buffer);
+int read_bytes(pid_t pid, size_t len, void * source, void * destination);
+int write_bytes(pid_t pid, size_t len, void * destination, void * value);
 
 unsigned char read_byte(int pid, void * address);
 int write_byte(int pid, void * address, unsigned char data);
@@ -56,4 +56,6 @@ int write_single(int pid, unsigned long address, float value);
 
 int read_string(int pid, const char * address, char * buffer);
 int write_string(int pid, void * address, const char * str);
+
+unsigned long align(unsigned long value);
 

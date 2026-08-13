@@ -3,9 +3,9 @@
 
 
 
-int get_dmenu_entry_base_type(pid_t pid, void * item)
+int get_dmenu_entry_base_type(ndgame_t * ndgame, void * item)
 {
-    unsigned long long chk = (unsigned long long) read_ulong(pid, item);
+    unsigned long long chk = (unsigned long long) read_ulong(ndgame->pid, item);
 
     switch (chk)
     {
@@ -244,7 +244,7 @@ char * get_dmenu_entry_type_as_string(long long type)
 
 
 
-static void * find_dmenu_entry(ndgame_t nd_game, const char * expected_entry_name, dmenu_simple_type_t expected_base_type, char parent_index)
+static void * find_dmenu_entry(ndgame_t * nd_game, const char * expected_entry_name, dmenu_simple_type_t expected_base_type, char parent_index)
 {
     dmenu_menu_base_t parent_base;
     dmenu_menu_base_t * p_parent_base;
@@ -259,20 +259,20 @@ static void * find_dmenu_entry(ndgame_t nd_game, const char * expected_entry_nam
     switch(parent_index)
     {
         case 0:
-            p_parent_base = nd_game.dev_menu_base;
+            p_parent_base = nd_game->dev_menu_base;
             break;
 
         case 1:
-            p_parent_base = nd_game.quick_menu_base;
+            p_parent_base = nd_game->quick_menu_base;
             break;
         
         case 2:
-            p_parent_base = nd_game.favorites_menu_base;
+            p_parent_base = nd_game->favorites_menu_base;
             break;
     }
 
 
-    load_menu_base(nd_game.pid, p_parent_base, &parent_base);
+    load_menu_base(nd_game, p_parent_base, &parent_base);
 
     if (parent_base.root_menu == 0)
     {
@@ -282,13 +282,13 @@ static void * find_dmenu_entry(ndgame_t nd_game, const char * expected_entry_nam
     
     
     dmenu_menu_t menu;
-    read_bytes(nd_game.pid, sizeof(dmenu_menu_t), parent_base.root_menu, &menu);
+    read_bytes(nd_game->pid, sizeof(dmenu_menu_t), parent_base.root_menu, &menu);
     
     char parent_name[0x40];
     void * entry_ptr;
 
     bzero(parent_name, 0x40);
-    read_string(nd_game.pid, menu.menu_name, parent_name);
+    read_string(nd_game->pid, menu.menu_name, parent_name);
 
     if((entry_ptr = menu.first_item) == 0)
     {
@@ -314,18 +314,18 @@ static void * find_dmenu_entry(ndgame_t nd_game, const char * expected_entry_nam
     int depth = 0, ret;
     while(entry_ptr != nullptr)
     {
-        base_type = get_dmenu_entry_base_type(nd_game.pid, entry_ptr);
+        base_type = get_dmenu_entry_base_type(nd_game, entry_ptr);
         
         // Menu
         if (next_is_menu)
         {
-            ret = read_bytes(nd_game.pid, sizeof(dmenu_menu_t), entry_ptr, &menu);
+            ret = read_bytes(nd_game->pid, sizeof(dmenu_menu_t), entry_ptr, &menu);
             if (ret)
             {
                 break;
             }
 
-            ret = read_string(nd_game.pid, menu.menu_name, entry_name);
+            ret = read_string(nd_game->pid, menu.menu_name, entry_name);
             if (!ret)
             {
                 break;
@@ -345,14 +345,14 @@ static void * find_dmenu_entry(ndgame_t nd_game, const char * expected_entry_nam
         }
         // Item
         else {
-            read_bytes(nd_game.pid, sizeof(dmenu_item_t), entry_ptr, &item);
+            read_bytes(nd_game->pid, sizeof(dmenu_item_t), entry_ptr, &item);
             
             if (item.item_text == nullptr)
             {
                 goto no_text;
             }
             
-            read_string(nd_game.pid, item.item_text, entry_name);
+            read_string(nd_game->pid, item.item_text, entry_name);
 
 
             if (expected_base_type == base_type && !strncmp(expected_entry_name, entry_name, len))
@@ -399,7 +399,7 @@ static void * find_dmenu_entry(ndgame_t nd_game, const char * expected_entry_nam
 // <=0 == Dev Menu
 // 1 == Quick Menu
 // >=2 == Favorites Menu
-dmenu_item_t * find_item(ndgame_t nd_game, const char * item_name, char parent_index)
+dmenu_item_t * find_item(ndgame_t * nd_game, const char * item_name, char parent_index)
 {
     return find_dmenu_entry(nd_game, item_name, simple_typeid_item, parent_index);
 }
@@ -409,7 +409,7 @@ dmenu_item_t * find_item(ndgame_t nd_game, const char * item_name, char parent_i
 // <=0 == Dev Menu
 // 1 == Quick Menu
 // >=2 == Favorites Menu
-dmenu_menu_t * find_menu(ndgame_t nd_game, const char * menu_name, char parent_index)
+dmenu_menu_t * find_menu(ndgame_t * nd_game, const char * menu_name, char parent_index)
 {
     return find_dmenu_entry(nd_game, menu_name, simple_typeid_menu, parent_index);
 }
@@ -419,7 +419,7 @@ dmenu_menu_t * find_menu(ndgame_t nd_game, const char * menu_name, char parent_i
 // <=0 == Dev Menu
 // 1 == Quick Menu
 // >=2 == Favorites Menu
-dmenu_item_t * find_submenu(ndgame_t nd_game, const char * submenu_name, char parent_index)
+dmenu_item_t * find_submenu(ndgame_t * nd_game, const char * submenu_name, char parent_index)
 {
     return find_dmenu_entry(nd_game, submenu_name, simple_typeid_submenu, parent_index);
 }
@@ -430,24 +430,24 @@ dmenu_item_t * find_submenu(ndgame_t nd_game, const char * submenu_name, char pa
 
 
 // Copy the dmenu_menu_base_t pointed to by the dmenu_menu_base_t * at the provided address in the traced process' memory into the provided menu base struct
-int load_menu_base(pid_t pid, void * address, dmenu_menu_base_t * menu_base)
+int load_menu_base(ndgame_t * ndgame, void * address, dmenu_menu_base_t * menu_base)
 {
-    return read_bytes(pid, sizeof(dmenu_menu_base_t), (void *) read_ulong(pid, (unsigned long *) address), menu_base);
+    return read_bytes(ndgame->pid, sizeof(dmenu_menu_base_t), (void *) read_ulong(ndgame->pid, (unsigned long *) address), menu_base);
 }
 
 
 // Copy the dmenu_menu_t at the provided address in the traced process' memory into the provided menu struct
-int load_menu(pid_t pid, void * address, dmenu_menu_t * menu)
+int load_menu(ndgame_t * ndgame, void * address, dmenu_menu_t * menu)
 {
-    return read_bytes(pid, sizeof(dmenu_menu_t), address, menu);
+    return read_bytes(ndgame->pid, sizeof(dmenu_menu_t), address, menu);
 }
 
 
 // Copy the dmenu_item_t at the provided address in the traced process' memory into the provided item struct
-int load_item(pid_t pid, void * address, dmenu_item_t * item)
+int load_item(ndgame_t * ndgame, void * address, dmenu_item_t * item)
 {
     echo("Loading item");
-    return read_bytes(pid, sizeof(dmenu_item_t), address, item);
+    return read_bytes(ndgame->pid, sizeof(dmenu_item_t), address, item);
 }
 
 
@@ -455,7 +455,7 @@ int load_item(pid_t pid, void * address, dmenu_item_t * item)
 
 
 
-void dump_menu_entries(ndgame_t nd_game, dmenu_menu_base_t * parent_base)
+void dump_menu_entries(ndgame_t * nd_game, dmenu_menu_base_t * parent_base)
 {
     if (parent_base->root_menu == 0)
     {
@@ -465,7 +465,7 @@ void dump_menu_entries(ndgame_t nd_game, dmenu_menu_base_t * parent_base)
 
 
     dmenu_menu_t menu;
-    read_bytes(nd_game.pid, sizeof(dmenu_menu_t), parent_base->root_menu, &menu);
+    read_bytes(nd_game->pid, sizeof(dmenu_menu_t), parent_base->root_menu, &menu);
     
     void * entry_ptr;
     if((entry_ptr = menu.first_item) == 0)
@@ -494,7 +494,7 @@ void dump_menu_entries(ndgame_t nd_game, dmenu_menu_base_t * parent_base)
     
     while(entry_ptr != null)
     {
-        dmenu_vptr_t type = (dmenu_vptr_t) read_ulong(nd_game.pid, entry_ptr);
+        dmenu_vptr_t type = (dmenu_vptr_t) read_ulong(nd_game->pid, entry_ptr);
         char * dtype = get_dmenu_entry_type_as_string(type);
         
 
@@ -510,10 +510,10 @@ void dump_menu_entries(ndgame_t nd_game, dmenu_menu_base_t * parent_base)
         // Menu
         if (next_is_menu)
         {
-            read_bytes(nd_game.pid, sizeof(dmenu_menu_t), entry_ptr, &menu);
+            read_bytes(nd_game->pid, sizeof(dmenu_menu_t), entry_ptr, &menu);
             
-            read_string(nd_game.pid, menu.menu_name, item_name);
-            read_string(nd_game.pid, (void *) read_ulong(nd_game.pid, (unsigned long *) &menu.parent_menu->menu_name), parent_name);
+            read_string(nd_game->pid, menu.menu_name, item_name);
+            read_string(nd_game->pid, (void *) read_ulong(nd_game->pid, (unsigned long *) &menu.parent_menu->menu_name), parent_name);
 
             echo(output_format, entry_ptr, padding, item_name, dtype, type, menu.unk_filter_related_int, parent_name);
             
@@ -523,23 +523,23 @@ void dump_menu_entries(ndgame_t nd_game, dmenu_menu_base_t * parent_base)
         }
         // Item
         else {
-            read_bytes(nd_game.pid, sizeof(dmenu_item_t), entry_ptr, &item);
+            read_bytes(nd_game->pid, sizeof(dmenu_item_t), entry_ptr, &item);
             
             if (item.item_text == nullptr)
             {
                 strncpy(item_name, "------------------------------------", 40);
             }
             else{
-                read_string(nd_game.pid, item.item_text, item_name);
+                read_string(nd_game->pid, item.item_text, item_name);
             }
 
 
 
-            read_string(nd_game.pid, (void *) read_ulong(nd_game.pid, (unsigned long *) &item.parent_menu->menu_name), parent_name);
+            read_string(nd_game->pid, (void *) read_ulong(nd_game->pid, (unsigned long *) &item.parent_menu->menu_name), parent_name);
 
             echo(output_format, entry_ptr, padding, item_name, dtype, type, item.entry_event_handler_type_id, parent_name);
             
-            if (get_dmenu_entry_base_type(nd_game.pid, entry_ptr) == simple_typeid_submenu)
+            if (get_dmenu_entry_base_type(nd_game, entry_ptr) == simple_typeid_submenu)
             {
                 entry_ptr = (dmenu_item_t *) item.item_event_buffer;
 
@@ -588,7 +588,7 @@ void dump_menu_entries(ndgame_t nd_game, dmenu_menu_base_t * parent_base)
 
 
 
-void add_novis_option(ndgame_t nd_game)
+void add_novis_option(ndgame_t * nd_game)
 {
     dmenu_item_t * item_ptr;
     item_ptr = find_item(nd_game, "Draw World Axes", 0);
@@ -606,9 +606,10 @@ void add_novis_option(ndgame_t nd_game)
 
 
     dmenu_item_t item;
-    load_item(nd_game.pid, item_ptr, &item);
+    load_item(nd_game, item_ptr, &item);
 
-    write_string(nd_game.pid, item.item_text, "Enable novis");
-    write_ulong(nd_game.pid, (unsigned long *) &item_ptr->item_variable, (unsigned long) nd_game.dat_novis);
+    write_string(nd_game->pid, item.item_text, "Enable novis");
+    write_ulong(nd_game->pid, (unsigned long *) &item_ptr->item_variable, (unsigned long) nd_game->dat_novis);
 
 }
+
