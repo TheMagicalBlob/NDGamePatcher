@@ -1,0 +1,14 @@
+1. Reverse menu base enough to replicate append func
+
+2. Add enums for the one or two unnamed things (e.g. menu base index for find_item)
+
+3. Update dmenu item struct to reflect the fact that there's clearly multiple of differing sizes
+
+4. Re-implement invoke function in-payload to avoid needing prepatched executables
+
+?. Figure out what's up with that crash we get when sending sigstop after proc_call
+
+5. Find an easy of way adding custom functions needed for new menu options to the game's memory
+
+6. Implement the various dmenu item creation functions from the exectuable (I may take liberties)
+

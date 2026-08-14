@@ -857,13 +857,7 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
         error_source = __LINE__ - 2;
         goto _err;
     }
-    // Single step one instruction to get back to actual code before doing anything else
-    if (ptrace(PT_STEP, ndgame->pid, 0, 0))
-    {
-        error_source = __LINE__ - 2;
-        goto _err;
-    }
-
+    
     return 0;
 
 _err:

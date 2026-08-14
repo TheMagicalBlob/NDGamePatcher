@@ -318,6 +318,7 @@ static int find_and_trace_game(ndgame_t * nd_game)
             nd_game->quick_menu_base = T2RDMENU_QUICK_MENU_BASE_PTR;
             nd_game->favorites_menu_base = T2RDMENU_FAVORITES_MENU_BASE_PTR;
 
+            nd_game->vptr_dmenu = (void *) 0x3e6e8f8;
             nd_game->dat_novis = T2R_NOVIS;
             nd_game->func_malloc = T2R_MALLOC;
             nd_game->func_free = T2R_FREE;
@@ -334,6 +335,7 @@ static int find_and_trace_game(ndgame_t * nd_game)
             nd_game->quick_menu_base = T1xDMENU_QUICK_MENU_BASE_PTR;
             nd_game->favorites_menu_base = T1xDMENU_FAVORITES_MENU_BASE_PTR;
 
+            nd_game->vptr_dmenu = (void *) 0x51f4fa8;
             nd_game->dat_novis = T1x_NOVIS;
             nd_game->func_malloc = T1x_MALLOC;
             nd_game->func_free = T1x_FREE;
@@ -442,8 +444,6 @@ _start:
 
     // Make sure novis is present
     // add_novis_option(ndgame);
-    
-
 
 
 
@@ -477,16 +477,7 @@ _start:
         return 1;
     }
 
-
-
-    ret = proc_stop(ndgame->pid);
-    if (ret)
-    {
-        echo("ERROR @ Line: %d", __LINE__ - 3);
-        return 1;
-    }
-    
-    proc_wait(ndgame, true);
+    proc_wait(ndgame, false);
 
 
 
@@ -498,6 +489,7 @@ _start:
     dmenu_item_t item;
     bzero(&item, sizeof(dmenu_item_t));
 
+
     if (0)
     {
         dmenu_item_t * ptr;
@@ -507,7 +499,6 @@ _start:
             echo("Unable to find menu item");
             return 1;
         }
-        echo("Item is at: 0x%llX", ptr);
 
 
         ret = read_bytes(ndgame->pid, sizeof(dmenu_item_t), ptr, &item);
@@ -525,7 +516,7 @@ _start:
         item.item_event_buffer = read_byte(ndgame->pid, ndgame->dat_novis);
     
         item.off_state_colour = 0xEFFFFFFF; // White
-        item.on_state_colour = 0xEFFFFF00;  // Yellow
+        item.on_state_colour = 0xEF00FFFF;  // Yellow
         item.unknown_state_colour_1 = 0xFF0000FF; // Red
         item.unknown_state_colour_2 = 0xFF00FF00; // Green
         item.selection_index = 1;
@@ -561,7 +552,7 @@ _start:
     one = (uintptr_t) ((dmenu_menu_t *) read_ulong(ndgame->pid, (unsigned long *) &((dmenu_menu_base_t *) read_ulong(ndgame->pid, (unsigned long *) T2RDMENU_QUICK_MENU_BASE_PTR))->root_menu));
     echo("ONE: %llX", one);
     
-    // return 0;
+
 
     set_args(&regs, one, (uintptr_t) mem, 0, 0, 0, 0, 0);
 
@@ -571,7 +562,6 @@ _start:
         echo("ERROR @ Line: %d", __LINE__ - 3);
         return 1;
     }
-
 
 
 

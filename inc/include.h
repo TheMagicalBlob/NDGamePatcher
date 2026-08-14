@@ -42,7 +42,7 @@ typedef enum : char
 typedef struct dmenu_menu_base_s dmenu_menu_base_t;
 
 #pragma once
-// Structure for handling common app-specific variables //! re-write desc once sober
+// Struct for handling game-specific addresses and other variables. Assigned after attaching
 typedef struct
 {
     pid_t pid;
@@ -56,9 +56,11 @@ typedef struct
 
 
     // Addresses of various functions/variables in the game process
+    void ** vptr_dmenu;
     int8_t * dat_novis;
     void * func_malloc;
     void * func_free;
+    // Replace this!!! Only do this for functions we can't built-in to the payload
     void * func_lookup_symbol;
 
 } ndgame_t;
