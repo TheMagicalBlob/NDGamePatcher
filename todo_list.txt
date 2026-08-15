@@ -1,5 +1,7 @@
 1. Reverse menu base enough to replicate append func
 
+?. Load and check app.db for app_ver (and the game's title, I supppose) to avoid running on incorrect patch versions
+
 2. Add enums for the one or two unnamed things (e.g. menu base index for find_item)
 
 3. Update dmenu item struct to reflect the fact that there's clearly multiple of differing sizes

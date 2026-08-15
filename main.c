@@ -123,7 +123,7 @@ void notify(const char * message, ...)
 
 void log_message(const char * base_string, ...)
 {
-    return;
+    // return;
 
     va_list args;
     va_start(args, base_string);
@@ -140,7 +140,7 @@ void log_message(const char * base_string, ...)
 
     if (!logfile)
     {
-        logfile = open("/data/blog.txt", O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+        logfile = open("/data/bLog.txt", O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
         if (logfile < 0)
         {
@@ -236,8 +236,7 @@ _retry:
 
 
     
-    echo("Found eboot.bin (pid %d), getting title id...", pid);
-    
+    echo("Found eboot.bin (pid %d), reading app info...", pid);
     app_info_t app_info;
     ret = sceKernelGetAppInfo(pid, &app_info);
     if (ret)
@@ -247,14 +246,15 @@ _retry:
         goto _retry;
     }
     
-    echo("Read title id");
 
-    echo("uhh %d", sizeof(titleids) / 8);
+
+
+    echo("Read app info, checking for known title id");
     for (int i = 0; i < sizeof(titleids) / 8; i++)
     {
         if (!strncmp(app_info.title_id, titleids[i], 0xA))
         {
-            echo("Saving app info...");
+            echo("Known title id found, saving app info");
             nd_game->pid = pid;
             nd_game->app_id = app_info.app_id;
             strncpy(nd_game->title_id, app_info.title_id, 0xA);
@@ -266,15 +266,15 @@ _retry:
             }
 
 
-            notify("\nGame Info: \n  -> Title ID: %s\n  -> App ID: %lX\n  -> Process ID: %d", nd_game->title_id, nd_game->app_id, pid);
+            notify("\nGame Info:\n  -> Title ID: %s\n  -> App ID: %lX\n  -> Process ID: %d\n", nd_game->title_id, nd_game->app_id, pid);
             
-            proc_wait(nd_game, 1);
+            proc_wait(nd_game, true);
             return 0;
         }
     }
 
 
-    echo("Application did not match any known title ids, adding pid %d to list of ingored processes, and retrying in 5 seconds", pid);
+    echo("App's title id did not match any known, adding pid %d to list of ingored processes, and retrying in 5 seconds", pid);
     skipped_ids[attempts++] = pid; // Only add the pid to skipped processes if we don't recognize the title id
     sleep(5);
     goto _retry;
@@ -302,9 +302,8 @@ static int find_and_trace_game(ndgame_t * nd_game)
 
     
 
-    
-    // switch((id_check = *(unsigned long *) ((unsigned long) nd_game.title_id) + 1))
 
+    //! TODO: Load and check app.db for the game's app_ver
     switch(* ((unsigned long *) ((unsigned long) nd_game->title_id + 1)))
     {
         // T2R
@@ -440,6 +439,17 @@ _start:
         goto _start;
     }
 
+
+    dmenu_menu_base_t base;
+    load_menu_base(ndgame, ndgame->dev_menu_base, &base);
+    echo("\n\nDumping Dev Menu Entries...");
+    dump_menu_entries(ndgame, &base);
+    
+    load_menu_base(ndgame, ndgame->quick_menu_base, &base);
+    echo("\n\n\n\nDumping Quick Menu Entries...");
+    dump_menu_entries(ndgame, &base);
+    echo("\n");
+    return 0;
 
 
     // Make sure novis is present
@@ -591,6 +601,12 @@ _start:
 
     return 0;
 }
+
+
+
+
+
+
 
 
 
