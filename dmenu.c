@@ -73,68 +73,69 @@ int get_dmenu_entry_base_type(ndgame_t * ndgame, void * item)
             
 
 
+        /*
+        case uc4r_typeid_menu_base:
+            return simple_typeid_menu_base;
 
-        // case uc4r_typeid_menu_base:
-        //     return simple_typeid_menu_base;
+        case uc4r_typeid_dyn_menu:
+        case uc4r_typeid_unk_menu:
+        case uc4r_typeid_id_menu:
+            return simple_typeid_menu;
 
-        // case uc4r_typeid_dyn_menu:
-        // case uc4r_typeid_unk_menu:
-        // case uc4r_typeid_id_menu:
-        //     return simple_typeid_menu;
+        case uc4r_typeid_submenu_item:
+        case uc4r_typeid_task_submenu_item:
+        case uc4r_typeid_noreturn_task_submenu_item:
+            return simple_typeid_submenu;
 
-        // case uc4r_typeid_submenu_item:
-        // case uc4r_typeid_task_submenu_item:
-        // case uc4r_typeid_noreturn_task_submenu_item:
-        //     return simple_typeid_submenu;
-
-        // case uc4r_typeid_bool_item:
-        // case uc4r_typeid_exec_item:
-        // case uc4r_typeid_alt_exec_item:
-        // case uc4r_typeid_float_item:
-        // case uc4r_typeid_decimal_item:
-        // case uc4r_typeid_separator_item:
-        // case uc4r_typeid_string_list_item:
-        // case uc4r_typeid_string_item:
-        // case uc4r_typeid_task_history_item:
-        // case uc4r_typeid_task_item:
-        // case uc4r_typeid_timer_item:
-        // case uc4r_typeid_user_item:
-        // case uc4r_typeid_unk_item:
-        //     return simple_typeid_item;
+        case uc4r_typeid_bool_item:
+        case uc4r_typeid_exec_item:
+        case uc4r_typeid_alt_exec_item:
+        case uc4r_typeid_float_item:
+        case uc4r_typeid_decimal_item:
+        case uc4r_typeid_separator_item:
+        case uc4r_typeid_string_list_item:
+        case uc4r_typeid_string_item:
+        case uc4r_typeid_task_history_item:
+        case uc4r_typeid_task_item:
+        case uc4r_typeid_timer_item:
+        case uc4r_typeid_user_item:
+        case uc4r_typeid_unk_item:
+            return simple_typeid_item;
         
             
 
 
 
 
-        // case tllr_typeid_menu_base:
-        //     return simple_typeid_menu_base;
+        case tllr_typeid_menu_base:
+            return simple_typeid_menu_base;
         
         
-        // case tllr_typeid_dyn_menu:
-        // case tllr_typeid_unk_menu:
-        // case tllr_typeid_id_menu:
-        //     return simple_typeid_menu;
+        case tllr_typeid_dyn_menu:
+        case tllr_typeid_unk_menu:
+        case tllr_typeid_id_menu:
+            return simple_typeid_menu;
         
-        // case tllr_typeid_submenu_item:
-        // case tllr_typeid_task_submenu_item:
-        // case tllr_typeid_noreturn_task_submenu_item:
-        //     return simple_typeid_submenu;
+        case tllr_typeid_submenu_item:
+        case tllr_typeid_task_submenu_item:
+        case tllr_typeid_noreturn_task_submenu_item:
+            return simple_typeid_submenu;
         
-        // case tllr_typeid_bool_item:
-        // case tllr_typeid_exec_item:
-        // case tllr_typeid_alt_exec_item:
-        // case tllr_typeid_float_item:
-        // case tllr_typeid_decimal_item:
-        // case tllr_typeid_separator_item:
-        // case tllr_typeid_string_list_item:
-        // case tllr_typeid_string_item:
-        // case tllr_typeid_task_history_item:
-        // case tllr_typeid_task_item:
-        // case tllr_typeid_timer_item:
-        // case tllr_typeid_user_item:
-        // case tllr_typeid_unk_item:
-        //     return simple_typeid_item;
+        case tllr_typeid_bool_item:
+        case tllr_typeid_exec_item:
+        case tllr_typeid_alt_exec_item:
+        case tllr_typeid_float_item:
+        case tllr_typeid_decimal_item:
+        case tllr_typeid_separator_item:
+        case tllr_typeid_string_list_item:
+        case tllr_typeid_string_item:
+        case tllr_typeid_task_history_item:
+        case tllr_typeid_task_item:
+        case tllr_typeid_timer_item:
+        case tllr_typeid_user_item:
+        case tllr_typeid_unk_item:
+            return simple_typeid_item;
+        */
 
 
         default:
@@ -455,7 +456,7 @@ int load_item(ndgame_t * ndgame, void * address, dmenu_item_t * item)
 
 
 
-void dump_menu_entries(ndgame_t * nd_game, dmenu_menu_base_t * parent_base)
+void dump_menu_entries(ndgame_t * ndgame, dmenu_menu_base_t * parent_base)
 {
     if (parent_base->root_menu == 0)
     {
@@ -465,7 +466,7 @@ void dump_menu_entries(ndgame_t * nd_game, dmenu_menu_base_t * parent_base)
 
 
     dmenu_menu_t menu;
-    read_bytes(nd_game->pid, sizeof(dmenu_menu_t), parent_base->root_menu, &menu);
+    read_bytes(ndgame->pid, sizeof(dmenu_menu_t), parent_base->root_menu, &menu);
     
     void * entry_ptr;
     if((entry_ptr = menu.first_item) == 0)
@@ -481,7 +482,7 @@ void dump_menu_entries(ndgame_t * nd_game, dmenu_menu_base_t * parent_base)
     int depth = 0;
     void * history[0x20]; // surely there's no place with a submenu depth even approaching 32, so this should be more than sufficient in size
     
-    char * output_format = "0x%llX %sItem: %s [Type: %s (%lX (%d)) | Parent: %s]";
+    char * output_format = "0x%llX %s%s->%s  [Type: %s, vPtr: %llX, EventHandler: 0x%llX (id?: %d)]";
     char padding[0x40]; // used for indentation during output
     
     char item_name[0x80];
@@ -494,10 +495,11 @@ void dump_menu_entries(ndgame_t * nd_game, dmenu_menu_base_t * parent_base)
     
     while(entry_ptr != null)
     {
-        dmenu_vptr_t type = (dmenu_vptr_t) read_ulong(nd_game->pid, entry_ptr);
+        dmenu_vptr_t type = (dmenu_vptr_t) read_ulong(ndgame->pid, entry_ptr);
         char * dtype = get_dmenu_entry_type_as_string(type);
         
 
+        // Check for unknown dmenu component types
         if (((unsigned long long) ( *(unsigned long long *) dtype)) == 2336936577129475669) // just the start of the "Unknown value..." string read as an unsigned 64bit integer
         {
             unknown_type_count++;
@@ -510,12 +512,12 @@ void dump_menu_entries(ndgame_t * nd_game, dmenu_menu_base_t * parent_base)
         // Menu
         if (next_is_menu)
         {
-            read_bytes(nd_game->pid, sizeof(dmenu_menu_t), entry_ptr, &menu);
+            load_menu(ndgame, entry_ptr, &menu);
             
-            read_string(nd_game->pid, menu.menu_name, item_name);
-            read_string(nd_game->pid, (void *) read_ulong(nd_game->pid, (unsigned long *) &menu.parent_menu->menu_name), parent_name);
+            read_string(ndgame->pid, menu.menu_name, item_name);
+            read_string(ndgame->pid, (void *) read_ulong(ndgame->pid, (unsigned long *) &menu.parent_menu->menu_name), parent_name);
 
-            echo(output_format, entry_ptr, padding, item_name, dtype, type, menu.unk_filter_related_int, parent_name);
+            echo(output_format, entry_ptr, padding, parent_name, item_name, dtype, type, -1, -1);
             
             // Read next item pointer
             entry_ptr = menu.first_item;
@@ -523,23 +525,15 @@ void dump_menu_entries(ndgame_t * nd_game, dmenu_menu_base_t * parent_base)
         }
         // Item
         else {
-            read_bytes(nd_game->pid, sizeof(dmenu_item_t), entry_ptr, &item);
+            load_item(ndgame, entry_ptr, &item);
+
+            read_string(ndgame->pid, item.item_text ? item.item_text : "------------------------------------", item_name);
+            read_string(ndgame->pid, (void *) read_ulong(ndgame->pid, (unsigned long *) &item.parent_menu->menu_name), parent_name);
+
+            echo(output_format, entry_ptr, padding, parent_name, item_name, dtype, type, item.event_handler, item.entry_event_handler_type_id);
+
             
-            if (item.item_text == nullptr)
-            {
-                strncpy(item_name, "------------------------------------", 40);
-            }
-            else{
-                read_string(nd_game->pid, item.item_text, item_name);
-            }
-
-
-
-            read_string(nd_game->pid, (void *) read_ulong(nd_game->pid, (unsigned long *) &item.parent_menu->menu_name), parent_name);
-
-            echo(output_format, entry_ptr, padding, item_name, dtype, type, item.entry_event_handler_type_id, parent_name);
-            
-            if (get_dmenu_entry_base_type(nd_game, entry_ptr) == simple_typeid_submenu)
+            if (get_dmenu_entry_base_type(ndgame, entry_ptr) == simple_typeid_submenu)
             {
                 entry_ptr = (dmenu_item_t *) item.item_event_buffer;
 

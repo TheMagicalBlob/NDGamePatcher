@@ -1274,6 +1274,7 @@ int read_string(int pid, const char * address, char * buffer)
     if (address == 0)
     {
         echo("null string pointer provided.");
+        strncpy("(null)", buffer, 7);
         return -1;
     }
     
@@ -1281,6 +1282,7 @@ int read_string(int pid, const char * address, char * buffer)
     if (read_byte(pid, (void *) address) <= 0) 
     {
         echo("Empty string at address 0x%llX.", (unsigned long long) address);
+        // strncpy("(empty)", buffer, 8);
         return 0;
     }
     
@@ -1325,9 +1327,9 @@ int write_string(int pid, void * address, const char * str)
  
     // Get string length
     int len = 0;
-    int written = 0;
     while (*(str + ++len) != 0);
     
+    int written = 0;
     for(long long i = 0; i < len; ++i)
     {
         if (!write_byte(pid, (void *) address + i, *(char *) (str + i)))
