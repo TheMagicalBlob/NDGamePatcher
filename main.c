@@ -108,7 +108,6 @@ int echo(const char * str, ...)
 
 void notify(const char * message, ...)
 {
-#ifdef NOTIFY
     va_list list;
     notify_request_t request = { };
 
@@ -117,11 +116,10 @@ void notify(const char * message, ...)
     vsnprintf(request.message, sizeof(request.message) - 1, message, list);
     va_end(list);
     
+#ifdef NOTIFY
     sceKernelSendNotificationRequest(0, &request, sizeof(request), 0); // Not sure what the first and last arg are for. One may be notification type though
-    printf("[Notification]: %s\n", request.message);
-#else
-    printf("[Notification]: %s\n", message);
 #endif
+    printf("[Notification]: %s\n", request.message);
 }
 
 
@@ -411,14 +409,14 @@ void cleanup(int exit_code)
 
     if (nd_game_ptr && nd_game_ptr->pid)
     {
-        if (proc_stop(nd_game_ptr->pid))
+        if (proc_stop((ndgame_t *) nd_game_ptr))
         {
             echo("Unable to suspend process %d", nd_game_ptr->pid);
         }
         proc_wait((ndgame_t *) nd_game_ptr, false);
         
         echo("Clearing watchpoints and detaching from process %d", nd_game_ptr->pid);
-        clear_watchpoint(nd_game_ptr->pid, -1);
+        clear_watchpoint((ndgame_t *) nd_game_ptr, -1);
 
         detach((ndgame_t *) nd_game_ptr, __FUNCTION__);
     }
@@ -492,7 +490,7 @@ _start:
 
     // Get args to modify and pass as args //! this is clunky
     struct reg args;
-    if ((ret = proc_get_regs(ndgame->pid, &args)) != 0)
+    if ((ret = proc_get_regs(ndgame, &args)) != 0)
     {
         echo("Unable to get register values, aborting 'cause something's clearly wrong.");
         return ret;

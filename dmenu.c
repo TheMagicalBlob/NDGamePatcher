@@ -373,7 +373,7 @@ static void * find_dmenu_component(ndgame_t * nd_game, const char * expected_ent
             no_text:
             if (base_type == simple_typeid_submenu)
             {
-                entry_ptr = (dmenu_item_t *) item.item_event_buffer;
+                entry_ptr = (dmenu_item_t *) item.return_buffer;
 
                 history[++depth] = item.next_item;
 
@@ -563,7 +563,7 @@ void dump_menu_entries(ndgame_t * ndgame, dmenu_menu_base_t * parent_base)
             
             if (get_dmenu_entry_base_type(ndgame, entry_ptr) == simple_typeid_submenu)
             {
-                entry_ptr = (dmenu_item_t *) item.item_event_buffer;
+                entry_ptr = (dmenu_item_t *) item.return_buffer;
 
                 history[++depth] = item.next_item;
                 
@@ -612,41 +612,19 @@ void dump_menu_entries(ndgame_t * ndgame, dmenu_menu_base_t * parent_base)
 //! TODO: Write the base menu item creation function and move the optimization to that. I don't want bzero being optimized out.
 int add_novis_option(ndgame_t * ndgame, dmenu_menu_index_t menu_base)
 {
-    echo("Checking for already-present novis option.");
-    dmenu_item_t * check;
-    if ((check = find_item(ndgame, "Disable All Visibility", menu_base)))
+    // dmenu_item_t * check;
+    // if ((check = find_item(ndgame, "Disable All Visibility", menu_base)))
+    // {
+    //     echo("Novis already added to specified menu base");
+    //     return 0;
+    // }
+    echo("Adding new novis optiom");
+
+    void * mem;    
+    mem = proc_malloc(ndgame, align(sizeof(dmenu_item_t)));
+    if (!mem)
     {
-        echo("Novis already added to specified menu base");
-        return 0;
-    }
-    echo("Option not found, adding new optiom");
-
-
-    int ret;
-    struct reg regs;
-    ret = proc_get_regs(ndgame->pid, &regs);
-    if (ret)
-    {
-        echo("ERROR @ Line: %d", __LINE__ - 3);
-        return 1;
-    }
-
-
-
-    // set malloc arguments
-    ret = set_args(&regs, align(sizeof(dmenu_item_t)), 0, 0, 0, 0, 0, 0);
-    if (ret)
-    {
-        echo("ERROR @ Line: %d", __LINE__ - 3);
-        return 1;
-    }
-
-    // call malloc
-    void * mem;
-    ret = proc_call(ndgame, ndgame->func_malloc, (unsigned long *) &mem, &regs);
-    if (ret)
-    {
-        echo("ERROR @ Line: %d", __LINE__ - 3);
+        echo("Error allocating space for novis option");
         return 1;
     }
 
@@ -667,12 +645,11 @@ int add_novis_option(ndgame_t * ndgame, dmenu_menu_index_t menu_base)
 
     item.entry_event_handler_type_id = 3; // Bool item
     item.event_handler = (void *) 0x0114d100; // Bool event handler
-    item.item_event_buffer = read_byte(ndgame->pid, ndgame->dat_novis);
+    item.return_buffer = read_byte(ndgame->pid, ndgame->dat_novis);
 
     item.off_state_colour = 0xEFFFFFFF; // White
     item.on_state_colour = 0xEF00FFFF;  // Yellow
-    item.unknown_state_colour_1 = 0xFF0000FF; // Red
-    item.unknown_state_colour_2 = 0xFF00FF00; // Green
+    item.neutral_state_colour = 0xFF0000FF; // Red
     item.selection_index = 1;
     item.item_count = 1;
 
@@ -685,6 +662,7 @@ int add_novis_option(ndgame_t * ndgame, dmenu_menu_index_t menu_base)
 
     echo("Writing new item to allocated spot 0x%llX", mem);
 
+    int ret;
     ret = write_bytes(ndgame->pid, sizeof(dmenu_item_t), mem, &item);
     if (ret)
     {
@@ -693,7 +671,8 @@ int add_novis_option(ndgame_t * ndgame, dmenu_menu_index_t menu_base)
     }
 
 
-    ret = proc_get_regs(ndgame->pid, &regs);
+    struct reg regs; 
+    ret = proc_get_regs(ndgame, &regs);
     if (ret)
     {
         echo("ERROR @ Line: %d", __LINE__ - 3);

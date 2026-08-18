@@ -1,4 +1,5 @@
 #include "inc/include.h"
+#include "inc/dmenu.h"
 
 #define _SHELLCORE_AUTHID 0x4800000000010003L
 
@@ -213,10 +214,12 @@ pid_t proc_wait(ndgame_t * game, int wait)
 
 
 // Resume execution on all threads in the traced process
-static int proc_resume_threads(pid_t pid)
+static int proc_resume_threads(ndgame_t * ndgame)
 {
     int ret;
     int thread_count;
+    pid_t pid;
+    pid = ndgame->pid;
     lwpid_t * threads;
     errno = 0;
 
@@ -280,13 +283,15 @@ static int proc_resume_threads(pid_t pid)
 
 
 // Suspend execution on all threads in the traced process
-static int proc_suspend_threads(pid_t pid)
+static int proc_suspend_threads(ndgame_t * ndgame)
 {
     int ret;
     int thread_count;
     lwpid_t * threads;
     errno = 0;
 
+    pid_t pid;
+    pid = ndgame->pid;
     echo("Suspending all threads in process %d", pid);
 
 
@@ -359,9 +364,10 @@ static int proc_suspend_threads(pid_t pid)
 
 
 
-static int _proc_continue(pid_t pid, void * resume, int signal)
+static int _proc_continue(ndgame_t * ndgame, void * resume, int signal)
 {
-    int ret;
+    pid_t pid;
+    pid = ndgame->pid;
     if (!resume)
     {
         resume = (void *) 1; // (continue where it left off)
@@ -370,8 +376,9 @@ static int _proc_continue(pid_t pid, void * resume, int signal)
     {
         echo("Resuming process %d from 0x%llX", pid, resume);
     }
-
-
+    
+    
+    int ret;
     if ((ret = ptrace(PT_CONTINUE, pid, resume, signal)) != 0)
     {
         echo("ERROR:\n# PT_CONTINUE failed with code %d (%s)", ret, strerror(ret));
@@ -380,8 +387,11 @@ static int _proc_continue(pid_t pid, void * resume, int signal)
     return ret;
 }
 
-int proc_continue(pid_t pid)
+int proc_continue(ndgame_t * ndgame)
 {
+    pid_t pid;
+    pid = ndgame->pid;
+
     echo("Continuing %d", pid);
     // int ret;
     // if ((ret = kill(pid, SIGCONT)))
@@ -390,13 +400,16 @@ int proc_continue(pid_t pid)
     //     return 1;
     // }
 
-    _proc_continue(pid, 0, SIGCONT);
+    _proc_continue(ndgame, 0, SIGCONT);
 
     return 0;
 }
 
-int proc_stop(pid_t pid)
+int proc_stop(ndgame_t * ndgame)
 {
+    pid_t pid;
+    pid = ndgame->pid;
+
     echo("Stopping %d", pid);
 
     int ret;
@@ -416,9 +429,11 @@ int proc_stop(pid_t pid)
 
 
 
-int proc_get_regs(pid_t pid, struct reg * regs)
+int proc_get_regs(ndgame_t * ndgame, struct reg * regs)
 {
     int ret;
+    pid_t pid;
+    pid = ndgame->pid;
     if ((ret = ptrace(PT_GETREGS, pid, (caddr_t) regs, 0)) != 0)
     {
         echo("ERROR:\n# PT_GETREGS failed with code %d (%s)\n", ret, strerror(ret));
@@ -428,9 +443,11 @@ int proc_get_regs(pid_t pid, struct reg * regs)
 }
 
 
-int proc_set_regs(pid_t pid, struct reg * regs)
+int proc_set_regs(ndgame_t * ndgame, struct reg * regs)
 {
     int ret;
+    pid_t pid;
+    pid = ndgame->pid;
     if ((ret = ptrace(PT_SETREGS, pid, (caddr_t) regs, 0)) != 0)
     {
         echo("ERROR:\n# PT_SETREGS failed with code %d (%s)\n", ret, strerror(ret));
@@ -440,10 +457,12 @@ int proc_set_regs(pid_t pid, struct reg * regs)
 }
 
 
-int proc_get_dbregs(pid_t pid, struct dbreg * dbregs)
+int proc_get_dbregs(ndgame_t * ndgame, struct dbreg * dbregs)
 {
     errno = 0;
     int ret;
+    pid_t pid;
+    pid = ndgame->pid;
     if ((ret = ptrace(PT_GETDBREGS, pid, (caddr_t) dbregs, 0)) != 0)
     {
         echo("ERROR:\n# PT_GETDBREGS failed with code %d (%d -> %s)\n", ret, errno, strerror(errno));
@@ -453,10 +472,12 @@ int proc_get_dbregs(pid_t pid, struct dbreg * dbregs)
 }
 
 
-int proc_set_dbregs(pid_t pid, struct dbreg * dbregs)
+int proc_set_dbregs(ndgame_t * ndgame, struct dbreg * dbregs)
 {
     errno = 0;
     int ret;
+    pid_t pid;
+    pid = ndgame->pid;
     if ((ret = ptrace(PT_SETDBREGS, pid, (caddr_t) dbregs, 0)) != 0)
     {
         echo("ERROR:\n# PT_SETDBREGS failed with code %d (%d -> %s)\n", ret, errno, strerror(errno));
@@ -472,7 +493,7 @@ int proc_set_dbregs(pid_t pid, struct dbreg * dbregs)
 
 static struct dbreg regs;
 static struct ptrace_lwpinfo lwpinfo;
-int set_watchpoint(pid_t pid, short index, void * address, int wp_type, int wp_len)
+int set_watchpoint(ndgame_t * ndgame, short index, void * address, int wp_type, int wp_len)
 {
     lwpid_t * lwpid_list;
     int
@@ -489,8 +510,9 @@ int set_watchpoint(pid_t pid, short index, void * address, int wp_type, int wp_l
     
 
 
-
     // Get the current number of threads in the game process
+    pid_t pid;
+    pid = ndgame->pid;
     if ((thread_count = ptrace(PT_GETNUMLWPS, pid, null, 0)) == -1)
     {
         perror("PT_GETNUMLWPS: ");
@@ -590,7 +612,7 @@ _ret:
 
 
 // Clear the watchpoint in the process at the specified index, or all watchpoints if a value less than zero is provided
-int clear_watchpoint(pid_t pid, short index)
+int clear_watchpoint(ndgame_t * ndgame, short index)
 {
     int ret;
     if (index > 3)
@@ -598,6 +620,8 @@ int clear_watchpoint(pid_t pid, short index)
         echo("ERROR\nclear_watchpoint(): Invalid index provided for watchpoint. Must be fron 0 to 3. (Or < 0 to clear all)");
         return 1;
     }
+    pid_t pid;
+    pid = ndgame->pid;
     if (pid < 1)
     {
         echo("ERROR\nclear_watchpoint(): Invalid pid provided. (%d)", pid);
@@ -611,7 +635,7 @@ int clear_watchpoint(pid_t pid, short index)
     {
         for (int i = 0; i < 4; i++)
         {
-            ret = set_watchpoint(pid, i, NULL, 0, 0);
+            ret = set_watchpoint(ndgame, i, NULL, 0, 0);
             if (ret != 0)
             {
                 echo("ERROR\nclear_watchpoint(): error clearing watchpoint #%d", i);
@@ -624,7 +648,7 @@ int clear_watchpoint(pid_t pid, short index)
 
 
     // Set specified watchpoint
-    return set_watchpoint(pid, index, NULL, 0, 0);
+    return set_watchpoint(ndgame, index, NULL, 0, 0);
 }
 
 
@@ -712,7 +736,7 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
     // Back the regisers up
     struct reg og_registers;
     unsigned long error_source;
-    if (proc_get_regs(pid, &og_registers))
+    if (proc_get_regs(ndgame, &og_registers))
     {
         error_source = __LINE__ - 2;
         goto _err;
@@ -736,7 +760,7 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
     // Set next instruction address
     arg_regs->r_rip = (critical_t) function_address;
     
-    if (proc_set_regs(pid, arg_regs))
+    if (proc_set_regs(ndgame, arg_regs))
     {
         error_source = __LINE__ - 2;
         goto _err;
@@ -746,7 +770,7 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
 
 
     // Resume execution until the function returns and hits the breakpoint
-    proc_continue(pid);
+    proc_continue(ndgame);
     proc_wait(ndgame, true);
 
 
@@ -754,7 +778,7 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
 
     // Read return value
     struct reg return_regs;
-    ret = proc_get_regs(pid, &return_regs);
+    ret = proc_get_regs(ndgame, &return_regs);
     if (ret)
     {
         echo("Unable to get registers after function call, cannot get return value");
@@ -773,7 +797,7 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
 
 
     // Restore the initial register values
-    if (proc_set_regs(pid, &og_registers))
+    if (proc_set_regs(ndgame, &og_registers))
     {
         error_source = __LINE__ - 2;
         goto _err;
@@ -790,153 +814,55 @@ _err:
 
 
 
-int old_proc_call(pid_t pid, void * function_address, unsigned long * return_val_ptr, struct reg * arg_regs)
-{
-    if (function_address == 0)
-    {
-        echo("ERROR: Null address provided for function.");
-        return 1;
-    }
-    
-    int ret;
-    u_long error_source;
 
 
 
-    // Back the regisers up
-    echo("getting og regisers");
-    struct reg og_registers;
-    if (proc_get_regs(pid, &og_registers))
-    {
-        error_source = __LINE__ - 2;
-        goto _err;
-    }
-
-
-    
-    // Make a copy of the current register values if none was provided
-    struct reg registers;
-    if (arg_regs == nullptr)
-    {
-        echo("no args provided, copying og regisers to use instead");
-        memcpy(&registers, &og_registers, sizeof(struct reg));
-        arg_regs = &registers;
-    }
-    
-    
-    
-
-    // Set up the function call
-    unsigned long og_stack_ptr  = (long long) read_ulong(pid, (unsigned long *) arg_regs->r_rsp); // save return stack pointer
-
-    write_ulong(pid, (void *) arg_regs->r_rsp - 8, (unsigned long) arg_regs->r_rip); // set return address
-
-    arg_regs->r_rip = (long long) function_address; // Set next instruction address
-    
-    if (proc_set_regs(pid, arg_regs))
-    {
-        error_source = __LINE__ - 2;
-        goto _err;
-    }
-
-
-    
-    // set_watchpoint(pid, 0, (void *) og_stack_ptr, DBREG_DR7_EXEC, DBREG_DR7_LEN_1);
-    // proc_continue(pid, NULL);
-
-    //! TODO: replace this with a watchpoint
-    // Step through until we return from the called function, then restore the original register values (and read the return value if a pointer to store it at was provided)
-    while (1)
-    {
-        
-        if ((ret = ptrace(PT_STEP, pid, 0, 0)) != 0)
-        {
-            echo("ERROR:\n# PT_STEP failed with code %d (%s) while checking rip.\n", ret, strerror(ret));
-            return 1;
-        }
-        waitpid(pid, 0, 0);
-    
-
-
-        if (proc_get_regs(pid, arg_regs))
-        {
-            error_source = __LINE__ - 2;
-            goto _err;
-        }
-
-
-        if (arg_regs->r_rip == (__int64_t) og_stack_ptr)
-        {
-            if (return_val_ptr > 0)
-            {
-                *((long long *) return_val_ptr) = arg_regs->r_rax;
-            }
-            
-            // Restore the registers 
-            if (proc_set_regs(pid, &og_registers))
-            {
-                error_source = __LINE__ - 2;
-                goto _err;
-            }
-            
-            break;
-        }
-
-        echo("%llX != %llX", arg_regs->r_rip, (__int64_t) og_stack_ptr);
-    }
-
-
-    return 0;
-
-    
-_err:
-    echo("Unable to complete function call (failed at line %d)", error_source);
-    return 1;
-}
-
-
-
-
-void * proc_malloc(ndgame_t * game, int amount)
+void * proc_malloc(ndgame_t * ndgame, size_t amount)
 {
     int ret;
-    void * allocated_mem; 
-
     struct reg regs;
-    if (proc_get_regs(game->pid, &regs))
-    {
-        return nullptr;
-    }
-
-
-    regs.r_rdi = amount;
-
-
-    ret = proc_call(game, (void *) game->func_malloc, (unsigned long *) &allocated_mem, &regs);
+    ret = proc_get_regs(ndgame, &regs);
     if (ret)
     {
-        echo("ERROR: malloc call failed! (ret: %d, amount: %d)", ret, amount);
+        echo("ERROR %s @ Line: %d", __FUNCTION__, __LINE__ - 3);
         return nullptr;
     }
 
-    echo("allocate mem ptr: %llX", allocated_mem);
 
-    return allocated_mem;
+
+    // set malloc arguments
+    ret = set_args(&regs, amount, 0, 0, 0, 0, 0, 0);
+    if (ret)
+    {
+        echo("ERROR %s @ Line: %d", __FUNCTION__, __LINE__ - 3);
+        return nullptr;
+    }
+
+    // call malloc
+    void * mem;
+    ret = proc_call(ndgame, ndgame->func_malloc, (unsigned long *) &mem, &regs);
+    if (ret)
+    {
+        echo("ERROR %s @ Line: %d", __FUNCTION__, __LINE__ - 3);
+        return nullptr;
+    }
+
+    return mem;
 }
 
 
-int proc_free(ndgame_t * game, void * allocated_mem)
+int proc_free(ndgame_t * ndgame, void * allocated_mem)
 {
     int ret;
     struct reg regs;
 
     regs.r_rdi = (long long) allocated_mem;
 
-    if ((ret = proc_get_regs(game->pid, &regs)))
+    if ((ret = proc_get_regs(ndgame, &regs)))
     {
         echo("ERROR: free proc_get_regs call failed!");
     }
-    else if ((ret = proc_call(game, (void *) game->func_free, NULL, &regs)))
+    else if ((ret = proc_call(ndgame, (void *) ndgame->func_free, NULL, &regs)))
     {
         echo("ERROR: free call failed!");
     }

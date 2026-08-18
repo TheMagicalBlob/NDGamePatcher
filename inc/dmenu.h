@@ -206,8 +206,8 @@ typedef struct dmenu_item_s // Size 0xB8 - 0xC8 depending on which derived class
     void * item_variable;
     unsigned int off_state_colour;
     unsigned int on_state_colour;
-    unsigned int unknown_state_colour_1;
-    unsigned int unknown_state_colour_2;
+    unsigned int neutral_state_colour;
+    unsigned int shortcut_info;
     char unmapped2[0x8];
     unsigned long unmapped3;
     char unmapped4[0x8];
@@ -217,7 +217,7 @@ typedef struct dmenu_item_s // Size 0xB8 - 0xC8 depending on which derived class
     unsigned int item_count; //!
     unsigned int entry_event_handler_type_id; // unsure
     void * event_handler;
-    unsigned long item_event_buffer; // Bool for options that can be toggled, points to the header item for submenu entry items
+    unsigned long return_buffer; //!
     char padding1[0x10];
 
 } dmenu_item_t;
@@ -243,8 +243,8 @@ typedef struct dmenu_menu_s // 0xE0
     void * unknown_struct_pointer;
     unsigned int off_state_colour;
     unsigned int on_state_colour;
-    unsigned int unknown_state_colour_1;
-    unsigned int unknown_state_colour_2;
+    unsigned int neutral_state_colour;
+    unsigned int shortcut_info;
     void * event_handler;
     unsigned long unknown2;
     char unmapped2[0x8];
@@ -274,10 +274,10 @@ typedef struct dmenu_menu_base_s // x >= 0x328
     char menu_base_name_buffer[0x20]; // Default buffer space for the menu base name, if it fits the buffer. 
     char * menu_base_name; // Pointer to the menu base's text; usually points to the menu_base_name_buffer, but additional space is allocated and used instead if the string length is > 32. 
     char unused2[0x30]; // Always zero
-    unsigned int off_state_colour; // unused for menu bases
-    unsigned int on_state_colour; // unused for menu bases
-    unsigned int unknown_state_colour_1; // unused for menu bases
-    unsigned int unknown_state_colour_2; // unused for menu bases
+    unsigned int off_state_colour;
+    unsigned int on_state_colour;
+    unsigned int neutral_state_colour;
+    unsigned int shortcut_info;
     char unmapped1[0x30]; // Unmapped
     dmenu_menu_t * root_menu; // The actual dmenu menu that gets populated with items and acts as this menu base's root submenu // 0xA8
     void * unknown_struct_pointer1; // Menu Options, maybe?
