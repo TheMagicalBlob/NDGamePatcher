@@ -308,9 +308,9 @@ int get_dmenu_entry_base_type(ndgame_t * ndgame, void * item);
 char * get_dmenu_entry_type_as_string(long long type);
 
 
-dmenu_item_t * find_item(ndgame_t * ndgame, const char * item_name, char parent_index);
-dmenu_menu_t * find_menu(ndgame_t * ndgame, const char * menu_name, char parent_index);
-dmenu_item_t * find_submenu(ndgame_t * ndgame, const char * submenu_name, char parent_index);
+dmenu_item_t * find_item(ndgame_t * ndgame, const char * item_name, dmenu_menu_index_t parent_index);
+dmenu_menu_t * find_menu(ndgame_t * ndgame, const char * menu_name, dmenu_menu_index_t parent_index);
+dmenu_item_t * find_submenu(ndgame_t * ndgame, const char * submenu_name, dmenu_menu_index_t parent_index);
 
 
 void dump_menu_entries(ndgame_t * nd_game, dmenu_menu_base_t * menu);
@@ -321,4 +321,4 @@ int load_menu(ndgame_t * ndgame, void * address, dmenu_menu_t * menu);
 int load_item(ndgame_t * ndgame, void * address, dmenu_item_t * item);
 
 
-void add_novis_option(ndgame_t * nd_game);
+int add_novis_option(ndgame_t * ndgame, dmenu_menu_index_t menu_base);

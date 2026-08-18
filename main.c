@@ -14,12 +14,14 @@ You should have received a copy of the GNU General Public License
 along with this program; see the file COPYING. If not, see
 <http://www.gnu.org/licenses/>.  */
 
+#include "inc/proc.h"
 #include "inc/memory.h"
 #include "inc/dmenu.h"
 
 #define PAYLOAD_NAME "dmenu_payload.bin"
 #define printf(s, ...) klog_printf(s, __VA_ARGS__)
-
+// #define NOTIFY
+#define LOGOUTPUT
 
 
 
@@ -106,6 +108,7 @@ int echo(const char * str, ...)
 
 void notify(const char * message, ...)
 {
+#ifdef NOTIFY
     va_list list;
     notify_request_t request = { };
 
@@ -115,16 +118,16 @@ void notify(const char * message, ...)
     va_end(list);
     
     sceKernelSendNotificationRequest(0, &request, sizeof(request), 0); // Not sure what the first and last arg are for. One may be notification type though
-    
-    
     printf("[Notification]: %s\n", request.message);
+#else
+    printf("[Notification]: %s\n", message);
+#endif
 }
 
 
 void log_message(const char * base_string, ...)
 {
-    // return;
-
+#ifdef LOGOUTPUT
     va_list args;
     va_start(args, base_string);
 
@@ -151,6 +154,7 @@ void log_message(const char * base_string, ...)
 
     // Write the message to the log file
     write(logfile, message, strlen(message));
+#endif
 }
 
 
@@ -163,6 +167,46 @@ int * get_watchpoint_count()
 {
     return &watchpoint_count;
 }
+
+// from john-tornblom.
+pid_t find_pid(const char *name)
+{
+    int mib[4] = {1, 14, 8, 0};
+    pid_t mypid = getpid();
+    pid_t pid = -1;
+    size_t buf_size;
+    uint8_t *buf;
+
+    if (sysctl(mib, 4, 0, &buf_size, 0, 0)) {
+        return -1;
+    }
+
+    if (!(buf = malloc(buf_size))) {
+        return -1;
+    }
+
+    if (sysctl(mib, 4, buf, &buf_size, 0, 0)) {
+        free(buf);
+        return -1;
+    }
+
+    for (uint8_t *ptr = buf; ptr < (buf + buf_size);) {
+        int ki_structsize = *(int *)ptr;
+        pid_t ki_pid = *(pid_t *)&ptr[72];
+        char *ki_tdname = (char *)&ptr[447];
+
+        ptr += ki_structsize;
+        if (!strcmp(name, ki_tdname) && ki_pid != mypid)
+        {
+            pid = ki_pid;
+        }
+    }
+
+    free(buf);
+
+    return pid;
+}
+
 
 
 
@@ -204,7 +248,7 @@ static int wait_for_game_launch(ndgame_t * nd_game)
 
     // Check for any running eboot.bin //! remember to check for the other possible T2R executable names
 _retry:
-    pid = find_pid("eboot.bin", null);
+    pid = find_pid("eboot.bin");
 
     if (pid <= 0)
     {
@@ -212,12 +256,9 @@ _retry:
         
         do {
             sleep(7);
-            pid = find_pid("eboot.bin", null);
+            pid = find_pid("eboot.bin");
         }
         while (pid <= 0);
-
-        // process started- wait 25 seconds for the game to finish launching
-        sleep(25);
     }
 
     // Skip any pid's that have already been checked and fell through
@@ -291,13 +332,10 @@ static int find_and_trace_game(ndgame_t * nd_game)
     bzero(nd_game, sizeof(ndgame_t));
 
     // unsigned long id_check;
-    unsigned char retries = 0;
-    while (wait_for_game_launch(nd_game) && (retries < (unsigned char) 4))
+    if (wait_for_game_launch(nd_game))
     {
-        ++retries;
-        echo("Error occured when waiting for game launch, waiting moment and retrying (5 seconds)");
-        sleep(5);
-        echo("Retrying now.");
+        echo("An error occured while waiting for game launch, aborting payload.");
+        return 1;
     }
 
     
@@ -440,144 +478,14 @@ _start:
     }
 
 
-    dmenu_menu_base_t base;
-    load_menu_base(ndgame, ndgame->dev_menu_base, &base);
-    echo("\n\nDumping Dev Menu Entries...");
-    dump_menu_entries(ndgame, &base);
-    
-    load_menu_base(ndgame, ndgame->quick_menu_base, &base);
-    echo("\n\n\n\nDumping Quick Menu Entries...");
-    dump_menu_entries(ndgame, &base);
-    echo("\n");
-    return 0;
 
 
     // Make sure novis is present
-    // add_novis_option(ndgame);
-
-
-
-    struct reg regs;
-    ret = proc_get_regs(ndgame->pid, &regs);
-    if (ret)
-    {
-        echo("ERROR @ Line: %d", __LINE__ - 3);
-        return 1;
-    }
-
-
-    unsigned long allocated_amount;
-    allocated_amount = align(sizeof(dmenu_item_t));
-
-
-    ret = set_args(&regs, allocated_amount, 0, 0, 0, 0, 0, 0);
-    if (ret)
-    {
-        echo("ERROR @ Line: %d", __LINE__ - 3);
-        return 1;
-    }
-
-
-    // call malloc
-    void * mem;
-    ret = proc_call(ndgame, ndgame->func_malloc, (unsigned long *) &mem, &regs);
-    if (ret)
-    {
-        echo("ERROR @ Line: %d", __LINE__ - 3);
-        return 1;
-    }
-
-    proc_wait(ndgame, false);
-
-
-
-
-
-
-
-
-    dmenu_item_t item;
-    bzero(&item, sizeof(dmenu_item_t));
-
-
-    if (0)
-    {
-        dmenu_item_t * ptr;
-        ptr = find_item(ndgame, "Enable Color Picker", 1);
-        if (!ptr)
-        {
-            echo("Unable to find menu item");
-            return 1;
-        }
-
-
-        ret = read_bytes(ndgame->pid, sizeof(dmenu_item_t), ptr, &item);
-        if (ret)
-        {
-            echo("ERROR @ Line: %d", __LINE__ - 3);
-            return 1;
-        }
-    }
-    else {
-        * (unsigned int *) &item = t2r_typeid_bool_item;
+    return add_novis_option(ndgame, menu_index_quick);
     
-        item.entry_event_handler_type_id = 3; // Bool item
-        item.event_handler = (void *) 0x0114d100; // Bool event handler
-        item.item_event_buffer = read_byte(ndgame->pid, ndgame->dat_novis);
     
-        item.off_state_colour = 0xEFFFFFFF; // White
-        item.on_state_colour = 0xEF00FFFF;  // Yellow
-        item.unknown_state_colour_1 = 0xFF0000FF; // Red
-        item.unknown_state_colour_2 = 0xFF00FF00; // Green
-        item.selection_index = 1;
-        item.item_count = 1;
-    }
-
     
-    strcpy(item.item_text_buffer, "Disable All Visibility");
-
-    item.item_text = (char *) &((dmenu_item_t *) mem)->item_text_buffer;
-
-    item.item_variable = ndgame->dat_novis;
-
-    echo("Writing new item to allocated spot 0x%llX", mem);
-
-    ret = write_bytes(ndgame->pid, sizeof(dmenu_item_t), mem, &item);
-    if (ret)
-    {
-        echo("ERROR @ Line: %d", __LINE__ - 3);
-        return 1;
-    }
-
-
-    ret = proc_get_regs(ndgame->pid, &regs);
-    if (ret)
-    {
-        echo("ERROR @ Line: %d", __LINE__ - 3);
-        return 1;
-    }
-
-    
-    uintptr_t one;
-    one = (uintptr_t) ((dmenu_menu_t *) read_ulong(ndgame->pid, (unsigned long *) &((dmenu_menu_base_t *) read_ulong(ndgame->pid, (unsigned long *) T2RDMENU_QUICK_MENU_BASE_PTR))->root_menu));
-    echo("ONE: %llX", one);
-    
-
-
-    set_args(&regs, one, (uintptr_t) mem, 0, 0, 0, 0, 0);
-
-    ret = proc_call(ndgame, (void *) 0x10e7fe0, NULL, &regs);
-    if (ret)
-    {
-        echo("ERROR @ Line: %d", __LINE__ - 3);
-        return 1;
-    }
-
-
-
-
-
-    return 0; // Keeping this crap below for integrity testing later
+    // Keeping this crap below for integrity testing later
     //#
     //## Call t2r DetonateAllEnemies function (not the event handler, the function itself (assuming we're still calling 0x16cc530))
     //#
@@ -613,57 +521,58 @@ _start:
 
 int main()
 {
-    // Set thread name
+    //#
+    //## Payload setup/init
+    //#
+
+    // Set process name
     syscall(SYS_thr_set_name, -1, PAYLOAD_NAME);
-    
-    // Set some handlers for secleanup shit so I can stop rebooting the game every time the payload is killed
-    struct sigaction handler;
-    bzero(&handler, sizeof(struct sigaction));
-    handler.__sigaction_u.__sa_handler = sighandler;
-    
+
+    // Set handler to print exit message (cleanup not needed yet)
     atexit(print_exit_message);
 
+
+
+    // Kill any previous instances
+    errno = 0;
+    pid_t pid;
+    if ((pid = find_pid(PAYLOAD_NAME)) > 0)
+    {
+        do {
+            printf("Killing old instance (pid: %d)...\n", pid);
+            
+            if (kill(pid, SIGTERM))
+            {
+                echo("ERROR: SIGTERM on process (%d) failed!!! - No idea how this failed, but something's clearly wrong. Off we screw.", pid);
+                if (errno)
+                {
+                    echo("kill(%d, SIGTERM): %s", pid, strerror(errno));
+                }
+                return -1;
+            }
+
+            notify("Sent termination signal to previous %s instance %d", PAYLOAD_NAME, pid);
+            sleep(2);
+        }
+        while ((pid = find_pid(PAYLOAD_NAME)) > 0);
+
+        exit(0);
+        return 0;
+    }
+    
+
+    // Set some handlers for cleanup shit so I can stop rebooting the game every time the payload is killed
+    struct sigaction handler;
+    bzero(&handler, sizeof(struct sigaction));
+
+    handler.__sigaction_u.__sa_handler = sighandler;
     sigaction(SIGTERM, &handler, NULL);
     sigaction(SIGSEGV, &handler, NULL);
 
 
 
 
-
-    // Kill any previous instances
-    pid_t pid;
-    if ((pid = find_pid(PAYLOAD_NAME, NULL)) > 0)
-    {
-        // int saved_pids = 0;
-        // pid_t pids_to_skip[0x10];
-        
-        do {
-            printf("Killing old instance (pid: %d)...\n", pid);
-
-            if (kill(pid, SIGTERM))
-            {
-                echo("SIGTERM ERROR (%d)", pid);
-                break;
-            }
-
-            
-            notify("Sent termination signal to previous %s instance", PAYLOAD_NAME);
-            // pids_to_skip[saved_pids++] = pid;
-        }
-        while (0); //((pid = find_pid(PAYLOAD_NAME, pids_to_skip)) > 0);
-
-
-        exit(0);
-        return 1;
-    }
-
     
-    // notify("Test Payload Message");
-    // return 0;
-
-
-
-
     //#
     //## Payload start
     //#
@@ -673,15 +582,15 @@ int main()
     this = getpid();
     echo("Proceeding with new %s instance (%d)", PAYLOAD_NAME, this);
 
-    static ndgame_t nd_game;
-    nd_game_ptr = (const ndgame_t *) &nd_game;
+    static ndgame_t ndgame;
+    nd_game_ptr = (const ndgame_t *) &ndgame;
 
     watchpoint_count = 0;
     
 
     // Paylod start
     int ret;
-    ret = start(&nd_game, this);
+    ret = start(&ndgame, this);
     if (ret)
     {
         echo("Payload start exited with error");

@@ -1,16 +1,20 @@
 1. Reverse menu base enough to replicate append func
 
-?. Load and check app.db for app_ver (and the game's title, I supppose) to avoid running on incorrect patch versions
-
-2. Add enums for the one or two unnamed things (e.g. menu base index for find_item)
+2. Save all the various event handler addresses for the menu items (eugh...)
 
 3. Update dmenu item struct to reflect the fact that there's clearly multiple of differing sizes
 
-4. Re-implement invoke function in-payload to avoid needing prepatched executables
+4. Find an easy of way adding custom functions needed for new menu options to the game's memory
+
+5. Implement the various dmenu item creation functions from the exectuable (I may take liberties)
+
+
+
+?. Re-implement invoke function in-payload to avoid needing prepatched executables
+
+?. Load and check app.db for app_ver (and the game's title, I supppose) to avoid running on incorrect patch versions
 
 ?. Figure out what's up with that crash we get when sending sigstop after proc_call
 
-5. Find an easy of way adding custom functions needed for new menu options to the game's memory
-
-6. Implement the various dmenu item creation functions from the exectuable (I may take liberties)
+?. Figure out sig
 

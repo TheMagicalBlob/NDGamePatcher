@@ -14,9 +14,6 @@
 # along with this program; see the file COPYING. If not see
 # <http://www.gnu.org/licenses/>.
 
-PS5_HOST ?= 192.168.137.111
-PS5_PORT ?= 9021
-
 ifdef PS5_PAYLOAD_SDK
     include $(PS5_PAYLOAD_SDK)/toolchain/prospero.mk
 else
@@ -29,6 +26,6 @@ CFLAGS := -Wall -g
 
 all: $(ELF)
 
-$(ELF): main.c memory.c dmenu.c
+$(ELF): main.c memory.c dmenu.c proc.c
 	rm -f $(ELF)
 	$(CC) $(CFLAGS) -o $@ $^

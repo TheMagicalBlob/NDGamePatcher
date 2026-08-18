@@ -39,6 +39,15 @@ typedef enum : char
 } game_id_t;
 
 
+typedef enum : char
+{
+   menu_index_dev,
+   menu_index_quick,
+   menu_index_favorites
+
+} dmenu_menu_index_t;
+
+
 typedef struct dmenu_menu_base_s dmenu_menu_base_t;
 
 #pragma once
@@ -60,7 +69,7 @@ typedef struct
     int8_t * dat_novis;
     void * func_malloc;
     void * func_free;
-    // Replace this!!! Only do this for functions we can't built-in to the payload
+    // Replace this!!! Only do this for functions we can't build-in to the payload
     void * func_lookup_symbol;
 
 } ndgame_t;
@@ -76,7 +85,7 @@ void notify(const char * message, ...);
 const ndgame_t * get_nd_game();
 int * get_watchpoint_count();
 
-
+pid_t find_pid(const char * process_name);
 
 
 
