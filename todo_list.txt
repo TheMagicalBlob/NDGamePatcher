@@ -1,12 +1,8 @@
-1. Reverse menu base enough to replicate append func
+1. Update dmenu item struct to reflect the fact that there's clearly multiple of differing sizes
 
-2. Save all the various event handler addresses for the menu items (eugh...)
+2. Find an easy of way adding custom functions needed for new menu options to the game's memory
 
-3. Update dmenu item struct to reflect the fact that there's clearly multiple of differing sizes
-
-4. Find an easy of way adding custom functions needed for new menu options to the game's memory
-
-5. Implement the various dmenu item creation functions from the exectuable (I may take liberties)
+3. Implement the various dmenu item creation functions from the exectuable (I may take liberties)
 
 
 

@@ -106,6 +106,12 @@ int echo(const char * str, ...)
 }
 
 
+
+
+
+
+
+
 void notify(const char * message, ...)
 {
     va_list list;
@@ -123,16 +129,22 @@ void notify(const char * message, ...)
 }
 
 
+
+
+
+
+
+
 void log_message(const char * base_string, ...)
 {
 #ifdef LOGOUTPUT
     va_list args;
-    va_start(args, base_string);
-
     char message[4000];
+
+    va_start(args, base_string);
     vsnprintf(message, sizeof(message), base_string, args);
-    
     va_end(args);
+
 
 
     if (logfile < 0) { // failed to create it, don't wanna retry every print
@@ -156,17 +168,37 @@ void log_message(const char * base_string, ...)
 }
 
 
+
+
+
+
+
+
 const ndgame_t * get_nd_game()
 {
     return nd_game_ptr;
 }
+
+
+
+
+
+
+
 
 int * get_watchpoint_count()
 {
     return &watchpoint_count;
 }
 
-// from john-tornblom.
+
+
+
+
+
+
+
+// Code copied from a sample written by john-tornblom
 pid_t find_pid(const char *name)
 {
     int mib[4] = {1, 14, 8, 0};
@@ -324,13 +356,13 @@ _retry:
 
 
 
-static int find_and_trace_game(ndgame_t * nd_game)
+static int find_and_trace_game(ndgame_t * ndgame)
 {
     // Reset the current game instance
-    bzero(nd_game, sizeof(ndgame_t));
+    bzero(ndgame, sizeof(ndgame_t));
 
     // unsigned long id_check;
-    if (wait_for_game_launch(nd_game))
+    if (wait_for_game_launch(ndgame))
     {
         echo("An error occured while waiting for game launch, aborting payload.");
         return 1;
@@ -340,52 +372,50 @@ static int find_and_trace_game(ndgame_t * nd_game)
 
 
     //! TODO: Load and check app.db for the game's app_ver
-    switch(* ((unsigned long *) ((unsigned long) nd_game->title_id + 1)))
+    switch(* ((unsigned long *) ((unsigned long) ndgame->title_id + 1)))
     {
         // T2R
         case 3618138931251467088: // PSA10662
         case 4048794567581979472: // PSA15508
         case 3544672884293194576: // PSA15511
         case 3616730478331122512: // PSA15512
-            nd_game->game_id = T2R;
+            ndgame->game_id = T2R;
             
-            nd_game->dev_menu_base = T2RDMENU_DEV_MENU_BASE_PTR;
-            nd_game->quick_menu_base = T2RDMENU_QUICK_MENU_BASE_PTR;
-            nd_game->favorites_menu_base = T2RDMENU_FAVORITES_MENU_BASE_PTR;
+            ndgame->dev_menu_base       = (dmenu_menu_base_t *) read_ulong(ndgame->pid, (unsigned long *) T2RDMENU_DEV_MENU_BASE_PTR);
+            ndgame->quick_menu_base     = (dmenu_menu_base_t *) read_ulong(ndgame->pid, (unsigned long *) T2RDMENU_QUICK_MENU_BASE_PTR);
+            ndgame->favorites_menu_base = (dmenu_menu_base_t *) read_ulong(ndgame->pid, (unsigned long *) T2RDMENU_FAVORITES_MENU_BASE_PTR);
 
-            nd_game->vptr_dmenu = (void *) 0x3e6e8f8;
-            nd_game->dat_novis = T2R_NOVIS;
-            nd_game->func_malloc = T2R_MALLOC;
-            nd_game->func_free = T2R_FREE;
-            nd_game->func_lookup_symbol = T2R_LOOKUPSYMBOL;
+            ndgame->dat_novis = T2R_NOVIS;
+            ndgame->func_malloc = T2R_MALLOC;
+            ndgame->func_free = T2R_FREE;
+            ndgame->func_lookup_symbol = T2R_LOOKUPSYMBOL;
             break;
 
         // T1X
         case 3907210446666552144: // PSA03396
         case 3617576011346039632: // PSA07642 
         case 3689633605383967568: // PSA07643
-            nd_game->game_id = T1x;
+            ndgame->game_id = T1x;
             
-            nd_game->dev_menu_base = T1xDMENU_DEV_MENU_BASE_PTR;
-            nd_game->quick_menu_base = T1xDMENU_QUICK_MENU_BASE_PTR;
-            nd_game->favorites_menu_base = T1xDMENU_FAVORITES_MENU_BASE_PTR;
+            ndgame->dev_menu_base       = (dmenu_menu_base_t *) read_ulong(ndgame->pid, (unsigned long *) T1XDMENU_DEV_MENU_BASE_PTR);
+            ndgame->quick_menu_base     = (dmenu_menu_base_t *) read_ulong(ndgame->pid, (unsigned long *) T1XDMENU_QUICK_MENU_BASE_PTR);
+            ndgame->favorites_menu_base = (dmenu_menu_base_t *) read_ulong(ndgame->pid, (unsigned long *) T1XDMENU_FAVORITES_MENU_BASE_PTR);
 
-            nd_game->vptr_dmenu = (void *) 0x51f4fa8;
-            nd_game->dat_novis = T1x_NOVIS;
-            nd_game->func_malloc = T1x_MALLOC;
-            nd_game->func_free = T1x_FREE;
-            nd_game->func_lookup_symbol = T1x_LOOKUPSYMBOL;
+            ndgame->dat_novis = T1X_NOVIS;
+            ndgame->func_malloc = T1X_MALLOC;
+            ndgame->func_free = T1X_FREE;
+            ndgame->func_lookup_symbol = T1X_LOOKUPSYMBOL;
             break;
 
 
         default:
-            echo("Unknown game title id read (%llu)", *((unsigned long *) ((unsigned long) nd_game->title_id + 1)));
-            // detach(nd_game, __FUNCTION__);
-            // bzero(nd_game, sizeof(ndgame_t));
+            echo("Unknown game title id read (%llu)", *((unsigned long *) ((unsigned long) ndgame->title_id + 1)));
+            // detach(ndgame, __FUNCTION__);
+            // bzero(ndgame, sizeof(ndgame_t));
             return 1;
     }
 
-    echo("Game id: %d", nd_game->game_id);
+    echo("Game id: %d", ndgame->game_id);
     return 0;
 }
 
@@ -405,7 +435,8 @@ void print_exit_message()
 
 void cleanup(int exit_code)
 {
-    echo("Running cleanup");
+    echo("\n==================================\n| DMenu Payload Exiting... (%d) |\n==================================", getpid());
+    
 
     if (nd_game_ptr && nd_game_ptr->pid)
     {
@@ -415,8 +446,11 @@ void cleanup(int exit_code)
         }
         proc_wait((ndgame_t *) nd_game_ptr, false);
         
-        echo("Clearing watchpoints and detaching from process %d", nd_game_ptr->pid);
-        clear_watchpoint((ndgame_t *) nd_game_ptr, -1);
+        if (get_watchpoint_count())
+        {
+            echo("Clearing watchpoints and detaching from process %d", nd_game_ptr->pid);
+            clear_watchpoint((ndgame_t *) nd_game_ptr, -1);
+        }
 
         detach((ndgame_t *) nd_game_ptr, __FUNCTION__);
     }
@@ -475,18 +509,44 @@ _start:
         goto _start;
     }
 
+    dmenu_menu_t * _menu;
+    _menu = get_root_menu(ndgame, menu_index_dev);
+    echo("Dev Menu Pointer: 0x%llX", _menu);
+    
+    struct reg _args;
+    ret = set_args(ndgame, &_args, 0, (uintptr_t) _menu, 0, 0, 0, 0, 0);
+
+    unsigned long _idk;
+    ret = proc_call(ndgame, (void *) 0x2325c20, &_idk, &_args);
+
+    // ret = proc_call(ndgame, (void *) 0x16cc530, &_idk, &_args);
+
+
+
+    // return 0;
 
 
 
     // Make sure novis is present
-    return add_novis_option(ndgame, menu_index_quick);
+    ret = add_novis_option(ndgame, menu_index_quick);
+    if (ret)
+    {
+        echo("Error adding novis option, proceeding processes may also fail.\n");
+    }
     
     
-    
+
+
+
+
+
+    return 0;
     // Keeping this crap below for integrity testing later
     //#
     //## Call t2r DetonateAllEnemies function (not the event handler, the function itself (assuming we're still calling 0x16cc530))
     //#
+
+    echo("\n\n# Detonating all enemies.");
 
     // Get args to modify and pass as args //! this is clunky
     struct reg args;
@@ -497,13 +557,13 @@ _start:
     }
 
 
-    args.r_rsi = 5;
-    unsigned long long check; 
-    if ((ret = proc_call(ndgame, (unsigned long *) 0x16cc530, (unsigned long *) &check, &args)) != 0)
+    args.r_rsi = 0x1144C65120;
+    unsigned long check; 
+    if ((ret = proc_call(ndgame, (unsigned long *) 0x2325c20, (unsigned long *) &check, &args)) != 0)
     {
         echo("ERROR: %s call failed! (ret: %d)", __FUNCTION__);
     }
-    echo("waiting for function to return");
+    echo("Det En: 0x%llX", check);
 
     return 0;
 }
@@ -559,6 +619,7 @@ int main()
     }
     
 
+
     // Set some handlers for cleanup shit so I can stop rebooting the game every time the payload is killed
     struct sigaction handler;
     bzero(&handler, sizeof(struct sigaction));
@@ -570,7 +631,8 @@ int main()
 
 
 
-    
+
+
     //#
     //## Payload start
     //#
@@ -593,9 +655,8 @@ int main()
     {
         echo("Payload start exited with error");
     }
+    echo("Returned from start");
 
-    echo("\n==================================\n| DMenu Payload Exiting... (%d) |\n==================================", getpid());
-    
     cleanup(ret);
     return ret;
 }

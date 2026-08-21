@@ -6,138 +6,136 @@
 
 int get_dmenu_entry_base_type(ndgame_t * ndgame, void * item)
 {
-    // echo("int get_dmenu_entry_base_type(ndgame_t * ndgame, void * item)");
     unsigned long long chk = (unsigned long long) read_ulong(ndgame->pid, item);
-    // echo("behehee");
 
     switch (chk)
     {
-        case t2r_typeid_menu_base:
-            return simple_typeid_menu_base;
+        case t2r_vptr_menu_base:
+            return stype_menu_base;
 
-        case t2r_typeid_dyn_menu:
-        case t2r_typeid_weapon_upgrades_menu:
-        case t2r_typeid_id_menu:
-            return simple_typeid_menu;
+        case t2r_vptr_dyn_menu:
+        case t2r_vptr_weapon_upgrades_menu:
+        case t2r_vptr_menu:
+            return stype_menu;
 
-        case t2r_typeid_submenu_item:
-        case t2r_typeid_task_submenu_item:
-        case t2r_typeid_noreturn_task_submenu_item:
-            return simple_typeid_submenu;
+        case t2r_vptr_submenu_item:
+        case t2r_vptr_task_submenu_item:
+        case t2r_vptr_noreturn_task_submenu_item:
+            return stype_submenu;
 
-        case t2r_typeid_bool_item:
-        case t2r_typeid_exec_item:
-        case t2r_typeid_alt_exec_item:
-        case t2r_typeid_float_item:
-        case t2r_typeid_decimal_item:
-        case t2r_typeid_separator_item:
-        case t2r_typeid_string_list_item:
-        case t2r_typeid_string_item:
-        case t2r_typeid_task_history_item:
-        case t2r_typeid_task_item:
-        case t2r_typeid_timer_item:
-        case t2r_typeid_user_item:
-        case t2r_typeid_checkpoint_item:
-            return simple_typeid_item;
+        case t2r_vptr_bool_item:
+        case t2r_vptr_exec_item:
+        case t2r_vptr_alt_exec_item:
+        case t2r_vptr_float_item:
+        case t2r_vptr_decimal_item:
+        case t2r_vptr_separator_item:
+        case t2r_vptr_string_list_item:
+        case t2r_vptr_string_item:
+        case t2r_vptr_task_history_item:
+        case t2r_vptr_task_item:
+        case t2r_vptr_timer_item:
+        case t2r_vptr_user_item:
+        case t2r_vptr_checkpoint_item:
+            return stype_item;
             
 
 
 
 
 
-        case t1x_typeid_menu_base:
-            return simple_typeid_menu_base;
+        case t1x_vptr_menu_base:
+            return stype_menu_base;
 
-        case t1x_typeid_dyn_menu:
-        case t1x_typeid_weapon_upgrades_menu:
-        case t1x_typeid_id_menu:
-            return simple_typeid_menu;
+        case t1x_vptr_dyn_menu:
+        case t1x_vptr_weapon_upgrades_menu:
+        case t1x_vptr_menu:
+            return stype_menu;
 
-        case t1x_typeid_submenu_item:
-        case t1x_typeid_task_submenu_item:
-        case t1x_typeid_subtask_submenu_item:
-            return simple_typeid_submenu;
+        case t1x_vptr_submenu_item:
+        case t1x_vptr_task_submenu_item:
+        case t1x_vptr_subtask_submenu_item:
+            return stype_submenu;
 
-        case t1x_typeid_bool_item:
-        case t1x_typeid_exec_item:
-        case t1x_typeid_alt_exec_item:
-        case t1x_typeid_float_item:
-        case t1x_typeid_decimal_item:
-        case t1x_typeid_separator_item:
-        case t1x_typeid_string_item:
-        case t1x_typeid_string_list_item:
-        case t1x_typeid_task_history_item:
-        case t1x_typeid_task_item:
-        case t1x_typeid_timer_item:
-        case t1x_typeid_user_item:
-            return simple_typeid_item;
+        case t1x_vptr_bool_item:
+        case t1x_vptr_exec_item:
+        case t1x_vptr_alt_exec_item:
+        case t1x_vptr_float_item:
+        case t1x_vptr_decimal_item:
+        case t1x_vptr_separator_item:
+        case t1x_vptr_string_item:
+        case t1x_vptr_string_list_item:
+        case t1x_vptr_task_history_item:
+        case t1x_vptr_task_item:
+        case t1x_vptr_timer_item:
+        case t1x_vptr_user_item:
+            return stype_item;
 
         
             
 
 
         /*
-        case uc4r_typeid_menu_base:
-            return simple_typeid_menu_base;
+        case uc4r_vptr_menu_base:
+            return stype_menu_base;
 
-        case uc4r_typeid_dyn_menu:
-        case uc4r_typeid_unk_menu:
-        case uc4r_typeid_id_menu:
-            return simple_typeid_menu;
+        case uc4r_vptr_dyn_menu:
+        case uc4r_vptr_unk_menu:
+        case uc4r_vptr_id_menu:
+            return stype_menu;
 
-        case uc4r_typeid_submenu_item:
-        case uc4r_typeid_task_submenu_item:
-        case uc4r_typeid_noreturn_task_submenu_item:
-            return simple_typeid_submenu;
+        case uc4r_vptr_submenu_item:
+        case uc4r_vptr_task_submenu_item:
+        case uc4r_vptr_noreturn_task_submenu_item:
+            return stype_submenu;
 
-        case uc4r_typeid_bool_item:
-        case uc4r_typeid_exec_item:
-        case uc4r_typeid_alt_exec_item:
-        case uc4r_typeid_float_item:
-        case uc4r_typeid_decimal_item:
-        case uc4r_typeid_separator_item:
-        case uc4r_typeid_string_list_item:
-        case uc4r_typeid_string_item:
-        case uc4r_typeid_task_history_item:
-        case uc4r_typeid_task_item:
-        case uc4r_typeid_timer_item:
-        case uc4r_typeid_user_item:
-        case uc4r_typeid_unk_item:
-            return simple_typeid_item;
+        case uc4r_vptr_bool_item:
+        case uc4r_vptr_exec_item:
+        case uc4r_vptr_alt_exec_item:
+        case uc4r_vptr_float_item:
+        case uc4r_vptr_decimal_item:
+        case uc4r_vptr_separator_item:
+        case uc4r_vptr_string_list_item:
+        case uc4r_vptr_string_item:
+        case uc4r_vptr_task_history_item:
+        case uc4r_vptr_task_item:
+        case uc4r_vptr_timer_item:
+        case uc4r_vptr_user_item:
+        case uc4r_vptr_unk_item:
+            return stype_item;
         
             
 
 
 
 
-        case tllr_typeid_menu_base:
-            return simple_typeid_menu_base;
+        case tllr_vptr_menu_base:
+            return stype_menu_base;
         
         
-        case tllr_typeid_dyn_menu:
-        case tllr_typeid_unk_menu:
-        case tllr_typeid_id_menu:
-            return simple_typeid_menu;
+        case tllr_vptr_dyn_menu:
+        case tllr_vptr_unk_menu:
+        case tllr_vptr_id_menu:
+            return stype_menu;
         
-        case tllr_typeid_submenu_item:
-        case tllr_typeid_task_submenu_item:
-        case tllr_typeid_noreturn_task_submenu_item:
-            return simple_typeid_submenu;
+        case tllr_vptr_submenu_item:
+        case tllr_vptr_task_submenu_item:
+        case tllr_vptr_noreturn_task_submenu_item:
+            return stype_submenu;
         
-        case tllr_typeid_bool_item:
-        case tllr_typeid_exec_item:
-        case tllr_typeid_alt_exec_item:
-        case tllr_typeid_float_item:
-        case tllr_typeid_decimal_item:
-        case tllr_typeid_separator_item:
-        case tllr_typeid_string_list_item:
-        case tllr_typeid_string_item:
-        case tllr_typeid_task_history_item:
-        case tllr_typeid_task_item:
-        case tllr_typeid_timer_item:
-        case tllr_typeid_user_item:
-        case tllr_typeid_unk_item:
-            return simple_typeid_item;
+        case tllr_vptr_bool_item:
+        case tllr_vptr_exec_item:
+        case tllr_vptr_alt_exec_item:
+        case tllr_vptr_float_item:
+        case tllr_vptr_decimal_item:
+        case tllr_vptr_separator_item:
+        case tllr_vptr_string_list_item:
+        case tllr_vptr_string_item:
+        case tllr_vptr_task_history_item:
+        case tllr_vptr_task_item:
+        case tllr_vptr_timer_item:
+        case tllr_vptr_user_item:
+        case tllr_vptr_unk_item:
+            return stype_item;
         */
 
 
@@ -158,89 +156,89 @@ char * get_dmenu_entry_type_as_string(long long type)
 {
     switch (type)
     {
-        case t2r_typeid_bool_item:
-        case t1x_typeid_bool_item:
+        case t2r_vptr_bool_item:
+        case t1x_vptr_bool_item:
             return "bool_item";
         
-        case t2r_typeid_exec_item:
-        case t1x_typeid_exec_item:
+        case t2r_vptr_exec_item:
+        case t1x_vptr_exec_item:
             return "exec_item";
     
-        case t2r_typeid_alt_exec_item:
-        case t1x_typeid_alt_exec_item:
+        case t2r_vptr_alt_exec_item:
+        case t1x_vptr_alt_exec_item:
             return "alt_exec_item";
     
-        case t2r_typeid_float_item:
-        case t1x_typeid_float_item:
+        case t2r_vptr_float_item:
+        case t1x_vptr_float_item:
             return "float_item";
     
-        case t2r_typeid_decimal_item:
-        case t1x_typeid_decimal_item:
+        case t2r_vptr_decimal_item:
+        case t1x_vptr_decimal_item:
             return "decimal_item";
     
-        case t2r_typeid_separator_item:
-        case t1x_typeid_separator_item:
+        case t2r_vptr_separator_item:
+        case t1x_vptr_separator_item:
             return "separator_item";
     
-        case t2r_typeid_string_list_item:
-        case t1x_typeid_string_list_item:
+        case t2r_vptr_string_list_item:
+        case t1x_vptr_string_list_item:
             return "string_list_item";
     
-        case t2r_typeid_task_history_item:
-        case t1x_typeid_task_history_item:
+        case t2r_vptr_task_history_item:
+        case t1x_vptr_task_history_item:
             return "task_history_item";
     
-        case t2r_typeid_task_item:
-        case t1x_typeid_task_item:
+        case t2r_vptr_task_item:
+        case t1x_vptr_task_item:
             return "task_item";
     
-        case t2r_typeid_user_item:
-        case t1x_typeid_user_item:
+        case t2r_vptr_user_item:
+        case t1x_vptr_user_item:
             return "user_item";
     
-        case t2r_typeid_timer_item:
-        case t1x_typeid_timer_item:
+        case t2r_vptr_timer_item:
+        case t1x_vptr_timer_item:
             return "timer_item";
     
-        case t2r_typeid_checkpoint_item:
-        case t1x_typeid_checkpoint_item:
+        case t2r_vptr_checkpoint_item:
+        case t1x_vptr_checkpoint_item:
             return "checkpoint_item";
 
 
     
-        case t2r_typeid_string_item:
-        case t1x_typeid_string_item:
+        case t2r_vptr_string_item:
+        case t1x_vptr_string_item:
             return "string_item";
     
     
-        case t2r_typeid_submenu_item:
-        case t1x_typeid_submenu_item:
+        case t2r_vptr_submenu_item:
+        case t1x_vptr_submenu_item:
             return "submenu_item";
     
-        case t2r_typeid_task_submenu_item:
-        case t1x_typeid_task_submenu_item:
+        case t2r_vptr_task_submenu_item:
+        case t1x_vptr_task_submenu_item:
             return "task_submenu_item";
     
-        case t2r_typeid_noreturn_task_submenu_item:
-        case t1x_typeid_subtask_submenu_item:
+        case t2r_vptr_noreturn_task_submenu_item:
+        case t1x_vptr_subtask_submenu_item:
             return "noreturn_task_submenu_item";
 
     
 
-        case t2r_typeid_id_menu:
-        case t1x_typeid_id_menu:
+        case t2r_vptr_menu:
+        case t1x_vptr_menu:
             return "menu";
 
-        case t2r_typeid_dyn_menu:
-        case t1x_typeid_dyn_menu:
+        case t2r_vptr_dyn_menu:
+        case t1x_vptr_dyn_menu:
             return "dyn_menu";
 
-        case t2r_typeid_weapon_upgrades_menu:
-        case t1x_typeid_weapon_upgrades_menu:
+        case t2r_vptr_weapon_upgrades_menu:
+        case t1x_vptr_weapon_upgrades_menu:
             return "weapon_upgrades_menu";
 
-        case t2r_typeid_menu_base:
-        case t1x_typeid_menu_base:
+        case t2r_vptr_menu_base:
+        case t1x_vptr_menu_base:
             return "menu_base";
     }
 
@@ -255,36 +253,20 @@ char * get_dmenu_entry_type_as_string(long long type)
 
 
 
-
-static void * find_dmenu_component(ndgame_t * nd_game, const char * expected_entry_name, dmenu_simple_type_t expected_base_type, dmenu_menu_index_t parent_index)
+// Recursively check every item and submenu for an item matching the specified dmenu simple type and component name
+static void * find_dmenu_component(ndgame_t * ndgame, const char * expected_entry_name, dmenu_stype_t expected_base_type, dmenu_menu_index_t parent_index)
 {
-    dmenu_menu_base_t parent_base;
-    dmenu_menu_base_t * p_parent_base;
-
+    
     if (parent_index < 0 || parent_index > 2)
     {
         echo("Invalid parent menu index provided, defaulting to dev menu");
         parent_index = 0;
     }
-
-    // Determine which menu base pointer to use
-    switch(parent_index)
-    {
-        case 0:
-            p_parent_base = nd_game->dev_menu_base;
-            break;
-
-        case 1:
-            p_parent_base = nd_game->quick_menu_base;
-            break;
-        
-        case 2:
-            p_parent_base = nd_game->favorites_menu_base;
-            break;
-    }
-
-
-    load_menu_base(nd_game, p_parent_base, &parent_base);
+    
+    
+    
+    dmenu_menu_base_t parent_base;
+    load_menu_base(ndgame, *(&ndgame->dev_menu_base + parent_index), &parent_base);
 
     if (parent_base.root_menu == 0)
     {
@@ -294,13 +276,13 @@ static void * find_dmenu_component(ndgame_t * nd_game, const char * expected_ent
     
     
     dmenu_menu_t menu;
-    read_bytes(nd_game->pid, sizeof(dmenu_menu_t), parent_base.root_menu, &menu);
+    read_bytes(ndgame->pid, sizeof(dmenu_menu_t), parent_base.root_menu, &menu);
     
     char parent_name[0x40];
     void * entry_ptr;
 
     bzero(parent_name, 0x40);
-    read_string(nd_game->pid, menu.menu_name, parent_name);
+    read_string(ndgame->pid, menu.menu_name, parent_name);
 
     if((entry_ptr = menu.first_item) == 0)
     {
@@ -317,25 +299,25 @@ static void * find_dmenu_component(ndgame_t * nd_game, const char * expected_ent
     dmenu_item_t item;
     char entry_name[0x80];
     
-    dmenu_simple_type_t base_type;
+    dmenu_stype_t base_type;
     
 
     
     int depth = 0, ret;
     while(entry_ptr != nullptr)
     {
-        base_type = get_dmenu_entry_base_type(nd_game, entry_ptr);
+        base_type = get_dmenu_entry_base_type(ndgame, entry_ptr);
         
         // Menu
         if (next_is_menu)
         {
-            ret = read_bytes(nd_game->pid, sizeof(dmenu_menu_t), entry_ptr, &menu);
+            ret = read_bytes(ndgame->pid, sizeof(dmenu_menu_t), entry_ptr, &menu);
             if (ret)
             {
                 break;
             }
 
-            ret = read_string(nd_game->pid, menu.menu_name, entry_name);
+            ret = read_string(ndgame->pid, menu.menu_name, entry_name);
             if (!ret)
             {
                 break;
@@ -354,14 +336,14 @@ static void * find_dmenu_component(ndgame_t * nd_game, const char * expected_ent
         }
         // Item
         else {
-            read_bytes(nd_game->pid, sizeof(dmenu_item_t), entry_ptr, &item);
+            read_bytes(ndgame->pid, sizeof(dmenu_item_t), entry_ptr, &item);
             
             if (item.item_text == nullptr)
             {
                 goto no_text;
             }
             
-            read_string(nd_game->pid, item.item_text, entry_name);
+            read_string(ndgame->pid, item.item_text, entry_name);
 
 
             if (expected_base_type == base_type && !strncmp(expected_entry_name, entry_name, strlen(entry_name)))
@@ -371,7 +353,7 @@ static void * find_dmenu_component(ndgame_t * nd_game, const char * expected_ent
 
 
             no_text:
-            if (base_type == simple_typeid_submenu)
+            if (base_type == stype_submenu)
             {
                 entry_ptr = (dmenu_item_t *) item.return_buffer;
 
@@ -414,7 +396,7 @@ static void * find_dmenu_component(ndgame_t * nd_game, const char * expected_ent
 // >=2 == Favorites Menu
 dmenu_item_t * find_item(ndgame_t * nd_game, const char * item_name, dmenu_menu_index_t parent_index)
 {
-    return find_dmenu_component(nd_game, item_name, simple_typeid_item, parent_index);
+    return find_dmenu_component(nd_game, item_name, stype_item, parent_index);
 }
 
 
@@ -426,7 +408,7 @@ dmenu_item_t * find_item(ndgame_t * nd_game, const char * item_name, dmenu_menu_
 // >=2 == Favorites Menu
 dmenu_menu_t * find_menu(ndgame_t * nd_game, const char * menu_name, dmenu_menu_index_t parent_index)
 {
-    return find_dmenu_component(nd_game, menu_name, simple_typeid_menu, parent_index);
+    return find_dmenu_component(nd_game, menu_name, stype_menu, parent_index);
 }
 
 
@@ -438,7 +420,7 @@ dmenu_menu_t * find_menu(ndgame_t * nd_game, const char * menu_name, dmenu_menu_
 // >=2 == Favorites Menu
 dmenu_item_t * find_submenu(ndgame_t * nd_game, const char * submenu_name, dmenu_menu_index_t parent_index)
 {
-    return find_dmenu_component(nd_game, submenu_name, simple_typeid_submenu, parent_index);
+    return find_dmenu_component(nd_game, submenu_name, stype_submenu, parent_index);
 }
 
 
@@ -448,10 +430,20 @@ dmenu_item_t * find_submenu(ndgame_t * nd_game, const char * submenu_name, dmenu
 
 
 
+// Get the root menu of the specified menu base without loading the base in to memory first
+dmenu_menu_t * get_root_menu(ndgame_t * ndgame, dmenu_menu_index_t menu_base_index)
+{
+    return ((dmenu_menu_t *) read_ulong(ndgame->pid, (unsigned long *) &(* (dmenu_menu_base_t **) ((unsigned long) &ndgame->dev_menu_base + menu_base_index * sizeof(dmenu_menu_base_t *)))->root_menu));
+}
+
+
+
+
+
 // Copy the dmenu_menu_base_t pointed to by the dmenu_menu_base_t * at the provided address in the traced process' memory into the provided menu base struct
 int load_menu_base(ndgame_t * ndgame, void * address, dmenu_menu_base_t * menu_base)
 {
-    return read_bytes(ndgame->pid, sizeof(dmenu_menu_base_t), (void *) read_ulong(ndgame->pid, (unsigned long *) address), menu_base);
+    return read_bytes(ndgame->pid, sizeof(dmenu_menu_base_t), (void *) address, menu_base);
 }
 
 
@@ -561,7 +553,7 @@ void dump_menu_entries(ndgame_t * ndgame, dmenu_menu_base_t * parent_base)
             echo(output_format, entry_ptr, padding, parent_name, item_name, dtype, type, item.event_handler, item.entry_event_handler_type_id);
 
             
-            if (get_dmenu_entry_base_type(ndgame, entry_ptr) == simple_typeid_submenu)
+            if (get_dmenu_entry_base_type(ndgame, entry_ptr) == stype_submenu)
             {
                 entry_ptr = (dmenu_item_t *) item.return_buffer;
 
@@ -609,15 +601,117 @@ void dump_menu_entries(ndgame_t * ndgame, dmenu_menu_base_t * parent_base)
 
 
 
+
+
+int AppendItemToParent(ndgame_t * ndgame, dmenu_menu_t * parent_menu, dmenu_item_t * item)
+{
+    dmenu_item_t **next_item_p;
+    dmenu_item_t *current_item;
+    
+    current_item = nullptr;
+    next_item_p = &parent_menu->first_item;
+    
+    dmenu_item_t *prev_item;
+    // get the last item in the menu
+    do {
+        prev_item = current_item;
+        current_item = (dmenu_item_t *) read_ulong(ndgame->pid, (unsigned long *) next_item_p);
+        next_item_p = &current_item->next_item;
+        
+    } while (current_item != NULL);
+    
+    if (prev_item)
+    {
+        next_item_p = &prev_item->next_item;
+    }
+    else{
+        next_item_p = &parent_menu->first_item;
+    }
+    
+    int ret;
+    ret = write_ulong(ndgame->pid, (unsigned long *) next_item_p, (unsigned long) item);
+    if (ret)
+    {
+        echo("ERROR @ Line: %d", __LINE__ - 3);
+        return 1;
+    }
+
+    echo("next_item: 0x%x", __offsetof(dmenu_menu_t, next_item));
+    write_ulong(ndgame->pid, (unsigned long *) &item->next_item, 0);
+
+    echo("parent_menu: 0x%x", __offsetof(dmenu_menu_t, parent_menu));
+    write_ulong(ndgame->pid, (unsigned long *) &item->parent_menu, (u_long) parent_menu);
+    
+    echo("item_count: 0x%x", __offsetof(dmenu_menu_t, item_count));
+    write_uint(ndgame->pid, (unsigned int *) &parent_menu->item_count, read_uint(ndgame->pid, &parent_menu->item_count) + 1);
+    
+    echo("unknown_bool: 0x%x", __offsetof(dmenu_menu_t, unknown_bool));
+    write_uint(ndgame->pid, (unsigned int *) &parent_menu->unknown_bool, 1);
+    
+    echo("menu_is_open: 0x%x", __offsetof(dmenu_menu_t, menu_is_open));
+    char _menu_is_open;
+    _menu_is_open = read_byte(ndgame->pid, (byte *) &parent_menu->menu_is_open);
+
+
+    if (!errno && _menu_is_open)
+    {
+        echo("menu is open");
+        void * update_menu;
+        if (!(update_menu = (void *) read_ulong(ndgame->pid, (unsigned long *) read_ulong(ndgame->pid, (unsigned long *) &item->vptr) + 0x18)))
+        {
+            echo("Unable to read item's vPtr!!");
+            return 1;
+        }
+        
+        
+        struct reg args;
+        ret = proc_get_regs(ndgame, &args);
+
+
+        ret = set_args(ndgame, &args, (uintptr_t) item, 0, 0, 0, 0, 0, 0);
+        if (ret)
+        {
+            echo("ERROR @ Line: %d", __LINE__ - 3);
+            return 1;
+        }
+
+        echo("proc call");
+
+        ret = proc_call(ndgame, update_menu, nullptr, &args);
+        if (ret)
+        {
+            echo("ERROR @ Line: %d", __LINE__ - 3);
+            return 1;
+        }
+    }
+    echo("menu not open");
+
+    return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 //! TODO: Write the base menu item creation function and move the optimization to that. I don't want bzero being optimized out.
 int add_novis_option(ndgame_t * ndgame, dmenu_menu_index_t menu_base)
 {
-    // dmenu_item_t * check;
-    // if ((check = find_item(ndgame, "Disable All Visibility", menu_base)))
-    // {
-    //     echo("Novis already added to specified menu base");
-    //     return 0;
-    // }
+    dmenu_item_t * check;
+    if ((check = find_item(ndgame, "Disable All Visibility", menu_base)))
+    {
+        echo("Novis already added to specified menu base");
+        // return 0;
+    }
     echo("Adding new novis optiom");
 
     void * mem;    
@@ -634,20 +728,17 @@ int add_novis_option(ndgame_t * ndgame, dmenu_menu_index_t menu_base)
 
 
 
-
-
-
     dmenu_item_t item;
     bzero(&item, sizeof(dmenu_item_t));
 
-    * (unsigned int *) &item = t2r_typeid_bool_item;
+    * (unsigned long *) &item = t2r_vptr_bool_item;
 
 
     item.entry_event_handler_type_id = 3; // Bool item
     item.event_handler = (void *) 0x0114d100; // Bool event handler
-    item.return_buffer = read_byte(ndgame->pid, ndgame->dat_novis);
+    item.return_buffer = read_byte(ndgame->pid, (byte *) ndgame->dat_novis);
 
-    item.off_state_colour = 0xEFFFFFFF; // White
+    item.off_state_colour = 0xB0FFB0FF; // White
     item.on_state_colour = 0xEF00FFFF;  // Yellow
     item.neutral_state_colour = 0xFF0000FF; // Red
     item.selection_index = 1;
@@ -660,7 +751,7 @@ int add_novis_option(ndgame_t * ndgame, dmenu_menu_index_t menu_base)
 
     item.item_variable = ndgame->dat_novis;
 
-    echo("Writing new item to allocated spot 0x%llX", mem);
+
 
     int ret;
     ret = write_bytes(ndgame->pid, sizeof(dmenu_item_t), mem, &item);
@@ -671,29 +762,6 @@ int add_novis_option(ndgame_t * ndgame, dmenu_menu_index_t menu_base)
     }
 
 
-    struct reg regs; 
-    ret = proc_get_regs(ndgame, &regs);
-    if (ret)
-    {
-        echo("ERROR @ Line: %d", __LINE__ - 3);
-        return 1;
-    }
-
-    
-    uintptr_t one;
-    one = (uintptr_t) ((dmenu_menu_t *) read_ulong(ndgame->pid, (unsigned long *) &((dmenu_menu_base_t *) read_ulong(ndgame->pid, (unsigned long *) T2RDMENU_QUICK_MENU_BASE_PTR))->root_menu));
-
-
-    set_args(&regs, one, (uintptr_t) mem, 0, 0, 0, 0, 0);
-
-    ret = proc_call(ndgame, (void *) 0x10e7fe0, NULL, &regs);
-    if (ret)
-    {
-        echo("ERROR @ Line: %d", __LINE__ - 3);
-        return 1;
-    }
-
-
-    return 0;
+    return AppendItemToParent(ndgame, get_root_menu(ndgame, menu_base), mem);
 }
 

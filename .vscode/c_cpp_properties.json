@@ -4,11 +4,12 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/inc",
-                "/home/blobian/prospero/sdk/ps5-payload-sdk-0.38/target/include"
+                "../../sdk/ps5-payload-sdk-0.38/target/include"
             ],
             "defines": [],
             "cStandard": "c17",
-            "cppStandard": "c++17"
+            "cppStandard": "c++17",
+            "compilerPath": "../../sdk/ps5-payload-sdk-0.38/bin/clang"
         }
     ],
     "version": 4

@@ -9,20 +9,20 @@
 int read_bytes(pid_t pid, size_t len, void * source, void * destination);
 int write_bytes(pid_t pid, size_t len, void * destination, void * value);
 
-unsigned char read_byte(int pid, void * address);
-int write_byte(int pid, void * address, unsigned char data);
+byte read_byte(int pid, byte * address);
+int write_byte(int pid, byte * address, byte data);
 
 unsigned long read_ulong(int pid, unsigned long * address);
 int write_ulong(int pid, unsigned long * address, unsigned long value);
 
-unsigned int read_uint(int pid, void * address);
-int write_uint(int pid, void * address, unsigned int data);
+unsigned read_uint(int pid, unsigned * address);
+int write_uint(int pid, unsigned * address, unsigned data);
 
-double read_double(int pid, void * address);
-int write_double(int pid, void * address, double value);
+double read_double(int pid, double * address);
+int write_double(int pid, double * address, double value);
 
-float read_single(int pid, unsigned long address);
-int write_single(int pid, unsigned long address, float value);
+float read_single(int pid, float * address);
+int write_single(int pid, float * address, float value);
 
 int read_string(int pid, const char * address, char * buffer);
 int write_string(int pid, void * address, const char * str);

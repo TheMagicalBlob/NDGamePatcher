@@ -17,10 +17,14 @@
 #include <ps5/kernel.h>
 
 
-#define null NULL
-#define nullptr (void *) 0
-#define true 1
-#define false 0
+#define null 0 // C# null
+#define nullptr NULL
+
+typedef char sbyte;
+typedef unsigned char byte;
+
+#define true  (byte) 1
+#define false (byte) 0
 #define TRUE true
 #define FALSE false
 
@@ -37,15 +41,6 @@ typedef enum : char
     TLL
 
 } game_id_t;
-
-
-typedef enum : char
-{
-   menu_index_dev,
-   menu_index_quick,
-   menu_index_favorites
-
-} dmenu_menu_index_t;
 
 
 typedef struct dmenu_menu_base_s dmenu_menu_base_t;
@@ -65,7 +60,6 @@ typedef struct
 
 
     // Addresses of various functions/variables in the game process
-    void ** vptr_dmenu;
     int8_t * dat_novis;
     void * func_malloc;
     void * func_free;
