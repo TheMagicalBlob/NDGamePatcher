@@ -29,6 +29,50 @@ typedef unsigned char byte;
 #define FALSE false
 
 
+// Error status check/output
+// For where additional functionality beyond printing and asserting is not needed.
+// If check evaluates to true, assert and print message if it isn't null.
+// Additionally check errno and output it's message accordingly
+#define __err(check, message) {\
+    if (check) {\
+        echo("#############################################################\n# ERROR:\n# File %s\n# Func %s -> @ Line %d", __FILE__, __FUNCTION__, __LINE__ - 1);\
+        if ((char *) message && *(char *) message != 0) {\
+            echo("Message: %s", message);\
+        }\
+\
+        if (errno) {\
+            echo("Message (errno): %s", strerror(errno));\
+        }\
+        echo("#############################################################");\
+    }\
+}
+
+// Error status check/output W/ return code.
+// For where additional functionality beyond printing and asserting is not needed.
+// If check evaluates to true, assert and print message if it isn't null.
+// Additionally check errno and output it's message accordingly
+#define __rerr(check, message, error_code) {\
+    if (check) {\
+        echo("#############################################################\n# ERROR:\n# File %s\n# Func %s -> @ Line %d", __FILE__, __FUNCTION__, __LINE__ - 1);\
+        if ((char *) message && *(char *) message != 0) {\
+            echo("Message: %s", message);\
+        }\
+\
+        if (errno) {\
+            echo("Message (errno): %s", strerror(errno));\
+        }\
+        echo("#############################################################");\
+        return error_code;\
+    }\
+}
+
+
+
+
+
+
+
+
 
 // Basic ID system for the loaded games. 
 // #pragma once
@@ -75,6 +119,9 @@ int echo(const char * message, ...);
 void log_message(const char * base_string, ...);
 
 void notify(const char * message, ...);
+
+char * strbuild(char * format, ...);
+
 
 const ndgame_t * get_nd_game();
 int * get_watchpoint_count();

@@ -61,9 +61,10 @@ extern int sceKernelGetAppInfo(pid_t pid, app_info_t *info);
 // extern int sceKernelLoadStartModule(const char *name, uint64_t argc, const void *argv, uint32_t flags, void *, int *result);
 // extern uint sceShellCoreUtilGetAppLaunchedParamString(int appid, const char * name, char * dst , size_t max);
 
-// Not being used atm.
-//! TODO: Reimplement once sigterm is being handled and we can actually close the file handles properly
+
+// File handle for open logfile being saved in console's /data folder
 static int logfile;
+
 
 static const ndgame_t * nd_game_ptr;
 
@@ -138,6 +139,7 @@ void notify(const char * message, ...)
 void log_message(const char * base_string, ...)
 {
 #ifdef LOGOUTPUT
+    errno = 0;
     va_list args;
     char message[4000];
 
@@ -147,24 +149,45 @@ void log_message(const char * base_string, ...)
 
 
 
-    if (logfile < 0) { // failed to create it, don't wanna retry every print
-        return;
-    }
-
-    if (!logfile)
+    if (logfile == 0)
     {
         logfile = open("/data/bLog.txt", O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
         if (logfile < 0)
         {
-            printf("Unable to open logfile, maybe error code: %s", strerror(logfile));
+            printf("Unable to open logfile, maybe error code: %s", strerror(errno));
         }
     }
 
 
-    // Write the message to the log file
-    write(logfile, message, strlen(message));
+    if (logfile)
+    {
+        // Write the message to the log file
+        write(logfile, message, strlen(message));
+    }
 #endif
+}
+
+
+
+
+
+
+
+
+// Construct one string in memory to be returned C#-style. Uses one static buffer, only use for certain prints (like the assertion macro)
+char * strbuild(char * format, ...)
+{
+    va_list list;
+    static char message[2000];
+    bzero(message, sizeof(message));
+
+    // Build string with variable arguments
+    va_start(list, format);
+    vsnprintf(message, sizeof(message) - 1, message, list);
+    va_end(list);
+    
+    return message;
 }
 
 
@@ -509,21 +532,16 @@ _start:
         goto _start;
     }
 
-    dmenu_menu_t * _menu;
-    _menu = get_root_menu(ndgame, menu_index_dev);
-    echo("Dev Menu Pointer: 0x%llX", _menu);
-    
     struct reg _args;
-    ret = set_args(ndgame, &_args, 0, (uintptr_t) _menu, 0, 0, 0, 0, 0);
-
-    unsigned long _idk;
-    ret = proc_call(ndgame, (void *) 0x2325c20, &_idk, &_args);
-
-    // ret = proc_call(ndgame, (void *) 0x16cc530, &_idk, &_args);
+    ret = clear_args(ndgame, &_args);
+    __err(ret, "Error clearing args");
 
 
+    unsigned long return_check;
+    ret = proc_call(ndgame, (void *) 0x16cc670, &return_check, &_args);
+    __err(ret, strbuild("Error calling test function 0x%llX", (void *) 0x16cc670));
 
-    // return 0;
+
 
 
 
@@ -533,39 +551,8 @@ _start:
     {
         echo("Error adding novis option, proceeding processes may also fail.\n");
     }
-    
-    
 
-
-
-
-
-    return 0;
-    // Keeping this crap below for integrity testing later
-    //#
-    //## Call t2r DetonateAllEnemies function (not the event handler, the function itself (assuming we're still calling 0x16cc530))
-    //#
-
-    echo("\n\n# Detonating all enemies.");
-
-    // Get args to modify and pass as args //! this is clunky
-    struct reg args;
-    if ((ret = proc_get_regs(ndgame, &args)) != 0)
-    {
-        echo("Unable to get register values, aborting 'cause something's clearly wrong.");
-        return ret;
-    }
-
-
-    args.r_rsi = 0x1144C65120;
-    unsigned long check; 
-    if ((ret = proc_call(ndgame, (unsigned long *) 0x2325c20, (unsigned long *) &check, &args)) != 0)
-    {
-        echo("ERROR: %s call failed! (ret: %d)", __FUNCTION__);
-    }
-    echo("Det En: 0x%llX", check);
-
-    return 0;
+    return ret != 0;
 }
 
 
@@ -651,11 +638,7 @@ int main()
     // Paylod start
     int ret;
     ret = start(&ndgame, this);
-    if (ret)
-    {
-        echo("Payload start exited with error");
-    }
-    echo("Returned from start");
+    __err(ret, "Payload start exited with error");
 
     cleanup(ret);
     return ret;

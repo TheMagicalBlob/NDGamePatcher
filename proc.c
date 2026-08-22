@@ -1,5 +1,6 @@
 #include "inc/include.h"
 #include "inc/dmenu.h"
+#include "inc/memory.h"
 
 #define _SHELLCORE_AUTHID 0x4800000000010003L
 
@@ -116,49 +117,91 @@ int detach(ndgame_t * ndgame, const char * from)
 // Wait for the secified process to either be stopped, or exit
 // If waitpid experiences an error, returns -1
 // otherwise, returns the result of WIFEXITED
-pid_t proc_wait(ndgame_t * game, int wait)
+pid_t proc_wait(ndgame_t * ndgame, int wait)
 {
+    // Set options for wait pid
     int options;
     options = WTRAPPED | WEXITED | WUNTRACED;
     
     if (!wait)
     {
         options |= WNOHANG;
-        echo("waiting for pid %d w/ NOHANG", game->pid);
+        echo("Waiting for pid %d w/ NOHANG", ndgame->pid);
     }
     else{
-        echo("waiting for pid %d.", game->pid);
+        echo("Waiting for pid %d.", ndgame->pid);
     }
-    pid_t pid;
+    
+    
 
-
-    pid = waitpid(game->pid, &game->status, options); // WTRAPPED and WEXITED are set implicitly for waitpid, but meh
-    if (pid == -1)
+    // Wait for a child like EDP at the mall
+    errno = 0;
+    pid_t returned_pid;
+    returned_pid = waitpid(-1, &ndgame->status, options); // WTRAPPED and WEXITED are set implicitly for waitpid, but meh
+    if (returned_pid == -1)
     {
         if (errno == ECHILD)
         {
-            echo("waitpid: no children not previously awaited");
+            echo("No children not previously awaited");
         }
         else {
-            echo("waitpid failed: %d->%s", errno, strerror(errno));
+            echo("ERROR: waitpid returned error: %d->%s", errno, strerror(errno));
         }
         
         return -1;
     }
     
     
-    echo("Process %d stopped with status: 0x%llX.", pid, game->status);
+    echo("Process %d stopped with status: 0x%llX.", returned_pid, ndgame->status);
 
-    if (!pid)
+
+    if (!returned_pid)
     {
-        echo("WARNING: No processes wishing to report status.");
-        pid = game->pid;
+        if (wait)
+        {
+            echo("ERROR: NOHANG was not specified, but waitpid returned 0 anyway.");
+            errno = 1;
+            return -1;
+        }
+
+        echo("No processes wishing to report status.");
+        return 0;
+    }
+    
+    // Get process' status once it has stopped
+    if (WIFEXITED(ndgame->status))
+    {
+        echo("Exited (sig %d)", WEXITSTATUS(ndgame->status));
+    }
+    else if(WIFCONTINUED(ndgame->status))
+    {
+        echo("Continued (how? we're not even using WCONTINUED)");
+    }
+    else if (WIFSIGNALED(ndgame->status))
+    {
+        if (WCOREDUMP(ndgame->status))
+        {
+            echo("Signaled w/ coredump (sig: %d)", WTERMSIG(ndgame->status));
+        }
+        else{
+            echo("Signaled (sig: %d)", WTERMSIG(ndgame->status));
+        }
+    }
+    else if (WIFSTOPPED(ndgame->status))
+    {
+        echo("Stopped (sig: %d)", WSTOPSIG(ndgame->status));
     }
 
+
+
+
+
+
+    // Get thread info
     int ret;
     errno = 0;
     struct ptrace_lwpinfo thread_info;
-    ret = ptrace(PT_LWPINFO, pid, (caddr_t) &thread_info, sizeof(struct ptrace_lwpinfo));
+    ret = ptrace(PT_LWPINFO, ndgame->pid, (caddr_t) &thread_info, sizeof(struct ptrace_lwpinfo));
     if (ret != 0)
     {
         if (errno)
@@ -176,37 +219,14 @@ pid_t proc_wait(ndgame_t * game, int wait)
         }
     }
     else{
-        echo("Thread that stopped / terminated: %s (%d)", thread_info.pl_tdname, thread_info.pl_child_pid);
-    }
-    
-    
-    // Get process' status once it has stopped
-    if (WIFEXITED(game->status))
-    {
-        echo("Exited (sig %d)", WEXITSTATUS(game->status));
-    }
-    else if(WIFCONTINUED(game->status))
-    {
-        echo("Continued (how? we're not even using WCONTINUED)");
-    }
-    else if (WIFSIGNALED(game->status))
-    {
-        if (WCOREDUMP(game->status))
-        {
-            echo("Signaled w/ coredump (sig: %d)", WTERMSIG(game->status));
-        }
-        else{
-            echo("Signaled (sig: %d)", WTERMSIG(game->status));
-        }
-    }
-    else if (WIFSTOPPED(game->status))
-    {
-        echo("Stopped (sig: %d)", WSTOPSIG(game->status));
+        echo("Thread that stopped / terminated: %s (%d:%d)", thread_info.pl_tdname, returned_pid, thread_info.pl_child_pid);
     }
 
 
-    return pid;
+    return returned_pid;
 }
+
+
 
 
 
@@ -221,22 +241,17 @@ static int proc_resume_threads(ndgame_t * ndgame)
     pid_t pid;
     pid = ndgame->pid;
     lwpid_t * threads;
-    errno = 0;
-
+    
     echo("Resuming all threads in process %d", pid);
-
-
-    // Get number of threads
+    
+    
+    // Get number of threads1
+    errno = 0;
     thread_count = ptrace(PT_GETNUMLWPS, pid, 0, 0);
-    if (errno != 0)
-    {
-        perror("PT_GETNUMLWPS: ");
-        return 1;
-    }
-    if (!thread_count)
-    {
-        echo("ERROR: Process has no threads. (Quoi?)");
-    }
+    __rerr(thread_count < 0, "Error getting thread id list. PT_GETNUMLWPS returned a negative value.", 1);
+    __rerr(thread_count == 0, "Error getting thread id list. Process contains no threads??", 1);
+
+
 
 
 
@@ -249,36 +264,25 @@ static int proc_resume_threads(ndgame_t * ndgame)
 
 
     // Get threads themselves
+    errno = 0;
     ret = ptrace(PT_GETLWPLIST, pid, (caddr_t) threads, thread_count);
-    if (errno != 0)
-    {
-        perror("PT_GETLWPLIST: ");
-        echo("Error getting thread id list. Read %d out of %d threads.", ret, thread_count);
-        return 1;
-    }
-    else if (ret != thread_count)
-    {
-        echo("Error getting thread id list. Only read %d out of %d threads.", ret, thread_count);
-        return 1;
-    }
+    __rerr(ret != thread_count, strbuild("Error getting thread id list. Only read %d out of %d threads.", ret, thread_count), 1);
+    __rerr(!ret, "Error getting thread id list. (PT_GETLWPLIST returned error)", 1);
 
 
 
-    
+
+    errno = 0;
     for(int i = 0; i < thread_count; i++)
     {
         ret = ptrace(PT_RESUME, threads[i], 0, 0);
-        if (ret || errno)
-        {
-            perror("PT_RESUME: ");
-            echo("Error resuming thread #%d out of %d", i, thread_count);
-            break;
-        }
+        __rerr(ret, strbuild("Error resuming thread #%d out of %d", i, thread_count), 1);
     }
 
 
     return ret != 0;
 }
+
 
 
 
@@ -297,16 +301,8 @@ static int proc_suspend_threads(ndgame_t * ndgame)
 
     // Get number of threads
     thread_count = ptrace(PT_GETNUMLWPS, pid, 0, 0);
-    if (errno != 0)
-    {
-        perror("PT_GETNUMLWPS: ");
-        return 1;
-    }
-    if (!thread_count)
-    {
-        echo("ERROR: Process has no threads. (Quoi?)");
-    }
-
+    __rerr(thread_count < 0, "Error getting thread id list. PT_GETNUMLWPS returned a negative value.", 1);
+    __rerr(thread_count == 0, "Error getting thread id list. Process contains no threads??", 1);
 
 
     // Allocate space for the thread ids
@@ -319,17 +315,8 @@ static int proc_suspend_threads(ndgame_t * ndgame)
 
     // Get threads themselves
     ret = ptrace(PT_GETLWPLIST, pid, (caddr_t) threads, thread_count);
-    if (errno != 0)
-    {
-        perror("PT_GETLWPLIST: ");
-        echo("Error getting thread id list. Read %d out of %d threads.", ret, thread_count);
-        return 1;
-    }
-    else if (ret != thread_count)
-    {
-        echo("Error getting thread id list. Only read %d out of %d threads.", ret, thread_count);
-        return 1;
-    }
+    __rerr(ret != thread_count, strbuild("Error getting thread id list. Only read %d out of %d threads.", ret, thread_count), 1);
+    __rerr(!ret, "Error getting thread id list. (PT_GETLWPLIST returned error)", 1);
 
 
     
@@ -363,63 +350,37 @@ static int proc_suspend_threads(ndgame_t * ndgame)
 
 
 
-static int _proc_continue(ndgame_t * ndgame, void * resume, int signal)
+int proc_continue(ndgame_t * ndgame)
 {
-    pid_t pid;
-    pid = ndgame->pid;
-    if (!resume)
-    {
-        resume = (void *) 1; // (continue where it left off)
-    }
-    else if (resume != (void *) 1)
-    {
-        echo("Resuming process %d from 0x%llX", pid, resume);
-    }
-    
+    echo("Continuing %d", ndgame->pid);
     
     int ret;
-    if ((ret = ptrace(PT_CONTINUE, pid, resume, signal)) != 0)
+    ret = ptrace(PT_CONTINUE, ndgame->pid, (caddr_t) 1, SIGCONT);
+    if (ret)
     {
         echo("ERROR:\n# PT_CONTINUE failed with code %d (%s)", ret, strerror(ret));
+        __err(1, nullptr);
     }
 
+    // ret = proc_resume_threads(ndgame->pid);
+    // __err(ret != 0, strbuild("proc_resume_threads failed", ndgame->pid));
     return ret != 0;
 }
 
-int proc_continue(ndgame_t * ndgame)
-{
-    pid_t pid;
-    pid = ndgame->pid;
 
-    echo("Continuing %d", pid);
-    // int ret;
-    // if ((ret = kill(pid, SIGCONT)))
-    // {
-    //     echo("SIGCONT Error!!!");
-    //     return 1;
-    // }
 
-    _proc_continue(ndgame, 0, SIGCONT);
-
-    return 0;
-}
 
 int proc_stop(ndgame_t * ndgame)
 {
-    pid_t pid;
-    pid = ndgame->pid;
-
-    echo("Stopping %d", pid);
+    echo("Stopping %d", ndgame->pid);
 
     int ret;
-    if ((ret = kill(pid, SIGSTOP)))
-    {
-        echo("SIGSTOP Error!!!");
-        return 1;
-    }
+    ret = kill(ndgame->pid, SIGSTOP);
+    __err(ret != 0, strbuild("kill(%d, SIGSTOP) failed", ndgame->pid));
 
-    // proc_suspend_threads(pid);
-    return 0;
+    // ret = proc_suspend_threads(ndgame->pid);
+    // __err(ret != 0, strbuild("proc_suspend_threads failed", ndgame->pid));
+    return ret != 0;
 }
 
 
@@ -723,7 +684,7 @@ int set_args(ndgame_t * ndgame, struct reg * regs, uintptr_t rdi, uintptr_t rsi,
 
 
 
-unsigned char read_byte(int pid, void * address);
+byte read_byte(int pid, byte * address);
 unsigned long read_ulong(int pid, unsigned long * address);
 int write_ulong(int pid, unsigned long * address, unsigned long value);
 // Setup a function call at the specified function_address in the tracee.
@@ -734,38 +695,36 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
         echo("ERROR: Null address provided for function.");
         return 1;
     }
+    
+    // Construct reused error message
+    char errmsg[0x200];
+    strncpy(errmsg, (const char *) strbuild("Unable to complete function call to 0x%llX", function_address), sizeof(errmsg));
+
+    // Check for a null or invalid ndgame_t pointer
     if (!ndgame)
     {
-        echo("ERROR: Null ndgame ptr provided");
-        return 1;
+        echo("ERROR: %s->Null ndgame ptr provided", __FUNCTION__);
+        __rerr(1, errmsg, 1);
     }
-    
-    pid_t pid;
-    pid = ndgame->pid;
-    
 
+    
+    
     //! I guess we can't actually read from that address? I assume we can only read after the header?
     // int ret;
-    // if ((ret = read_byte(pid, (void *) 0x400000)) != 0xCC)
-    // {
-    //     echo("ERROR: Unexpected value read from expected image base. Expected to find INT3 (0xCC) breakpoint instruction, read %lX instead. Aborting function call.", ret);
-    //     return 1;
-    // }
+    // ret = read_byte(ndgame->pid, (void *) 0x400000);
+    // __rerr(ret != 0xCC || errno, errmsg, 1);
     
-    
+
     
     // Back the regisers up
+    int ret;
     struct reg og_registers;
-    unsigned long error_source;
-    if (proc_get_regs(ndgame, &og_registers))
-    {
-        error_source = __LINE__ - 2;
-        goto _err;
-    }
+    ret = proc_get_regs(ndgame, &og_registers);
+    __rerr(ret, errmsg, 1);
 
     
     
-    
+    // Default to current register values
     if (!arg_regs)
     {
         echo("No args provided, using og_registers");
@@ -776,39 +735,37 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
     
 
     // Set return address
-    write_ulong(pid, (void *) (arg_regs->r_rsp -= 8), (unsigned long) 0x400000);
+    write_ulong(ndgame->pid, (void *) (arg_regs->r_rsp -= 8), (unsigned long) 0x400000);
     
     // Set next instruction address
     arg_regs->r_rip = (critical_t) function_address;
     
-    if (proc_set_regs(ndgame, arg_regs))
-    {
-        error_source = __LINE__ - 2;
-        goto _err;
-    }
+    ret = proc_set_regs(ndgame, arg_regs);
+    __rerr(ret, errmsg, 1);
 
     
     
     
     // Resume execution until the function returns and hits the breakpoint
-    proc_continue(ndgame);
-    proc_wait(ndgame, true);
+    ret = proc_continue(ndgame);
+    __rerr(ret, errmsg, 1);
+
+    ret = proc_wait(ndgame, true);
+    __rerr(!ret, errmsg, 1);
 
 
 
 
-    // Read return value
-    int ret;
-    struct reg return_regs;
-    ret = proc_get_regs(ndgame, &return_regs);
-    if (ret)
-    {
-        echo("Unable to get registers after function call, cannot get return value");
-    }
 
     if (return_val_ptr > 0)
     {
+        // Read return value
+        struct reg return_regs;
+        ret = proc_get_regs(ndgame, &return_regs);
+        __rerr(ret, errmsg, 1);
+
         *((long long *) return_val_ptr) = return_regs.r_rax;
+
         echo("Function at 0x%llX returned: 0x%llX", function_address, *return_val_ptr);
     }
     else {
@@ -819,17 +776,10 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
 
 
     // Restore the initial register values
-    if (proc_set_regs(ndgame, &og_registers))
-    {
-        error_source = __LINE__ - 2;
-        goto _err;
-    }
+    ret = proc_set_regs(ndgame, &og_registers);
+    __rerr(ret, errmsg, 1);
     
     return 0;
-
-_err:
-    echo("Unable to complete function call to 0x%llX (failed at line %d)", function_address, error_source);
-    return 1;
 }
 
 
@@ -841,33 +791,17 @@ _err:
 
 void * proc_malloc(ndgame_t * ndgame, size_t amount)
 {
-    int ret;
     struct reg regs;
-    ret = proc_get_regs(ndgame, &regs);
-    if (ret)
-    {
-        echo("ERROR %s @ Line: %d", __FUNCTION__, __LINE__ - 3);
-        return nullptr;
-    }
-
+    __rerr(proc_get_regs(ndgame, &regs), nullptr, nullptr);
 
 
     // set malloc arguments
-    ret = set_args(ndgame, &regs, amount, 0, 0, 0, 0, 0, 0);
-    if (ret)
-    {
-        echo("ERROR %s @ Line: %d", __FUNCTION__, __LINE__ - 3);
-        return nullptr;
-    }
+    __rerr(set_args(ndgame, &regs, amount, 0, 0, 0, 0, 0, 0), null, nullptr);
+
 
     // call malloc
     void * mem;
-    ret = proc_call(ndgame, ndgame->func_malloc, (unsigned long *) &mem, &regs);
-    if (ret)
-    {
-        echo("ERROR %s @ Line: %d", __FUNCTION__, __LINE__ - 3);
-        return nullptr;
-    }
+    __rerr(proc_call(ndgame, ndgame->func_malloc, (unsigned long *) &mem, &regs), null, (void *) nullptr);
 
     return mem;
 }
@@ -875,20 +809,65 @@ void * proc_malloc(ndgame_t * ndgame, size_t amount)
 
 int proc_free(ndgame_t * ndgame, void * allocated_mem)
 {
-    int ret;
     struct reg regs;
 
     regs.r_rdi = (long long) allocated_mem;
 
-    if ((ret = proc_get_regs(ndgame, &regs)))
+    __rerr(proc_get_regs(ndgame, &regs), "ERROR: free proc_get_regs call failed!", 1);
+    __rerr(proc_call(ndgame, (void *) ndgame->func_free, NULL, &regs), "ERROR: Call to tracee's \"free\" failed", 1);
+    
+    return 0;
+}
+
+
+
+
+
+
+
+int patch_process(ndgame_t * ndgame, size_t patch_count, byte * patch_addresses[], const byte * patch_data[], size_t patch_sizes[])
+{
+    __rerr(1, "Unimplimented function called prematurely.", 1);
+    exit(1);
+        
+
+    __rerr(!ndgame, "Invalid ndgame pointer provided.", 1);
+    __rerr(!patch_count, "WARNING: Patch count was zero.", 0);
+    __rerr(!(byte *) patch_data, "Invalid patch data array pointer provided.", 1);
+
+    proc_wait(ndgame, false);
+
+    int ret;
+    echo("Writing %d patches to process %d...", patch_count, ndgame->pid);
+    for (int i = 0, j = 0; i < patch_count; i++, j = 0)
     {
-        echo("ERROR: free proc_get_regs call failed!");
-    }
-    else if ((ret = proc_call(ndgame, (void *) ndgame->func_free, NULL, &regs)))
-    {
-        echo("ERROR: free call failed!");
+        while (j < patch_sizes[i])
+        {
+            ret = write_byte(ndgame->pid, patch_addresses[i] + j, *(patch_data[i] + j));
+            __rerr(ret, strbuild("Error writing byte @0x%X to 0x%llX", *(patch_data[i] + j), patch_addresses[i] + j), 1);
+
+            ++j;
+        }
     }
 
-    return ret;
+
+    byte chk;
+    echo("Verifying patches were written to %d...", ndgame->pid);
+    for (int i = 0, j = 0; i < patch_count; i++, j = 0)
+    {
+        while (j < patch_sizes[i])
+        {
+            chk = read_byte(ndgame->pid, patch_addresses[i] + j);
+            __rerr(errno, strbuild("Error reading expected byte @0x%X from 0x%llX", *(patch_data[i] + j), patch_addresses[i] + j), 1);
+
+            if (chk != *(patch_data[i] + j))
+            {
+                echo("Patch %d was not applied correctly (fail address: 0x%llX, expected value: 0x%X, read value: 0x%X)", patch_addresses[i] + j, *(patch_data[i] + j), chk);
+            }
+
+
+            ++j;
+        }
+    }
 }
 

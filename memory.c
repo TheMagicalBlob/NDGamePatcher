@@ -286,7 +286,6 @@ int read_string(int pid, const char * address, char * buffer)
     if (read_byte(pid, (void *) address) <= 0) 
     {
         echo("Empty string at address 0x%llX.", (unsigned long long) address);
-        // strncpy("(empty)", buffer, 8);
         return 0;
     }
     
@@ -341,6 +340,11 @@ int write_string(int pid, void * address, const char * str)
 
     return written;
 }
+
+
+
+
+
 
 
 

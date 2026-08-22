@@ -605,14 +605,15 @@ void dump_menu_entries(ndgame_t * ndgame, dmenu_menu_base_t * parent_base)
 
 int AppendItemToParent(ndgame_t * ndgame, dmenu_menu_t * parent_menu, dmenu_item_t * item)
 {
-    dmenu_item_t **next_item_p;
-    dmenu_item_t *current_item;
-    
-    current_item = nullptr;
-    next_item_p = &parent_menu->first_item;
-    
-    dmenu_item_t *prev_item;
-    // get the last item in the menu
+    dmenu_item_t
+        **next_item_p = &parent_menu->first_item,
+        *current_item = NULL,
+        *prev_item
+    ;
+
+
+
+    // get the last item in the menu, if it has any contents
     do {
         prev_item = current_item;
         current_item = (dmenu_item_t *) read_ulong(ndgame->pid, (unsigned long *) next_item_p);
@@ -620,13 +621,16 @@ int AppendItemToParent(ndgame_t * ndgame, dmenu_menu_t * parent_menu, dmenu_item
         
     } while (current_item != NULL);
     
-    if (prev_item)
+    if (prev_item == NULL)
     {
-        next_item_p = &prev_item->next_item;
-    }
-    else{
+        // Default to the menu's first item if it has no entries
         next_item_p = &parent_menu->first_item;
     }
+    else{
+        next_item_p = &prev_item->next_item;
+    }
+
+
     
     int ret;
     ret = write_ulong(ndgame->pid, (unsigned long *) next_item_p, (unsigned long) item);
@@ -636,24 +640,18 @@ int AppendItemToParent(ndgame_t * ndgame, dmenu_menu_t * parent_menu, dmenu_item
         return 1;
     }
 
-    echo("next_item: 0x%x", __offsetof(dmenu_menu_t, next_item));
     write_ulong(ndgame->pid, (unsigned long *) &item->next_item, 0);
 
-    echo("parent_menu: 0x%x", __offsetof(dmenu_menu_t, parent_menu));
     write_ulong(ndgame->pid, (unsigned long *) &item->parent_menu, (u_long) parent_menu);
     
-    echo("item_count: 0x%x", __offsetof(dmenu_menu_t, item_count));
     write_uint(ndgame->pid, (unsigned int *) &parent_menu->item_count, read_uint(ndgame->pid, &parent_menu->item_count) + 1);
     
-    echo("unknown_bool: 0x%x", __offsetof(dmenu_menu_t, unknown_bool));
     write_uint(ndgame->pid, (unsigned int *) &parent_menu->unknown_bool, 1);
     
-    echo("menu_is_open: 0x%x", __offsetof(dmenu_menu_t, menu_is_open));
     char _menu_is_open;
     _menu_is_open = read_byte(ndgame->pid, (byte *) &parent_menu->menu_is_open);
 
-
-    if (!errno && _menu_is_open)
+    if (_menu_is_open)
     {
         echo("menu is open");
         void * update_menu;
@@ -665,8 +663,6 @@ int AppendItemToParent(ndgame_t * ndgame, dmenu_menu_t * parent_menu, dmenu_item
         
         
         struct reg args;
-        ret = proc_get_regs(ndgame, &args);
-
 
         ret = set_args(ndgame, &args, (uintptr_t) item, 0, 0, 0, 0, 0, 0);
         if (ret)
@@ -675,7 +671,6 @@ int AppendItemToParent(ndgame_t * ndgame, dmenu_menu_t * parent_menu, dmenu_item
             return 1;
         }
 
-        echo("proc call");
 
         ret = proc_call(ndgame, update_menu, nullptr, &args);
         if (ret)
@@ -710,18 +705,13 @@ int add_novis_option(ndgame_t * ndgame, dmenu_menu_index_t menu_base)
     if ((check = find_item(ndgame, "Disable All Visibility", menu_base)))
     {
         echo("Novis already added to specified menu base");
-        // return 0;
+        return 0;
     }
     echo("Adding new novis optiom");
 
     void * mem;    
     mem = proc_malloc(ndgame, align(sizeof(dmenu_item_t)));
-    if (!mem)
-    {
-        echo("Error allocating space for novis option");
-        return 1;
-    }
-
+    __rerr(!mem, "Error allocating space for novis option", 1);
     proc_wait(ndgame, false);
 
 
@@ -740,7 +730,7 @@ int add_novis_option(ndgame_t * ndgame, dmenu_menu_index_t menu_base)
 
     item.off_state_colour = 0xB0FFB0FF; // White
     item.on_state_colour = 0xEF00FFFF;  // Yellow
-    item.neutral_state_colour = 0xFF0000FF; // Red
+    item.neutral_state_colour = 0xB0FFB0FF; // Red
     item.selection_index = 1;
     item.item_count = 1;
 
@@ -755,12 +745,7 @@ int add_novis_option(ndgame_t * ndgame, dmenu_menu_index_t menu_base)
 
     int ret;
     ret = write_bytes(ndgame->pid, sizeof(dmenu_item_t), mem, &item);
-    if (ret)
-    {
-        echo("ERROR @ Line: %d", __LINE__ - 3);
-        return 1;
-    }
-
+    __rerr(ret, "Error writing new menu option to allocated memory, aborting novis option addition.", 1);
 
     return AppendItemToParent(ndgame, get_root_menu(ndgame, menu_base), mem);
 }
