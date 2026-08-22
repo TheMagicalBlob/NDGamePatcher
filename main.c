@@ -534,12 +534,18 @@ _start:
 
     struct reg _args;
     ret = clear_args(ndgame, &_args);
-    __err(ret, "Error clearing args");
+    __err(ret, "Error clearing args, aborting test call");
 
+    if (!ret)
+    {
+        void * addr;
+        unsigned long return_check;
 
-    unsigned long return_check;
-    ret = proc_call(ndgame, (void *) 0x16cc670, &return_check, &_args);
-    __err(ret, strbuild("Error calling test function 0x%llX", (void *) 0x16cc670));
+        addr = 0x16cc670;
+        ret = proc_call(ndgame, addr, &return_check, &_args);
+
+        __err(ret, strbuild("Error calling test function 0x%llX", addr));
+    }
 
 
 

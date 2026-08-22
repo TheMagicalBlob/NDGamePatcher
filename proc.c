@@ -829,7 +829,7 @@ int patch_process(ndgame_t * ndgame, size_t patch_count, byte * patch_addresses[
 {
     __rerr(1, "Unimplimented function called prematurely.", 1);
     exit(1);
-        
+
 
     __rerr(!ndgame, "Invalid ndgame pointer provided.", 1);
     __rerr(!patch_count, "WARNING: Patch count was zero.", 0);
@@ -863,6 +863,7 @@ int patch_process(ndgame_t * ndgame, size_t patch_count, byte * patch_addresses[
             if (chk != *(patch_data[i] + j))
             {
                 echo("Patch %d was not applied correctly (fail address: 0x%llX, expected value: 0x%X, read value: 0x%X)", patch_addresses[i] + j, *(patch_data[i] + j), chk);
+                break;
             }
 
 
