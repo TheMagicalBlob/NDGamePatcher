@@ -5,7 +5,6 @@
 //## Memory I/O functionality
 //#
 
-
 int read_bytes(pid_t pid, size_t len, void * source, void * destination);
 int write_bytes(pid_t pid, size_t len, void * destination, void * value);
 
@@ -28,4 +27,8 @@ int read_string(int pid, const char * address, char * buffer);
 int write_string(int pid, void * address, const char * str);
 
 unsigned long align(unsigned long value);
+
+unsigned long reverse64(unsigned int little);
+unsigned reverse32(unsigned little);
+unsigned short reverse16(unsigned int little);
 

@@ -18,55 +18,29 @@ along with this program; see the file COPYING. If not, see
 #include "inc/memory.h"
 #include "inc/dmenu.h"
 
-#define PAYLOAD_NAME "dmenu_payload.bin"
-#define printf(s, ...) klog_printf(s, __VA_ARGS__)
-// #define NOTIFY
-#define LOGOUTPUT
 
 
-
-typedef struct notify_request
-{
-    char unused[45];
-    char message[3075];
-
-} notify_request_t;
-
-
-typedef struct app_info
-{
-    uint32_t app_id;
-    uint64_t unknown1;
-    char     title_id[14];
-    char     unknown2[0x3c];
-
-} app_info_t;
-
-
-
-typedef enum wp_type
-{
-    WP_CODE, // Break on instruction execution only.
-    WP_DATARW, // Break on data writes only.
-    WP_IOWR, // Break on I/O reads or writes.
-    WP_DATARW_NI  // Break on data reads or writes but not instruction fetches.
-
-} wp_type_t;
-
-
-
-
+//# external functions to link
 extern int sceKernelSendNotificationRequest(int, notify_request_t *, size_t, int);
 extern int sceKernelGetAppInfo(pid_t pid, app_info_t *info);
 // extern int sceKernelLoadStartModule(const char *name, uint64_t argc, const void *argv, uint32_t flags, void *, int *result);
 // extern uint sceShellCoreUtilGetAppLaunchedParamString(int appid, const char * name, char * dst , size_t max);
 
 
+
+
+
+
+
+//#
+//## Variable Declarations
+//#
+
 // File handle for open logfile being saved in console's /data folder
 static int logfile;
+static database_t * db;
 
-
-static const ndgame_t * nd_game_ptr;
+static ndgame_t * nd_game_ptr;
 
 static int watchpoint_count;
 
@@ -82,14 +56,22 @@ static int watchpoint_count;
 
 
 
-int echo(const char * str, ...)
+
+
+//#
+//## Common Function Declarations
+//#
+
+// Print (and optionally format) the specified string to kernel output, as well as to the log file if one is active
+int echo(const char * string, ...)
 {
+#ifdef DEBUG
     int len;
     va_list list;
-    va_start(list, str);
+    va_start(list, string);
     
     char msg[4000];
-    len = vsnprintf(msg, sizeof(msg) - 2, str, list);
+    len = vsnprintf(msg, sizeof(msg) - 2, string, list);
     
     if (nd_game_ptr)
     {
@@ -101,9 +83,10 @@ int echo(const char * str, ...)
 
     log_message("%s\n", msg);
     va_end(list);
-    
-    
     return len;
+#else
+    return 0;
+#endif
 }
 
 
@@ -113,6 +96,7 @@ int echo(const char * str, ...)
 
 
 
+// Send a notification request to the ps4 with the provided (optionally formatted) message
 void notify(const char * message, ...)
 {
     va_list list;
@@ -126,7 +110,9 @@ void notify(const char * message, ...)
 #ifdef NOTIFY
     sceKernelSendNotificationRequest(0, &request, sizeof(request), 0); // Not sure what the first and last arg are for. One may be notification type though
 #endif
+#ifdef DEBUG
     printf("[Notification]: %s\n", request.message);
+#endif
 }
 
 
@@ -136,9 +122,11 @@ void notify(const char * message, ...)
 
 
 
+// Log (and optionally format) a message to an active log file on the ps5 at /data/bLog.txt
 void log_message(const char * base_string, ...)
 {
 #ifdef LOGOUTPUT
+#ifdef DEBUG
     errno = 0;
     va_list args;
     char message[4000];
@@ -166,6 +154,7 @@ void log_message(const char * base_string, ...)
         write(logfile, message, strlen(message));
     }
 #endif
+#endif
 }
 
 
@@ -176,7 +165,7 @@ void log_message(const char * base_string, ...)
 
 
 // Construct one string in memory to be returned C#-style. Uses one static buffer, only use for certain prints (like the assertion macro)
-char * strbuild(char * format, ...)
+char * strbufbuild(char * format, ...)
 {
     va_list list;
     static char message[2000];
@@ -197,7 +186,56 @@ char * strbuild(char * format, ...)
 
 
 
-const ndgame_t * get_nd_game()
+// Get the length of the longest line in a string with line breaks/newlines
+// Returns the length on success, or -1 if the pointer is null
+int get_longest_line_length(const char * str, size_t str_maxlen)
+{
+    int biggest = 0,
+        current = 0;
+
+
+    
+    if (str != null && str_maxlen > 0)
+    {
+        for(int i = 0; i < str_maxlen; i++)
+        {
+            if (*(str + i) == '\n')
+            {
+                if (current > biggest)
+                {
+                    biggest = current;
+                }
+                current = 0;
+                continue;
+            }
+            if (*(str + i) == 0)
+            {
+                goto _ret;
+            }
+
+            ++current;
+        }
+
+        echo("WARNING: %s: string max length reached before null terminator hit, take longest line result with a grain of salt.", __FUNCTION__);
+    }
+
+
+_ret:
+    if (current > biggest)
+    {
+        biggest = current;
+    }
+    return biggest;
+}
+
+
+
+
+
+
+
+
+ndgame_t * get_nd_game()
 {
     return nd_game_ptr;
 }
@@ -267,13 +305,9 @@ pid_t find_pid(const char *name)
 
 
 
-
-
-
-
-
-
-
+//#
+//## Common Function Declarations
+//#
 
 // Wait for an eboot.bin process to be found, then connect and attach to it if it's title id matches one of the known ones
 // Saves the pid, app id, and title id of the attached process to the provided nd_game struct
@@ -379,6 +413,8 @@ _retry:
 
 
 
+
+
 static int find_and_trace_game(ndgame_t * ndgame)
 {
     // Reset the current game instance
@@ -456,6 +492,7 @@ void print_exit_message()
 
 
 
+
 void cleanup(int exit_code)
 {
     echo("\n==================================\n| DMenu Payload Exiting... (%d) |\n==================================", getpid());
@@ -478,15 +515,20 @@ void cleanup(int exit_code)
         detach((ndgame_t *) nd_game_ptr, __FUNCTION__);
     }
 
-    if (logfile)
-    {
+
+    if (logfile) {
         echo("Closing logfile handle");
         close(logfile);
+    }
+    if (db) {
+        echo("Freeing database file pointer (0x%llX)", db);
+        free(db);
     }
 
     echo("Exiting");
     exit(exit_code);
 }
+
 
 
 
@@ -521,32 +563,9 @@ static int start(ndgame_t * ndgame, int module_pid)
 {
     int ret;
 
-_start:
+    // Find game process to trace
     ret = find_and_trace_game(ndgame);
-    if (ret)
-    {
-        echo("ERROR: Unable to load game");
-        return 1;
-
-        sleep(5);
-        goto _start;
-    }
-
-    struct reg _args;
-    ret = clear_args(ndgame, &_args);
-    __err(ret, "Error clearing args, aborting test call");
-
-    if (!ret)
-    {
-        void * addr;
-        unsigned long return_check;
-
-        addr = 0x16cc670;
-        ret = proc_call(ndgame, addr, &return_check, &_args);
-
-        __err(ret, strbuild("Error calling test function 0x%llX", addr));
-    }
-
+    __rerr(ret, "Unhandled error finding game process, payload aborting.", 1);
 
 
 
@@ -560,8 +579,6 @@ _start:
 
     return ret != 0;
 }
-
-
 
 
 
@@ -602,6 +619,7 @@ int main()
                 return -1;
             }
 
+
             notify("Sent termination signal to previous %s instance %d", PAYLOAD_NAME, pid);
             sleep(2);
         }
@@ -623,26 +641,196 @@ int main()
 
 
 
-
-
-
-    //#
-    //## Payload start
-    //#
-
-    // Assign values to global variables
-    pid_t this;
-    this = getpid();
-    echo("Proceeding with new %s instance (%d)", PAYLOAD_NAME, this);
-
-    static ndgame_t ndgame;
-    nd_game_ptr = (const ndgame_t *) &ndgame;
-
-    watchpoint_count = 0;
     
 
-    // Paylod start
+
+
+
+    
+    //#
+    //## Global/local variable assignments/declarations
+    //#
+
+
     int ret;
+    errno = 0;
+    pid_t this;
+    watchpoint_count = 0;
+    static ndgame_t ndgame;
+    nd_game_ptr = (ndgame_t *) &ndgame;
+
+    this = getpid();
+    __rerr(!this || errno, "ERROR: getpid returned error?? What on earth have you done?! (or something else set errno)", 1);
+    echo("Proceeding with new %s instance (%d)", PAYLOAD_NAME, this);
+    
+    
+
+
+
+
+
+    
+    //#
+    //## Testing shit START
+    //#
+    #ifdef DEBUG
+    {
+        goto _func_issues_testing;
+
+        //#
+        //## app.db loading tests
+        //#
+        struct stat s;
+
+        const char * db_path;
+        db_path = "/system_data/priv/mms/app.db";
+
+
+        ret = stat(db_path, &s);
+        __err(ret != 0, "ERROR: Failed to stat app.db, unable to get app title and version");
+
+        if (ret == 0)
+        {
+            errno = 0;
+            echo("app.db size: 0x%llX", s.st_size);
+
+            __rerr(db != 0, "ERROR: database file pointer was somehow non-null already. check shit.", 1);
+
+            size_t size;
+            size = align(s.st_size);
+            echo("Allocating %llX bytes", size);
+            db = malloc(size);
+            __rerr(!db, "ERROR: Unable to allocate the %d bytes requested for loading the database file in to memory", 1);
+
+            int handle;
+            handle = open(db_path, O_RDONLY);
+            __rerr(!handle, "ERROR: Unable to open the database file for reading.", 1);
+            
+            ret = read(handle, db, s.st_size);
+            __rerr(!ret || ret != s.st_size, "ERROR: Unable to read database file in to memory.", 1);
+            
+            close(handle);
+
+
+
+
+
+            if (strncmp("SQLite format 3", (const char *) db, 0x10))
+            {
+                echo("ERROR: Invalid magic read from file at %s. %s != SQLite format 3", db_path, (char *) db);
+            }
+            
+            __rerr(sizeof(database_t) != 0x64, strbufbuild("ERROR: database struct length was not equal to the expected 100 bytes (100!=%d)", sizeof(database_t)), 1);
+            echo("Magic: %s", (char *) db->magic);
+
+            unsigned short page_len;
+            page_len = reverse16(db->block_size);
+            
+            unsigned int fl_pagecount;
+            fl_pagecount = reverse32(db->freelist_page_count);
+            
+            unsigned int db_size;
+            db_size = reverse32(db->database_size);
+
+            echo("Block size: (%x) %d", page_len, page_len);
+            echo("Change Count: 0x%lld", reverse32(db->file_change_count));
+            echo("Freelist page count: 0x%lld", fl_pagecount);
+            if (fl_pagecount)
+            {
+                echo("First freelist page: 0x%lld", reverse32(db->first_freelist_trunk_page_number));
+            }
+
+
+
+            echo("First page type: %d", *(((char *) db) + 0x64));
+
+            echo("Database size: 0x%llX (%ld bytes)", db_size, db_size * page_len);
+            for (int i = 1, o = page_len; i < db_size; i++, o += page_len)
+            {
+                echo("Page #%d offset: 0x%llX - 0x%llX / Type: %d", i, o, o + page_len - 1, *((char *) db + o));
+
+
+            }
+
+
+
+
+            //! TODO: These won't be called if an unhandled error occurs. Add them to cleanup
+            if (db)
+            {
+                free(db);
+                db = 0;
+            }
+
+            cleanup(0);
+
+
+
+
+
+
+
+
+
+
+            //#
+            //## Function Call issues
+            //#
+        _func_issues_testing:{}
+            void * addr;
+            struct reg _args;
+            unsigned long return_check;
+
+            
+            // Find game process to trace
+            ret = find_and_trace_game(&ndgame);
+            __rerr(ret, "Unhandled error finding game process, payload aborting.", 1);
+
+            
+
+            ret = proc_clear_args(&ndgame, &_args);
+            __rerr(ret, "Error clearing args, aborting test call", 1);
+
+            echo("call 1 pre");
+            addr = (void *) 0x16cc670; // Toggle menu's open state
+
+            ret = proc_call(&ndgame, addr, &return_check, &_args);
+            __rerr(ret, strbufbuild("Error calling test function 0x%llX", addr), 1);
+            echo("call 1 post");
+
+
+            
+            // Detonate all enemies
+            ret = proc_clear_args(&ndgame, &_args);
+            __rerr(ret, "Error clearing args, aborting test call", 1);
+
+            echo("call 2 pre");
+            addr = (void *) 0x16cc530;
+
+            ret = proc_call(&ndgame, addr, &return_check, &_args);
+            __rerr(ret, strbufbuild("Error calling test function 0x%llX", addr), 1);
+            echo("call 2 post");
+
+            return ret != 0;
+
+        }
+
+
+
+        return 0;
+    }
+    #endif
+
+
+
+    
+
+
+
+
+    //#
+    //## Payload START
+    //#
     ret = start(&ndgame, this);
     __err(ret, "Payload start exited with error");
 

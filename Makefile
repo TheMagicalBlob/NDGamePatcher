@@ -22,10 +22,18 @@ endif
 
 ELF := dmenu_payload.bin
 
+SENDER := ./ps.exe
+
 CFLAGS := -Wall -g
 
 all: $(ELF)
 
+tst: $(ELF)
+	$(info Sending newly-built payload)
+	$(SENDER) $(ELF)
+
+
 $(ELF): main.c memory.c dmenu.c proc.c
+	$(info Removing and rebuilding payload)
 	rm -f $(ELF)
 	$(CC) $(CFLAGS) -o $@ $^

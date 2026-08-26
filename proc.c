@@ -2,7 +2,6 @@
 #include "inc/dmenu.h"
 #include "inc/memory.h"
 
-#define _SHELLCORE_AUTHID 0x4800000000010003L
 
 
 
@@ -266,7 +265,7 @@ static int proc_resume_threads(ndgame_t * ndgame)
     // Get threads themselves
     errno = 0;
     ret = ptrace(PT_GETLWPLIST, pid, (caddr_t) threads, thread_count);
-    __rerr(ret != thread_count, strbuild("Error getting thread id list. Only read %d out of %d threads.", ret, thread_count), 1);
+    __rerr(ret != thread_count, strbufbuild("Error getting thread id list. Only read %d out of %d threads.", ret, thread_count), 1);
     __rerr(!ret, "Error getting thread id list. (PT_GETLWPLIST returned error)", 1);
 
 
@@ -276,7 +275,7 @@ static int proc_resume_threads(ndgame_t * ndgame)
     for(int i = 0; i < thread_count; i++)
     {
         ret = ptrace(PT_RESUME, threads[i], 0, 0);
-        __rerr(ret, strbuild("Error resuming thread #%d out of %d", i, thread_count), 1);
+        __rerr(ret, strbufbuild("Error resuming thread #%d out of %d", i, thread_count), 1);
     }
 
 
@@ -315,7 +314,7 @@ static int proc_suspend_threads(ndgame_t * ndgame)
 
     // Get threads themselves
     ret = ptrace(PT_GETLWPLIST, pid, (caddr_t) threads, thread_count);
-    __rerr(ret != thread_count, strbuild("Error getting thread id list. Only read %d out of %d threads.", ret, thread_count), 1);
+    __rerr(ret != thread_count, strbufbuild("Error getting thread id list. Only read %d out of %d threads.", ret, thread_count), 1);
     __rerr(!ret, "Error getting thread id list. (PT_GETLWPLIST returned error)", 1);
 
 
@@ -359,11 +358,11 @@ int proc_continue(ndgame_t * ndgame)
     if (ret)
     {
         echo("ERROR:\n# PT_CONTINUE failed with code %d (%s)", ret, strerror(ret));
-        __err(1, nullptr);
+        __err(1, (char *) nullptr);
     }
 
     // ret = proc_resume_threads(ndgame->pid);
-    // __err(ret != 0, strbuild("proc_resume_threads failed", ndgame->pid));
+    // __err(ret != 0, strbufbuild("proc_resume_threads failed", ndgame->pid));
     return ret != 0;
 }
 
@@ -376,10 +375,10 @@ int proc_stop(ndgame_t * ndgame)
 
     int ret;
     ret = kill(ndgame->pid, SIGSTOP);
-    __err(ret != 0, strbuild("kill(%d, SIGSTOP) failed", ndgame->pid));
+    __err(ret != 0, strbufbuild("kill(%d, SIGSTOP) failed", ndgame->pid));
 
     // ret = proc_suspend_threads(ndgame->pid);
-    // __err(ret != 0, strbuild("proc_suspend_threads failed", ndgame->pid));
+    // __err(ret != 0, strbufbuild("proc_suspend_threads failed", ndgame->pid));
     return ret != 0;
 }
 
@@ -614,7 +613,11 @@ int clear_watchpoint(ndgame_t * ndgame, short index)
 
 
 
-int clear_args(ndgame_t * ndgame, struct reg * regs)
+
+
+
+
+int proc_clear_args(ndgame_t * ndgame, struct reg * regs)
 {
     if (!regs)
     {
@@ -647,7 +650,7 @@ int clear_args(ndgame_t * ndgame, struct reg * regs)
 
 
 
-int set_args(ndgame_t * ndgame, struct reg * regs, uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rcx, uintptr_t rbx, uintptr_t r8, uintptr_t r9)
+int proc_set_args(ndgame_t * ndgame, struct reg * regs, uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rcx, uintptr_t rbx, uintptr_t r8, uintptr_t r9)
 {
     if (!regs)
     {
@@ -684,9 +687,6 @@ int set_args(ndgame_t * ndgame, struct reg * regs, uintptr_t rdi, uintptr_t rsi,
 
 
 
-byte read_byte(int pid, byte * address);
-unsigned long read_ulong(int pid, unsigned long * address);
-int write_ulong(int pid, unsigned long * address, unsigned long value);
 // Setup a function call at the specified function_address in the tracee.
 int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return_val_ptr, struct reg * arg_regs)
 {
@@ -698,7 +698,7 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
     
     // Construct reused error message
     char errmsg[0x200];
-    strncpy(errmsg, (const char *) strbuild("Unable to complete function call to 0x%llX", function_address), sizeof(errmsg));
+    strncpy(errmsg, (const char *) strbufbuild("Unable to complete function call to 0x%llX", function_address), sizeof(errmsg));
 
     // Check for a null or invalid ndgame_t pointer
     if (!ndgame)
@@ -791,30 +791,38 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
 
 void * proc_malloc(ndgame_t * ndgame, size_t amount)
 {
-    struct reg regs;
-    __rerr(proc_get_regs(ndgame, &regs), nullptr, nullptr);
+    int ret;         // Return status for function calls
+    void * mem;      // Allocated memory pointer
+    struct reg regs; // Register struct for call args
 
 
     // set malloc arguments
-    __rerr(set_args(ndgame, &regs, amount, 0, 0, 0, 0, 0, 0), null, nullptr);
-
+    ret = proc_set_args(ndgame, &regs, amount, 0, 0, 0, 0, 0, 0);
+    __rerr(ret, nullstr, nullptr);
 
     // call malloc
-    void * mem;
-    __rerr(proc_call(ndgame, ndgame->func_malloc, (unsigned long *) &mem, &regs), null, (void *) nullptr);
+    ret = proc_call(ndgame, ndgame->func_malloc, (unsigned long *) &mem, &regs);
+    __rerr(ret, nullstr, nullptr);
 
     return mem;
 }
 
 
+
+
 int proc_free(ndgame_t * ndgame, void * allocated_mem)
 {
-    struct reg regs;
+    int ret;         // Return status for function calls
+    struct reg regs; // Register struct for call args
 
-    regs.r_rdi = (long long) allocated_mem;
 
-    __rerr(proc_get_regs(ndgame, &regs), "ERROR: free proc_get_regs call failed!", 1);
-    __rerr(proc_call(ndgame, (void *) ndgame->func_free, NULL, &regs), "ERROR: Call to tracee's \"free\" failed", 1);
+    // set free arguments
+    ret = proc_set_args(ndgame, &regs, (uintptr_t) allocated_mem, 0, 0, 0, 0, 0, 0);
+    __rerr(ret, "ERROR: free proc_set_args call failed!", 1);
+
+    // Call free
+    ret = proc_call(ndgame, (void *) ndgame->func_free, NULL, &regs);
+    __rerr(ret, "ERROR: Call to tracee's \"free\" failed", 1);
     
     return 0;
 }
@@ -827,7 +835,7 @@ int proc_free(ndgame_t * ndgame, void * allocated_mem)
 
 int patch_process(ndgame_t * ndgame, size_t patch_count, byte * patch_addresses[], const byte * patch_data[], size_t patch_sizes[])
 {
-    __rerr(1, "Unimplimented function called prematurely.", 1);
+    __rerr(1, "Unfinished function called prematurely.", 1);
     exit(1);
 
 
@@ -844,7 +852,7 @@ int patch_process(ndgame_t * ndgame, size_t patch_count, byte * patch_addresses[
         while (j < patch_sizes[i])
         {
             ret = write_byte(ndgame->pid, patch_addresses[i] + j, *(patch_data[i] + j));
-            __rerr(ret, strbuild("Error writing byte @0x%X to 0x%llX", *(patch_data[i] + j), patch_addresses[i] + j), 1);
+            __rerr(ret, strbufbuild("Error writing byte @0x%X to 0x%llX", *(patch_data[i] + j), patch_addresses[i] + j), 1);
 
             ++j;
         }
@@ -858,7 +866,7 @@ int patch_process(ndgame_t * ndgame, size_t patch_count, byte * patch_addresses[
         while (j < patch_sizes[i])
         {
             chk = read_byte(ndgame->pid, patch_addresses[i] + j);
-            __rerr(errno, strbuild("Error reading expected byte @0x%X from 0x%llX", *(patch_data[i] + j), patch_addresses[i] + j), 1);
+            __rerr(errno, strbufbuild("Error reading expected byte @0x%X from 0x%llX", *(patch_data[i] + j), patch_addresses[i] + j), 1);
 
             if (chk != *(patch_data[i] + j))
             {

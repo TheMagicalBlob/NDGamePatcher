@@ -1,33 +1,6 @@
 #include "inc/include.h"
 #include "inc/dmenu.h"
 
-#define printf(s, ...) klog_printf(s, __VA_ARGS__)
-
-#define _SHELLCORE_AUTHID 0x4800000000010003L
-
-
-
-typedef struct notify_request {
-    char unused[45];
-    char message[3075];
-} notify_request_t;
-
-
-typedef struct app_info
-{
-    uint32_t app_id;
-    uint64_t unknown1;
-    char     title_id[14];
-    char     unknown2[0x3c];
-
-} app_info_t;
-
-
-
-
-
-
-
 
 /*
 *	Operations in piod_op.
@@ -361,4 +334,51 @@ unsigned long align(unsigned long value)
     }
 
     return buf;
+}
+
+
+
+
+
+
+
+
+unsigned long reverse64(unsigned long little)
+{
+    __asm__(".intel_syntax noprefix\n"
+        "bswap rdi\n"
+        "mov rax, rdi\n"
+        "ret\n"
+    );
+
+    return 0xDEADA55;
+}
+
+
+
+
+unsigned reverse32(unsigned little)
+{
+    __asm__(".intel_syntax noprefix\n"
+        "bswap edi\n"
+        "mov eax, edi\n"
+        "ret\n"
+    );
+
+    return 0xDEADA55;
+}
+
+
+
+
+unsigned short reverse16(unsigned short little)
+{
+    __asm__(".intel_syntax noprefix\n"
+        "shl edi, 0x10\n"
+        "bswap edi\n"
+        "mov ax, di\n"
+        "ret\n"
+    );
+
+    return 0xDEAD;
 }

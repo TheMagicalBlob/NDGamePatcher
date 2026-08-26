@@ -26,8 +26,8 @@ int proc_set_dbregs(ndgame_t * ndgame, struct dbreg * dbregs);
 int set_watchpoint(ndgame_t * ndgame, short index, void * address, int wp_type, int wp_len);
 int clear_watchpoint(ndgame_t * ndgame, short index);
 
-int clear_args(ndgame_t * ndgame, struct reg * regs);
-int set_args(ndgame_t * ndgame, struct reg * regs, uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rcx, uintptr_t rbx, uintptr_t r8, uintptr_t r9);
+int proc_clear_args(ndgame_t * ndgame, struct reg * regs);
+int proc_set_args(ndgame_t * ndgame, struct reg * regs, uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rcx, uintptr_t rbx, uintptr_t r8, uintptr_t r9);
 
 int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return_val_ptr, struct reg * arg_regs);
 
