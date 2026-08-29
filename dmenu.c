@@ -405,9 +405,9 @@ static void * find_dmenu_component(ndgame_t * ndgame, const char * expected_entr
 // <=0 == Dev Menu
 // 1 == Quick Menu
 // >=2 == Favorites Menu
-dmenu_item_t * find_item(ndgame_t * nd_game, const char * item_name, dmenu_menu_index_t parent_index)
+dmenu_item_t * find_item(ndgame_t * ndgame, const char * item_name, dmenu_menu_index_t parent_index)
 {
-    return find_dmenu_component(nd_game, item_name, stype_item, parent_index);
+    return find_dmenu_component(ndgame, item_name, stype_item, parent_index);
 }
 
 
@@ -418,9 +418,9 @@ dmenu_item_t * find_item(ndgame_t * nd_game, const char * item_name, dmenu_menu_
 // <=0 == Dev Menu
 // 1 == Quick Menu
 // >=2 == Favorites Menu
-dmenu_menu_t * find_menu(ndgame_t * nd_game, const char * menu_name, dmenu_menu_index_t parent_index)
+dmenu_menu_t * find_menu(ndgame_t * ndgame, const char * menu_name, dmenu_menu_index_t parent_index)
 {
-    return find_dmenu_component(nd_game, menu_name, stype_menu, parent_index);
+    return find_dmenu_component(ndgame, menu_name, stype_menu, parent_index);
 }
 
 
@@ -431,9 +431,9 @@ dmenu_menu_t * find_menu(ndgame_t * nd_game, const char * menu_name, dmenu_menu_
 // <=0 == Dev Menu
 // 1 == Quick Menu
 // >=2 == Favorites Menu
-dmenu_item_t * find_submenu(ndgame_t * nd_game, const char * submenu_name, dmenu_menu_index_t parent_index)
+dmenu_item_t * find_submenu(ndgame_t * ndgame, const char * submenu_name, dmenu_menu_index_t parent_index)
 {
-    return find_dmenu_component(nd_game, submenu_name, stype_itemsubmenu, parent_index);
+    return find_dmenu_component(ndgame, submenu_name, stype_itemsubmenu, parent_index);
 }
 
 
@@ -640,6 +640,20 @@ void dump_menu_entries(ndgame_t * ndgame)
     do_dump_menu_entries(ndgame, &base);
     echo("Finished dumping Quick Menu entries\n\n");
 }
+
+
+
+
+
+
+
+dmenu_item_t * CreateBaseComponent(dmenu_component_t * component, const char * component_name)
+{
+    echo("ERROR: Call to unimplemented function %s", __FUNCTION__);
+    kill(getpid(), SIGSEGV); // Force a crash if I call it before finishing the damn thing
+    return nullptr;
+}
+
 
 
 

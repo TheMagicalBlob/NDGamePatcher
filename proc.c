@@ -756,22 +756,24 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
 
 
 
-
+    
+    
+    struct reg return_regs;
     if (return_val_ptr > 0)
     {
         // Read return value
-        struct reg return_regs;
         ret = proc_get_regs(ndgame, &return_regs);
         __rerr(ret, errmsg, 1);
 
-        *((long long *) return_val_ptr) = return_regs.r_rax;
-
+        *(long long *) return_val_ptr = return_regs.r_rax;
+        
         echo("Function at 0x%llX returned: 0x%llX", function_address, *return_val_ptr);
     }
     else {
         echo("Function at 0x%llX returned.", function_address);
     }
     
+    echo("RIP post-function-call: 0x%llX", return_regs.r_rip);
 
 
 

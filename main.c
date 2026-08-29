@@ -14,10 +14,19 @@ You should have received a copy of the GNU General Public License
 along with this program; see the file COPYING. If not, see
 <http://www.gnu.org/licenses/>.  */
 
+/*
+Credits so far:
+
+- John Tornblom (find_pid function)
+- Bestpid (kqueue/kevent stuff for monitoring game launch/exit was learned from backpork)
+- Illusiony (told about sceShellCoreUtilGetAppLaunchedParamString)
+- earthonion (told me how to link with other libraries)
+- AlAzif (can't think of anything at the moment, but very likely)
+*/
+
 #include "inc/proc.h"
 #include "inc/memory.h"
 #include "inc/dmenu.h"
-
 
 
 //# external functions to link
@@ -25,6 +34,8 @@ extern int sceKernelSendNotificationRequest(int, notify_request_t *, size_t, int
 extern int sceKernelGetAppInfo(pid_t pid, app_info_t *info);
 // extern int sceKernelLoadStartModule(const char *name, uint64_t argc, const void *argv, uint32_t flags, void *, int *result);
 // extern uint sceShellCoreUtilGetAppLaunchedParamString(int appid, const char * name, char * dst , size_t max);
+// extern int sceShellCoreUtilGetAppLaunchedParamInt(const uint32_t appid, const char* key, int* out);
+extern int sceShellCoreUtilGetAppLaunchedParamString(const uint32_t appid, const char* key, char* out, size_t out_sz);
 
 
 
@@ -38,9 +49,8 @@ extern int sceKernelGetAppInfo(pid_t pid, app_info_t *info);
 
 // File handle for open logfile being saved in console's /data folder
 static int logfile;
-static database_t * db;
 
-static ndgame_t * nd_game_ptr;
+static ndgame_t * ndgame_ptr;
 
 static int watchpoint_count;
 
@@ -73,9 +83,9 @@ int echo(const char * string, ...)
     char msg[4000];
     len = vsnprintf(msg, sizeof(msg) - 2, string, list);
     
-    if (nd_game_ptr)
+    if (ndgame_ptr)
     {
-        klog_printf("%d:%d: %s\n", getpid(), nd_game_ptr->pid, msg);
+        klog_printf("%d:%d: %s\n", getpid(), ndgame_ptr->pid, msg);
     }
     else{
         klog_printf("%d:%d: %s\n", getpid(), 0, msg);
@@ -235,9 +245,9 @@ _ret:
 
 
 
-ndgame_t * get_nd_game()
+ndgame_t * get_ndgame()
 {
-    return nd_game_ptr;
+    return ndgame_ptr;
 }
 
 
@@ -306,14 +316,14 @@ pid_t find_pid(const char *name)
 
 
 //#
-//## Common Function Declarations
+//## Main Function Declarations
 //#
 
 // Wait for an eboot.bin process to be found, then connect and attach to it if it's title id matches one of the known ones
-// Saves the pid, app id, and title id of the attached process to the provided nd_game struct
+// Saves the pid, app id, and title id of the attached process to the provided ndgame struct
 // 
 //! TODO: Add support for the other naughtydog executable names so the payload works regardless of which is running
-static int wait_for_game_launch(ndgame_t * nd_game)
+static int wait_for_game_launch(ndgame_t * ndgame)
 {
     pid_t pid, skipped_ids[0x10];
 
@@ -333,22 +343,20 @@ static int wait_for_game_launch(ndgame_t * nd_game)
     };
 
 
-    // Check for any running eboot.bin //! remember to check for the other possible T2R executable names
+    //! TODO: remember to check for the other possible NaughtyDog executable names
+    //! TODO: Replace with kernel event method. We've already added credits for it, understand and then use it already
+    // Check for any running eboot.bin
 _retry:
     pid = find_pid("eboot.bin");
-
-    if (pid <= 0)
+    while (!pid)
     {
         echo("Unable to find eboot, waiting a few seconds before retrying");
-        
-        do {
-            sleep(7);
-            pid = find_pid("eboot.bin");
-        }
-        while (pid <= 0);
+        sleep(7);
+        pid = find_pid("eboot.bin");
     }
 
-    // Skip any pid's that have already been checked and fell through
+
+    // Skip any pid's that have already had their title id's checked and were unrelated games
     if (attempts)
     {
         for (int i = 0; i < attempts; i++)
@@ -383,26 +391,44 @@ _retry:
         if (!strncmp(app_info.title_id, titleids[i], 0xA))
         {
             echo("Known title id found, saving app info");
-            nd_game->pid = pid;
-            nd_game->app_id = app_info.app_id;
-            strncpy(nd_game->title_id, app_info.title_id, 0xA);
+            ndgame->pid = pid;
+            ndgame->app_id = app_info.app_id;
+
+            sceShellCoreUtilGetAppLaunchedParamString(ndgame->app_id, "TITLE_ID", ndgame->title_id, sizeof(ndgame->title_id));
+            sceShellCoreUtilGetAppLaunchedParamString(ndgame->app_id, "TITLE", ndgame->title, sizeof(ndgame->title));
+            sceShellCoreUtilGetAppLaunchedParamString(ndgame->app_id, "CONTENT_VERSION", ndgame->app_ver, sizeof(ndgame->app_ver));
+            if (!*(char *) ndgame->app_ver)
+            {
+                sceShellCoreUtilGetAppLaunchedParamString(ndgame->app_id, "APP_VER", ndgame->app_ver, sizeof(ndgame->app_ver));
+            }
             
             int ret;
-            if ((ret = attach(nd_game)))
+            if ((ret = attach(ndgame)))
             {
                 return 1;
             }
 
 
-            notify("\nGame Info:\n  -> Title ID: %s\n  -> App ID: %lX\n  -> Process ID: %d\n", nd_game->title_id, nd_game->app_id, pid);
+            notify(
+                "Attached to game process. (pid %d)\n"
+                "Title ID: %s (app id: %d)\n"
+                "App Version: %s\n"
+                "Title: %s\n",
+                
+                pid,
+                ndgame->title_id,
+                ndgame->app_id,
+                ndgame->app_ver,
+                ndgame->title
+            );
             
-            proc_wait(nd_game, true);
+            proc_wait(ndgame, true);
             return 0;
         }
     }
 
 
-    echo("App's title id did not match any known, adding pid %d to list of ingored processes, and retrying in 5 seconds", pid);
+    echo("App's title id did not match any known, adding pid %d to list of ingored processes, and retrying when a different app launches", pid);
     skipped_ids[attempts++] = pid; // Only add the pid to skipped processes if we don't recognize the title id
     sleep(5);
     goto _retry;
@@ -498,31 +524,27 @@ void cleanup(int exit_code)
     echo("\n==================================\n| DMenu Payload Exiting... (%d) |\n==================================", getpid());
     
 
-    if (nd_game_ptr && nd_game_ptr->pid)
+    if (ndgame_ptr && ndgame_ptr->pid)
     {
-        if (proc_stop((ndgame_t *) nd_game_ptr))
+        if (proc_stop((ndgame_t *) ndgame_ptr))
         {
-            echo("Unable to suspend process %d", nd_game_ptr->pid);
+            echo("Unable to suspend process %d", ndgame_ptr->pid);
         }
-        proc_wait((ndgame_t *) nd_game_ptr, false);
+        proc_wait((ndgame_t *) ndgame_ptr, false);
         
         if (get_watchpoint_count())
         {
-            echo("Clearing watchpoints and detaching from process %d", nd_game_ptr->pid);
-            clear_watchpoint((ndgame_t *) nd_game_ptr, -1);
+            echo("Clearing watchpoints and detaching from process %d", ndgame_ptr->pid);
+            clear_watchpoint((ndgame_t *) ndgame_ptr, -1);
         }
 
-        detach((ndgame_t *) nd_game_ptr, __FUNCTION__);
+        detach((ndgame_t *) ndgame_ptr, __FUNCTION__);
     }
 
 
     if (logfile) {
         echo("Closing logfile handle");
         close(logfile);
-    }
-    if (db) {
-        echo("Freeing database file pointer (0x%llX)", db);
-        free(db);
     }
 
     echo("Exiting");
@@ -601,14 +623,18 @@ int main()
 
 
 
+
     // Kill any previous instances
+    int ret;
     errno = 0;
     pid_t pid;
     if ((pid = find_pid(PAYLOAD_NAME)) > 0)
     {
+        ret = 0;
         do {
             printf("Killing old instance (pid: %d)...\n", pid);
             
+            ret ++;
             if (kill(pid, SIGTERM))
             {
                 echo("ERROR: SIGTERM on process (%d) failed!!! - No idea how this failed, but something's clearly wrong. Off we screw.", pid);
@@ -623,12 +649,12 @@ int main()
             notify("Sent termination signal to previous %s instance %d", PAYLOAD_NAME, pid);
             sleep(2);
         }
-        while ((pid = find_pid(PAYLOAD_NAME)) > 0);
+        while ((pid = find_pid(PAYLOAD_NAME)) > 0 && ret < 2);
 
         exit(0);
         return 0;
     }
-    
+
 
 
     // Set some handlers for cleanup shit so I can stop rebooting the game every time the payload is killed
@@ -646,25 +672,22 @@ int main()
 
 
 
-    
     //#
     //## Global/local variable assignments/declarations
     //#
 
 
-    int ret;
     errno = 0;
     pid_t this;
     watchpoint_count = 0;
     static ndgame_t ndgame;
-    nd_game_ptr = (ndgame_t *) &ndgame;
+    ndgame_ptr = &ndgame;
 
     this = getpid();
     __rerr(!this || errno, "ERROR: getpid returned error?? What on earth have you done?! (or something else set errno)", 1);
-    echo("Proceeding with new %s instance (%d)", PAYLOAD_NAME, this);
     
     
-
+    
 
 
 
@@ -675,148 +698,45 @@ int main()
     //#
     #ifdef DEBUG
     {
-        goto _func_issues_testing;
-
         //#
-        //## app.db loading tests
+        //## Function Call issues
         //#
-        struct stat s;
+        void * addr;
+        struct reg _args;
+        unsigned long return_check;
 
-        const char * db_path;
-        db_path = "/system_data/priv/mms/app.db";
+        
+        // Find game process to trace
+        ret = find_and_trace_game(&ndgame);
+        __rerr(ret, "Unhandled error finding game process, payload aborting.", 1);
 
+        
 
-        ret = stat(db_path, &s);
-        __err(ret != 0, "ERROR: Failed to stat app.db, unable to get app title and version");
+        ret = proc_clear_args(&ndgame, &_args);
+        __rerr(ret, "Error clearing args, aborting test call", 1);
 
-        if (ret == 0)
-        {
-            errno = 0;
-            echo("app.db size: 0x%llX", s.st_size);
+        echo("call 1 pre");
+        addr = (void *) 0x16cc670; // Toggle menu's open state
 
-            __rerr(db != 0, "ERROR: database file pointer was somehow non-null already. check shit.", 1);
-
-            size_t size;
-            size = align(s.st_size);
-            echo("Allocating %llX bytes", size);
-            db = malloc(size);
-            __rerr(!db, "ERROR: Unable to allocate the %d bytes requested for loading the database file in to memory", 1);
-
-            int handle;
-            handle = open(db_path, O_RDONLY);
-            __rerr(!handle, "ERROR: Unable to open the database file for reading.", 1);
-            
-            ret = read(handle, db, s.st_size);
-            __rerr(!ret || ret != s.st_size, "ERROR: Unable to read database file in to memory.", 1);
-            
-            close(handle);
+        ret = proc_call(&ndgame, addr, &return_check, &_args);
+        __rerr(ret, strbufbuild("Error calling test function 0x%llX", addr), 1);
+        echo("call 1 post");
 
 
+        
+        // Detonate all enemies
+        ret = proc_clear_args(&ndgame, &_args);
+        __rerr(ret, "Error clearing args, aborting test call", 1);
+
+        echo("call 2 pre");
+        addr = (void *) 0x16cc530;
+
+        ret = proc_call(&ndgame, addr, &return_check, &_args);
+        __rerr(ret, strbufbuild("Error calling test function 0x%llX", addr), 1);
+        echo("call 2 post");
 
 
-
-            if (strncmp("SQLite format 3", (const char *) db, 0x10))
-            {
-                echo("ERROR: Invalid magic read from file at %s. %s != SQLite format 3", db_path, (char *) db);
-            }
-            
-            __rerr(sizeof(database_t) != 0x64, strbufbuild("ERROR: database struct length was not equal to the expected 100 bytes (100!=%d)", sizeof(database_t)), 1);
-            echo("Magic: %s", (char *) db->magic);
-
-            unsigned short page_len;
-            page_len = reverse16(db->block_size);
-            
-            unsigned int fl_pagecount;
-            fl_pagecount = reverse32(db->freelist_page_count);
-            
-            unsigned int db_size;
-            db_size = reverse32(db->database_size);
-
-            echo("Block size: (%x) %d", page_len, page_len);
-            echo("Change Count: 0x%lld", reverse32(db->file_change_count));
-            echo("Freelist page count: 0x%lld", fl_pagecount);
-            if (fl_pagecount)
-            {
-                echo("First freelist page: 0x%lld", reverse32(db->first_freelist_trunk_page_number));
-            }
-
-
-
-            echo("First page type: %d", *(((char *) db) + 0x64));
-
-            echo("Database size: 0x%llX (%ld bytes)", db_size, db_size * page_len);
-            for (int i = 1, o = page_len; i < db_size; i++, o += page_len)
-            {
-                echo("Page #%d offset: 0x%llX - 0x%llX / Type: %d", i, o, o + page_len - 1, *((char *) db + o));
-
-
-            }
-
-
-
-
-            //! TODO: These won't be called if an unhandled error occurs. Add them to cleanup
-            if (db)
-            {
-                free(db);
-                db = 0;
-            }
-
-            cleanup(0);
-
-
-
-
-
-
-
-
-
-
-            //#
-            //## Function Call issues
-            //#
-        _func_issues_testing:{}
-            void * addr;
-            struct reg _args;
-            unsigned long return_check;
-
-            
-            // Find game process to trace
-            ret = find_and_trace_game(&ndgame);
-            __rerr(ret, "Unhandled error finding game process, payload aborting.", 1);
-
-            
-
-            ret = proc_clear_args(&ndgame, &_args);
-            __rerr(ret, "Error clearing args, aborting test call", 1);
-
-            echo("call 1 pre");
-            addr = (void *) 0x16cc670; // Toggle menu's open state
-
-            ret = proc_call(&ndgame, addr, &return_check, &_args);
-            __rerr(ret, strbufbuild("Error calling test function 0x%llX", addr), 1);
-            echo("call 1 post");
-
-
-            
-            // Detonate all enemies
-            ret = proc_clear_args(&ndgame, &_args);
-            __rerr(ret, "Error clearing args, aborting test call", 1);
-
-            echo("call 2 pre");
-            addr = (void *) 0x16cc530;
-
-            ret = proc_call(&ndgame, addr, &return_check, &_args);
-            __rerr(ret, strbufbuild("Error calling test function 0x%llX", addr), 1);
-            echo("call 2 post");
-
-            return ret != 0;
-
-        }
-
-
-
+        return ret != 0;
         return 0;
     }
     #endif
@@ -831,6 +751,7 @@ int main()
     //#
     //## Payload START
     //#
+    echo("Proceeding with new %s instance (%d)", PAYLOAD_NAME, this);
     ret = start(&ndgame, this);
     __err(ret, "Payload start exited with error");
 

@@ -24,14 +24,15 @@ ELF := dmenu_payload.bin
 
 SENDER := ./ps.exe
 
-CFLAGS := -Wall -g
+CFLAGS := -Wall -g -lSceSystemService
 
 all: $(ELF)
 
-tst: $(ELF)
-	$(info Sending newly-built payload)
-	$(SENDER) $(ELF)
+asm: $(DBG)
 
+
+$(DBG): main.c memory.c dmenu.c proc.c
+	$(CC) -S $@ $^
 
 $(ELF): main.c memory.c dmenu.c proc.c
 	$(info Removing and rebuilding payload)

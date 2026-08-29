@@ -13,8 +13,9 @@ typedef struct dmenu_menu_base_s dmenu_menu_base_t;
 #define T2R_FREE (void *) 0x02a8f680
 #define T2R_MALLOC (void *) 0x02a8f690
 
-#define T2R_NOVIS (int8_t *) 0x70cc124
+#define T2R_NOVIS (byte *) 0x70cc124
 #define T2R_LOOKUPSYMBOL (void *) 0x051c0c0
+
 
 
 
@@ -33,8 +34,8 @@ typedef struct dmenu_menu_base_s dmenu_menu_base_t;
 #define T1X_FREE (void *) 0x30ed250
 #define T1X_MALLOC (void *) 0x30ed260
 
-#define T1X_NOVIS (int8_t *) 0x3a10794
-#define T1X_LOOKUPSYMBOL (void *) 0x9a9150 //! TODO: REPLACE ME!!!
+#define T1X_NOVIS (byte *) 0x3a10794
+#define T1X_LOOKUPSYMBOL (void *) 0x9a9150
 
 
 
@@ -372,7 +373,7 @@ int load_menu_base(ndgame_t * ndgame, void * address, dmenu_menu_base_t * menu_b
 int load_menu(ndgame_t * ndgame, void * address, dmenu_menu_t * menu);
 int load_item(ndgame_t * ndgame, void * address, dmenu_item_t * item);
 
-void dump_menu_entries(ndgame_t * nd_game);
+void dump_menu_entries(ndgame_t * ndgame);
 
 int AppendItemToParent(ndgame_t * ndgame, dmenu_menu_t * parent_menu, dmenu_item_t * item);
 
