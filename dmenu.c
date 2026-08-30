@@ -3,148 +3,48 @@
 #include "inc/proc.h"
 
 
+extern ndgame_t * game;
+
+
+
+
 // Read the vPtr at the start of the provided item, and return the simple type of the option to simplify type checks (i.e. checking for stype_item rather than 14 different types)
-int get_dmenu_entry_base_type(ndgame_t * ndgame, void * item)
+dmenu_stype_t get_dmenu_entry_base_type(void * item)
 {
-    unsigned long long chk = (unsigned long long) read_ulong(ndgame->pid, item);
+    void * chk;
+    chk = (void *) read_ulong(game->pid, item);
 
-    switch (chk)
-    {
-        case t2r_vptr_menu_base:
-            return stype_menu_base;
+    if (chk == game->vptrs->menu_base)
+        return stype_menu_base;
 
-        case t2r_vptr_dyn_menu:
-        case t2r_vptr_weapon_upgrades_menu:
-        case t2r_vptr_menu:
-            return stype_menu;
+    if (chk == game->vptrs->dyn_menu ||
+        chk == game->vptrs->weapon_upgrades_menu ||
+        chk == game->vptrs->menu)
+        return stype_menu;
 
-        case t2r_vptr_item_submenu:
-        case t2r_vptr_task_item_submenu:
-        case t2r_vptr_noreturn_task_item_submenu:
-            return stype_itemsubmenu;
+    if (chk == game->vptrs->item_submenu ||
+        chk == game->vptrs->task_item_submenu ||
+        chk == game->vptrs->subnode_task_item_submenu)
+        return stype_itemsubmenu;
 
-        case t2r_vptr_base_component:
-        case t2r_vptr_bool_item:
-        case t2r_vptr_exec_item:
-        case t2r_vptr_alt_exec_item:
-        case t2r_vptr_float_item:
-        case t2r_vptr_decimal_item:
-        case t2r_vptr_separator_item:
-        case t2r_vptr_string_list_item:
-        case t2r_vptr_string_item:
-        case t2r_vptr_task_history_item:
-        case t2r_vptr_task_item:
-        case t2r_vptr_timer_item:
-        case t2r_vptr_user_item:
-        case t2r_vptr_checkpoint_item:
-            return stype_item;
-            
+    if (chk == game->vptrs->base_component ||
+        chk == game->vptrs->bool_item ||
+        chk == game->vptrs->exec_item ||
+        chk == game->vptrs->alt_exec_item ||
+        chk == game->vptrs->float_item ||
+        chk == game->vptrs->decimal_item ||
+        chk == game->vptrs->separator_item ||
+        chk == game->vptrs->string_list_item ||
+        chk == game->vptrs->string_item ||
+        chk == game->vptrs->task_history_item ||
+        chk == game->vptrs->task_item ||
+        chk == game->vptrs->timer_item ||
+        chk == game->vptrs->user_item ||
+        chk == game->vptrs->checkpoint_item)
+        return stype_item;
 
 
-
-
-
-        case t1x_vptr_menu_base:
-            return stype_menu_base;
-
-        case t1x_vptr_dyn_menu:
-        case t1x_vptr_weapon_upgrades_menu:
-        case t1x_vptr_menu:
-            return stype_menu;
-
-        case t1x_vptr_item_submenu:
-        case t1x_vptr_task_item_submenu:
-        case t1x_vptr_subtask_item_submenu:
-            return stype_itemsubmenu;
-
-        case t1x_vptr_base_component:
-        case t1x_vptr_bool_item:
-        case t1x_vptr_exec_item:
-        case t1x_vptr_alt_exec_item:
-        case t1x_vptr_float_item:
-        case t1x_vptr_decimal_item:
-        case t1x_vptr_separator_item:
-        case t1x_vptr_string_item:
-        case t1x_vptr_string_list_item:
-        case t1x_vptr_task_history_item:
-        case t1x_vptr_task_item:
-        case t1x_vptr_timer_item:
-        case t1x_vptr_user_item:
-            return stype_item;
-
-        
-            
-
-
-        /*
-        case uc4r_vptr_menu_base:
-            return stype_menu_base;
-
-        case uc4r_vptr_dyn_menu:
-        case uc4r_vptr_unk_menu:
-        case uc4r_vptr_id_menu:
-            return stype_menu;
-
-        case uc4r_vptr_item_submenu:
-        case uc4r_vptr_task_item_submenu:
-        case uc4r_vptr_noreturn_task_item_submenu:
-            return stype_itemsubmenu;
-
-        case uc4r_vptr_bool_item:
-        case uc4r_vptr_exec_item:
-        case uc4r_vptr_alt_exec_item:
-        case uc4r_vptr_float_item:
-        case uc4r_vptr_decimal_item:
-        case uc4r_vptr_separator_item:
-        case uc4r_vptr_string_list_item:
-        case uc4r_vptr_string_item:
-        case uc4r_vptr_task_history_item:
-        case uc4r_vptr_task_item:
-        case uc4r_vptr_timer_item:
-        case uc4r_vptr_user_item:
-        case uc4r_vptr_unk_item:
-            return stype_item;
-        
-            
-
-
-
-
-        case tllr_vptr_menu_base:
-            return stype_menu_base;
-        
-        
-        case tllr_vptr_dyn_menu:
-        case tllr_vptr_unk_menu:
-        case tllr_vptr_id_menu:
-            return stype_menu;
-        
-        case tllr_vptr_item_submenu:
-        case tllr_vptr_task_item_submenu:
-        case tllr_vptr_noreturn_task_item_submenu:
-            return stype_itemsubmenu;
-        
-        case tllr_vptr_bool_item:
-        case tllr_vptr_exec_item:
-        case tllr_vptr_alt_exec_item:
-        case tllr_vptr_float_item:
-        case tllr_vptr_decimal_item:
-        case tllr_vptr_separator_item:
-        case tllr_vptr_string_list_item:
-        case tllr_vptr_string_item:
-        case tllr_vptr_task_history_item:
-        case tllr_vptr_task_item:
-        case tllr_vptr_timer_item:
-        case tllr_vptr_user_item:
-        case tllr_vptr_unk_item:
-            return stype_item;
-        */
-
-
-        default:
-            // echo("Unknown value read when getting dmenu item type: %lld", chk);
-            return -1;
-    }
+    return -1;
 }
 
 
@@ -154,108 +54,80 @@ int get_dmenu_entry_base_type(ndgame_t * ndgame, void * item)
 
 
 
-//! TODO: Wait, I thought returning pointers to local strings was a no-no
-// Convert the name of the provided vptr to it's string representation, without the prefixed the game id and type name (assuming I haven't removed the latter)
+// [DEBUG-ONLY] Convert the name of the provided vptr to it's string representation, without the prefixed the game id and type name (assuming I haven't removed the latter)
 const char * get_dmenu_entry_type_as_string(dmenu_vptr_t type)
 {
+    static char return_string[0x20] = "unknown_type";
+    
 #ifdef DEBUG
-    switch (type)
-    {
-        case t2r_vptr_base_component:
-        case t1x_vptr_base_component:
-            return "base_component";
+    echo("Char array base value check: %s (%d)", return_string, sizeof(return_string));
 
-        case t2r_vptr_bool_item:
-        case t1x_vptr_bool_item:
-            return "bool_item";
-        
-        case t2r_vptr_exec_item:
-        case t1x_vptr_exec_item:
-            return "exec_item";
-    
-        case t2r_vptr_alt_exec_item:
-        case t1x_vptr_alt_exec_item:
-            return "alt_exec_item";
-    
-        case t2r_vptr_float_item:
-        case t1x_vptr_float_item:
-            return "float_item";
-    
-        case t2r_vptr_decimal_item:
-        case t1x_vptr_decimal_item:
-            return "decimal_item";
-    
-        case t2r_vptr_separator_item:
-        case t1x_vptr_separator_item:
-            return "separator_item";
-    
-        case t2r_vptr_string_list_item:
-        case t1x_vptr_string_list_item:
-            return "string_list_item";
-    
-        case t2r_vptr_task_history_item:
-        case t1x_vptr_task_history_item:
-            return "task_history_item";
-    
-        case t2r_vptr_task_item:
-        case t1x_vptr_task_item:
-            return "task_item";
-    
-        case t2r_vptr_user_item:
-        case t1x_vptr_user_item:
-            return "user_item";
-    
-        case t2r_vptr_timer_item:
-        case t1x_vptr_timer_item:
-            return "timer_item";
-    
-        case t2r_vptr_checkpoint_item:
-        case t1x_vptr_checkpoint_item:
-            return "checkpoint_item";
-
-
-    
-        case t2r_vptr_string_item:
-        case t1x_vptr_string_item:
-            return "string_item";
-    
-    
-        case t2r_vptr_item_submenu:
-        case t1x_vptr_item_submenu:
-            return "item_submenu";
-    
-        case t2r_vptr_task_item_submenu:
-        case t1x_vptr_task_item_submenu:
-            return "task_item_submenu";
-    
-        case t2r_vptr_noreturn_task_item_submenu:
-        case t1x_vptr_subtask_item_submenu:
-            return "noreturn_task_item_submenu";
-
-    
-
-        case t2r_vptr_menu:
-        case t1x_vptr_menu:
-            return "menu";
-
-        case t2r_vptr_dyn_menu:
-        case t1x_vptr_dyn_menu:
-            return "dyn_menu";
-
-        case t2r_vptr_weapon_upgrades_menu:
-        case t1x_vptr_weapon_upgrades_menu:
-            return "weapon_upgrades_menu";
-
-        case t2r_vptr_menu_base:
-        case t1x_vptr_menu_base:
-            return "menu_base";
+    if (type == game->vptrs->base_component) {
+        strncpy("base_component", return_string, sizeof(return_string));
     }
-    
-    // echo("Unknown type provided when trying to get dmenu entry type as string: %llX", type);
-    return "Unknown Type";
-#else
-    return " ";
+    if (type == game->vptrs->bool_item) {
+        strncpy("bool_item", return_string, sizeof(return_string));
+    }
+    if (type == game->vptrs->exec_item) {
+        strncpy("exec_item", return_string, sizeof(return_string));
+    }
+    if (type == game->vptrs->alt_exec_item) {
+        strncpy("alt_exec_item", return_string, sizeof(return_string));
+    }
+    if (type == game->vptrs->float_item) {
+        strncpy("float_item", return_string, sizeof(return_string));
+    }
+    if (type == game->vptrs->decimal_item) {
+        strncpy("decimal_item", return_string, sizeof(return_string));
+    }
+    if (type == game->vptrs->separator_item) {
+        strncpy("separator_item", return_string, sizeof(return_string));
+    }
+    if (type == game->vptrs->string_list_item) {
+        strncpy("string_list_item", return_string, sizeof(return_string));
+    }
+    if (type == game->vptrs->task_history_item) {
+        strncpy("task_history_item", return_string, sizeof(return_string));
+    }
+    if (type == game->vptrs->task_item) {
+        strncpy("task_item", return_string, sizeof(return_string));
+    }
+    if (type == game->vptrs->user_item) {
+        strncpy("user_item", return_string, sizeof(return_string));
+    }
+    if (type == game->vptrs->timer_item) {
+        strncpy("timer_item", return_string, sizeof(return_string));
+    }
+    if (type == game->vptrs->checkpoint_item) {
+        strncpy("checkpoint_item", return_string, sizeof(return_string));
+    }
+    if (type == game->vptrs->string_item) {
+        strncpy("string_item", return_string, sizeof(return_string));
+    }
+    if (type == game->vptrs->item_submenu) {
+        strncpy("item_submenu", return_string, sizeof(return_string));
+    }
+    if (type == game->vptrs->task_item_submenu) {
+        strncpy("task_item_submenu", return_string, sizeof(return_string));
+    }
+    if (type == game->vptrs->subnode_task_item_submenu) {
+        strncpy("subnode_task_item_submenu", return_string, sizeof(return_string));
+    }
+    if (type == game->vptrs->menu) {
+        strncpy("menu", return_string, sizeof(return_string));
+    }
+    if (type == game->vptrs->dyn_menu) {
+        strncpy("dyn_menu", return_string, sizeof(return_string));
+    }
+    if (type == game->vptrs->weapon_upgrades_menu) {
+        strncpy("weapon_upgrades_menu", return_string, sizeof(return_string));
+    }
+    if (type == game->vptrs->menu_base) {
+        strncpy("meni_base", return_string, sizeof(return_string));
+    }
 #endif
+
+    return return_string;
 }
 
 
@@ -265,7 +137,7 @@ const char * get_dmenu_entry_type_as_string(dmenu_vptr_t type)
 
 
 // Recursively check every item and submenu for an item matching the specified dmenu simple type and component name
-static void * find_dmenu_component(ndgame_t * ndgame, const char * expected_entry_name, dmenu_stype_t expected_base_type, dmenu_menu_index_t parent_index)
+static void * find_dmenu_component(const char * expected_entry_name, dmenu_stype_t expected_base_type, dmenu_menu_index_t parent_index)
 {
     
     if (parent_index < 0 || parent_index > 2)
@@ -277,23 +149,23 @@ static void * find_dmenu_component(ndgame_t * ndgame, const char * expected_entr
     
     
     dmenu_menu_base_t parent_base;
-    load_menu_base(ndgame, *(&ndgame->dev_menu_base + parent_index), &parent_base);
+    load_menu_base(*(&game->dev_menu_base + parent_index), &parent_base);
 
     if (parent_base.root_menu == 0)
     {
-        echo("ERROR: Empty menu base pointer provided. (%s)", parent_base.menu_base_name ? parent_base.menu_base_name : (char *) &parent_base.menu_base_name_buffer);
+        echo("ERROR: Empty menu base pointer provided. (%s)", parent_base.name ? parent_base.name : (char *) &parent_base.menu_base_name_buffer);
         return nullptr;
     }
     
     
     dmenu_menu_t menu;
-    read_bytes(ndgame->pid, sizeof(dmenu_menu_t), parent_base.root_menu, &menu);
+    read_bytes(game->pid, sizeof(dmenu_menu_t), parent_base.root_menu, &menu);
     
     char parent_name[0x40];
     void * entry_ptr;
 
     bzero(parent_name, 0x40);
-    read_string(ndgame->pid, menu.menu_name, parent_name);
+    read_string(game->pid, menu.menu_name, parent_name);
 
     if((entry_ptr = menu.first_item) == 0)
     {
@@ -317,18 +189,18 @@ static void * find_dmenu_component(ndgame_t * ndgame, const char * expected_entr
     int depth = 0, ret;
     while(entry_ptr != nullptr)
     {
-        base_type = get_dmenu_entry_base_type(ndgame, entry_ptr);
+        base_type = get_dmenu_entry_base_type(entry_ptr);
         
         // Menu
         if (next_is_menu)
         {
-            ret = read_bytes(ndgame->pid, sizeof(dmenu_menu_t), entry_ptr, &menu);
+            ret = read_bytes(game->pid, sizeof(dmenu_menu_t), entry_ptr, &menu);
             if (ret)
             {
                 break;
             }
 
-            ret = read_string(ndgame->pid, menu.menu_name, entry_name);
+            ret = read_string(game->pid, menu.menu_name, entry_name);
             if (!ret)
             {
                 break;
@@ -347,14 +219,14 @@ static void * find_dmenu_component(ndgame_t * ndgame, const char * expected_entr
         }
         // Item
         else {
-            read_bytes(ndgame->pid, sizeof(dmenu_item_t), entry_ptr, &item);
+            read_bytes(game->pid, sizeof(dmenu_item_t), entry_ptr, &item);
             
             if (item.item_text == nullptr)
             {
                 goto no_text;
             }
             
-            read_string(ndgame->pid, item.item_text, entry_name);
+            read_string(game->pid, item.item_text, entry_name);
 
 
             if (expected_base_type == base_type && !strncmp(expected_entry_name, entry_name, strlen(entry_name)))
@@ -405,9 +277,9 @@ static void * find_dmenu_component(ndgame_t * ndgame, const char * expected_entr
 // <=0 == Dev Menu
 // 1 == Quick Menu
 // >=2 == Favorites Menu
-dmenu_item_t * find_item(ndgame_t * ndgame, const char * item_name, dmenu_menu_index_t parent_index)
+dmenu_item_t * find_item(const char * item_name, dmenu_menu_index_t parent_index)
 {
-    return find_dmenu_component(ndgame, item_name, stype_item, parent_index);
+    return find_dmenu_component(item_name, stype_item, parent_index);
 }
 
 
@@ -418,9 +290,9 @@ dmenu_item_t * find_item(ndgame_t * ndgame, const char * item_name, dmenu_menu_i
 // <=0 == Dev Menu
 // 1 == Quick Menu
 // >=2 == Favorites Menu
-dmenu_menu_t * find_menu(ndgame_t * ndgame, const char * menu_name, dmenu_menu_index_t parent_index)
+dmenu_menu_t * find_menu(const char * menu_name, dmenu_menu_index_t parent_index)
 {
-    return find_dmenu_component(ndgame, menu_name, stype_menu, parent_index);
+    return find_dmenu_component(menu_name, stype_menu, parent_index);
 }
 
 
@@ -431,18 +303,18 @@ dmenu_menu_t * find_menu(ndgame_t * ndgame, const char * menu_name, dmenu_menu_i
 // <=0 == Dev Menu
 // 1 == Quick Menu
 // >=2 == Favorites Menu
-dmenu_item_t * find_submenu(ndgame_t * ndgame, const char * submenu_name, dmenu_menu_index_t parent_index)
+dmenu_item_t * find_submenu(const char * submenu_name, dmenu_menu_index_t parent_index)
 {
-    return find_dmenu_component(ndgame, submenu_name, stype_itemsubmenu, parent_index);
+    return find_dmenu_component(submenu_name, stype_itemsubmenu, parent_index);
 }
 
 
 
 
 // Get the root menu of the specified menu base without loading the base in to memory first
-dmenu_menu_t * get_root_menu(ndgame_t * ndgame, dmenu_menu_index_t menu_base_index)
+dmenu_menu_t * get_root_menu(dmenu_menu_index_t menu_base_index)
 {
-    return ((dmenu_menu_t *) read_ulong(ndgame->pid, (unsigned long *) &(* (dmenu_menu_base_t **) ((unsigned long) &ndgame->dev_menu_base + menu_base_index * sizeof(dmenu_menu_base_t *)))->root_menu));
+    return ((dmenu_menu_t *) read_ulong(game->pid, (unsigned long *) &(* (dmenu_menu_base_t **) ((unsigned long) &game->dev_menu_base + menu_base_index * sizeof(dmenu_menu_base_t *)))->root_menu));
 }
 
 
@@ -453,27 +325,27 @@ dmenu_menu_t * get_root_menu(ndgame_t * ndgame, dmenu_menu_index_t menu_base_ind
 
 
 // Copy the dmenu_menu_base_t pointed to by the dmenu_menu_base_t * at the provided address in the traced process' memory into the provided menu base struct
-int load_menu_base(ndgame_t * ndgame, void * address, dmenu_menu_base_t * menu_base)
+int load_menu_base(void * address, dmenu_menu_base_t * menu_base)
 {
-    return read_bytes(ndgame->pid, sizeof(dmenu_menu_base_t), (void *) address, menu_base);
+    return read_bytes(game->pid, sizeof(dmenu_menu_base_t), (void *) address, menu_base);
 }
 
 
 
 
 // Copy the dmenu_menu_t at the provided address in the traced process' memory into the provided menu struct
-int load_menu(ndgame_t * ndgame, void * address, dmenu_menu_t * menu)
+int load_menu(void * address, dmenu_menu_t * menu)
 {
-    return read_bytes(ndgame->pid, sizeof(dmenu_menu_t), address, menu);
+    return read_bytes(game->pid, sizeof(dmenu_menu_t), address, menu);
 }
 
 
 
 
 // Copy the dmenu_item_t at the provided address in the traced process' memory into the provided item struct
-int load_item(ndgame_t * ndgame, void * address, dmenu_item_t * item)
+int load_item(void * address, dmenu_item_t * item)
 {
-    return read_bytes(ndgame->pid, sizeof(dmenu_item_t), address, item);
+    return read_bytes(game->pid, sizeof(dmenu_item_t), address, item);
 }
 
 
@@ -483,22 +355,34 @@ int load_item(ndgame_t * ndgame, void * address, dmenu_item_t * item)
 
 
 
-static void do_dump_menu_entries(ndgame_t * ndgame, dmenu_menu_base_t * parent_base)
+static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
 {
-    if (parent_base->root_menu == 0)
+    // Null menu base pointer
+    if (parent_base == 0)
     {
         echo("ERROR: Empty menu base pointer provided.");
+        return;
+    }
+    if (parent_base->root_menu == 0) // Handle empty menus
+    {
+        if (parent_base->name)
+        {
+            echo("Provided menu base %s has no menus.", parent_base->name);
+        }
+        else {
+            echo("Provided menu base (unnamed) has no menus.");
+        }
         return;
     }
 
 
     dmenu_menu_t menu;
-    read_bytes(ndgame->pid, sizeof(dmenu_menu_t), parent_base->root_menu, &menu);
+    read_bytes(game->pid, sizeof(dmenu_menu_t), parent_base->root_menu, &menu);
     
     void * entry_ptr;
     if((entry_ptr = menu.first_item) == 0)
     {
-        echo("ERROR:\n# %s %s has no entries (%d).\n# Aborting.", get_dmenu_entry_type_as_string(*(unsigned long long *) &menu), menu.menu_name, entry_ptr);
+        echo("ERROR:\n# %s %s has no entries (%d).\n# Aborting.", get_dmenu_entry_type_as_string(menu.vptr), menu.menu_name, entry_ptr);
     }
 
 
@@ -518,8 +402,8 @@ static void do_dump_menu_entries(ndgame_t * ndgame, dmenu_menu_base_t * parent_b
     char next_is_menu = 0;
     unsigned short unknown_type_count = 0;
     
-    dmenu_item_t item;
     dmenu_vptr_t type;
+    dmenu_item_t item;
     const char * dtype;
 
     while(entry_ptr != null)
@@ -535,16 +419,16 @@ static void do_dump_menu_entries(ndgame_t * ndgame, dmenu_menu_base_t * parent_b
         
         
         
-        type = (dmenu_vptr_t) read_ulong(ndgame->pid, entry_ptr);
+        type = (dmenu_vptr_t) read_ulong(game->pid, entry_ptr);
 
         // Menu
         if (next_is_menu)
         {
             bzero(&menu, sizeof(menu));
-            load_menu(ndgame, entry_ptr, &menu);
+            load_menu(entry_ptr, &menu);
             
-            read_string(ndgame->pid, menu.menu_name, item_name);
-            read_string(ndgame->pid, (void *) read_ulong(ndgame->pid, (unsigned long *) &menu.parent_menu->menu_name), parent_name);
+            read_string(game->pid, menu.menu_name, item_name);
+            read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &menu.parent_menu->menu_name), parent_name);
 
             echo("0x%llX %s%s->%s (type: %s)", entry_ptr, padding, parent_name, item_name, dtype);
             echo(
@@ -559,17 +443,17 @@ static void do_dump_menu_entries(ndgame_t * ndgame, dmenu_menu_base_t * parent_b
         // Item
         else {
             bzero(&item, sizeof(item));
-            load_item(ndgame, entry_ptr, &item);
+            load_item(entry_ptr, &item);
 
             if (item.item_text)
             {
-                read_string(ndgame->pid, item.item_text, item_name);
+                read_string(game->pid, item.item_text, item_name);
             }
             else {
                 strcpy(item_name, "--------------------------------");
             }
 
-            read_string(ndgame->pid, (void *) read_ulong(ndgame->pid, (unsigned long *) &item.parent_menu->menu_name), parent_name);
+            read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &item.parent_menu->menu_name), parent_name);
 
             echo("0x%llX %s%s->%s (type: %s)", entry_ptr, padding, parent_name, item_name, dtype);
             echo(
@@ -580,7 +464,7 @@ static void do_dump_menu_entries(ndgame_t * ndgame, dmenu_menu_base_t * parent_b
             
 
             // Handle ItemSubmenu components
-            if (get_dmenu_entry_base_type(ndgame, entry_ptr) == stype_itemsubmenu)
+            if (get_dmenu_entry_base_type(entry_ptr) == stype_itemsubmenu)
             {
                 entry_ptr = (dmenu_item_t *) item.return_buffer;
 
@@ -627,17 +511,17 @@ static void do_dump_menu_entries(ndgame_t * ndgame, dmenu_menu_base_t * parent_b
 
 
 
-void dump_menu_entries(ndgame_t * ndgame)
+void dump_menu_entries()
 {
     echo("\n\nDumping Dev Menu entries.");
     dmenu_menu_base_t base;
-    load_menu_base(ndgame, ndgame->dev_menu_base, &base);
-    do_dump_menu_entries(ndgame, &base);
+    load_menu_base(game->dev_menu_base, &base);
+    do_dump_menu_entries(&base);
     echo("Finished dumping Dev Menu entries\n\n\n");
 
     echo("Dumping Quick Menu entries.");
-    load_menu_base(ndgame, ndgame->quick_menu_base, &base);
-    do_dump_menu_entries(ndgame, &base);
+    load_menu_base(game->quick_menu_base, &base);
+    do_dump_menu_entries(&base);
     echo("Finished dumping Quick Menu entries\n\n");
 }
 
@@ -647,11 +531,59 @@ void dump_menu_entries(ndgame_t * ndgame)
 
 
 
-dmenu_item_t * CreateBaseComponent(dmenu_component_t * component, const char * component_name)
+dmenu_item_t * CreateBaseComponent(dmenu_component_t * entry, const char * component_name)
 {
     echo("ERROR: Call to unimplemented function %s", __FUNCTION__);
     kill(getpid(), SIGSEGV); // Force a crash if I call it before finishing the damn thing
     return nullptr;
+
+
+    void *pcVar1;
+    long lVar2;
+    uint name_length;
+    size_t sVar4;
+    char *__dest;
+    long *puVar5;
+    uint uVar6;
+    long uStack_38;
+
+    bzero(&entry, sizeof(entry));
+
+    entry->vptr = game->vptrs->base_component;
+    entry->off_state_colour = 0xffc8c8c8;
+    entry->on_state_colour = 0xff00ffff;
+    entry->neutral_state_colour = 0xffb0ffb0;
+
+    if (component_name == NULL) {
+        echo("Unnamed item created");
+        return ;
+    }
+
+
+    sVar4 = strlen(component_name);
+    name_length = (uint)sVar4;
+    if ((int) name_length < 0x20)
+    {
+        __dest = entry->item_text_buffer;
+        strcpy(__dest, component_name);
+    }
+    else {
+        name_length = 0xff;
+        if ((int)name_length < 0xff)
+        {
+            uVar6 = name_length;
+        }
+
+        __dest = (char *) proc_malloc(uVar6 + 1);
+        __rerrv(__dest == NULL, "ERROR: Unable to allocate space for large component name!!!", nullptr);
+        
+        write_string(game->pid, __dest, component_name);
+        __dest[uVar6] = 0;
+    }
+
+    entry->item_text = __dest;
+
+    echo("%s created", component_name);
 }
 
 
@@ -662,7 +594,7 @@ dmenu_item_t * CreateBaseComponent(dmenu_component_t * component, const char * c
 
 
 
-int AppendItemToParent(ndgame_t * ndgame, dmenu_menu_t * parent_menu, dmenu_item_t * item)
+int AppendItemToParent(dmenu_menu_t * parent_menu, dmenu_item_t * item)
 {
     dmenu_item_t
         **next_item_p = &parent_menu->first_item,
@@ -675,7 +607,7 @@ int AppendItemToParent(ndgame_t * ndgame, dmenu_menu_t * parent_menu, dmenu_item
     // get the last item in the menu, if it has any contents
     do {
         prev_item = current_item;
-        current_item = (dmenu_item_t *) read_ulong(ndgame->pid, (unsigned long *) next_item_p);
+        current_item = (dmenu_item_t *) read_ulong(game->pid, (unsigned long *) next_item_p);
         next_item_p = &current_item->next_item;
         
     } while (current_item != NULL);
@@ -692,7 +624,7 @@ int AppendItemToParent(ndgame_t * ndgame, dmenu_menu_t * parent_menu, dmenu_item
 
     
     int ret;
-    ret = write_ulong(ndgame->pid, (unsigned long *) next_item_p, (unsigned long) item);
+    ret = write_ulong(game->pid, (unsigned long *) next_item_p, (unsigned long) item);
     if (ret)
     {
         echo("ERROR @ Line: %d", __LINE__ - 3);
@@ -700,21 +632,21 @@ int AppendItemToParent(ndgame_t * ndgame, dmenu_menu_t * parent_menu, dmenu_item
     }
 
     // Assign parent menu and set next item
-    write_ulong(ndgame->pid, (unsigned long *) &item->next_item, 0);
-    write_ulong(ndgame->pid, (unsigned long *) &item->parent_menu, (u_long) parent_menu);
+    write_ulong(game->pid, (unsigned long *) &item->next_item, 0);
+    write_ulong(game->pid, (unsigned long *) &item->parent_menu, (u_long) parent_menu);
 
     // Increment parent menu's item count, and set that unknown bool to 1 like the game does (menu updated, maybe? still need to figure out what this boolean is)
-    write_uint(ndgame->pid, (unsigned int *) &parent_menu->item_count, read_uint(ndgame->pid, &parent_menu->item_count) + 1);
-    write_uint(ndgame->pid, (unsigned int *) &parent_menu->unknown_bool, 1);
+    write_uint(game->pid, (unsigned int *) &parent_menu->item_count, read_uint(game->pid, &parent_menu->item_count) + 1);
+    write_uint(game->pid, (unsigned int *) &parent_menu->unknown_bool, 1);
     
     char _menu_is_open;
-    _menu_is_open = read_byte(ndgame->pid, (byte *) &parent_menu->menu_is_open);
+    _menu_is_open = read_byte(game->pid, (byte *) &parent_menu->menu_is_open);
 
     if (_menu_is_open)
     {
         echo("menu is open");
         void * update_menu;
-        if (!(update_menu = (void *) read_ulong(ndgame->pid, (unsigned long *) read_ulong(ndgame->pid, (unsigned long *) &item->vptr) + 0x18)))
+        if (!(update_menu = (void *) read_ulong(game->pid, (unsigned long *) read_ulong(game->pid, (unsigned long *) &item->vptr) + 0x18)))
         {
             echo("Unable to read item's vPtr!!");
             return 1;
@@ -723,7 +655,7 @@ int AppendItemToParent(ndgame_t * ndgame, dmenu_menu_t * parent_menu, dmenu_item
         
         struct reg args;
 
-        ret = proc_set_args(ndgame, &args, (uintptr_t) item, 0, 0, 0, 0, 0, 0);
+        ret = proc_set_args(&args, (uintptr_t) item, 0, 0, 0, 0, 0, 0);
         if (ret)
         {
             echo("ERROR @ Line: %d", __LINE__ - 3);
@@ -731,7 +663,7 @@ int AppendItemToParent(ndgame_t * ndgame, dmenu_menu_t * parent_menu, dmenu_item
         }
 
 
-        ret = proc_call(ndgame, update_menu, nullptr, &args);
+        ret = proc_call(update_menu, nullptr, &args);
         if (ret)
         {
             echo("ERROR @ Line: %d", __LINE__ - 3);
@@ -758,10 +690,10 @@ int AppendItemToParent(ndgame_t * ndgame, dmenu_menu_t * parent_menu, dmenu_item
 
 
 //! TODO: Write the base menu item creation function and move the optimization to that. I don't want bzero being optimized out.
-int add_novis_option(ndgame_t * ndgame, dmenu_menu_index_t menu_base)
+int add_novis_option(dmenu_menu_index_t menu_base)
 {
     dmenu_item_t * check;
-    if ((check = find_item(ndgame, "Disable All Visibility", menu_base)))
+    if ((check = find_item("Disable All Visibility", menu_base)))
     {
         echo("Novis already added to specified menu base");
         return 0;
@@ -769,9 +701,9 @@ int add_novis_option(ndgame_t * ndgame, dmenu_menu_index_t menu_base)
     echo("Adding new novis optiom");
 
     void * mem;    
-    mem = proc_malloc(ndgame, align(sizeof(dmenu_item_t)));
-    __rerr(!mem, "Error allocating space for novis option", 1);
-    proc_wait(ndgame, false);
+    mem = proc_malloc(align(sizeof(dmenu_item_t)));
+    __rerrv(!mem, "Error allocating space for novis option", 1);
+    proc_wait(false);
 
 
 
@@ -780,12 +712,11 @@ int add_novis_option(ndgame_t * ndgame, dmenu_menu_index_t menu_base)
     dmenu_item_t item;
     bzero(&item, sizeof(dmenu_item_t));
 
-    * (unsigned long *) &item = t2r_vptr_bool_item;
-
+    item.vptr = game->vptrs->bool_item;
 
     item.event_handler_type_id = 3; // Bool item
     item.event_handler = (void *) 0x0114d100; // Bool event handler
-    item.return_buffer = read_byte(ndgame->pid, (byte *) ndgame->dat_novis);
+    item.return_buffer = read_byte(game->pid, (byte *) game->dat.bool.novis);
 
     item.off_state_colour = 0xB0FFB0FF; // White
     item.on_state_colour = 0xEF00FFFF;  // Yellow
@@ -798,14 +729,14 @@ int add_novis_option(ndgame_t * ndgame, dmenu_menu_index_t menu_base)
 
     item.item_text = (char *) &((dmenu_item_t *) mem)->item_text_buffer;
 
-    item.item_variable = ndgame->dat_novis;
+    item.item_variable = game->dat.bool.novis;
 
 
 
     int ret;
-    ret = write_bytes(ndgame->pid, sizeof(dmenu_item_t), mem, &item);
-    __rerr(ret, "Error writing new menu option to allocated memory, aborting novis option addition.", 1);
+    ret = write_bytes(game->pid, sizeof(dmenu_item_t), mem, &item);
+    __rerrv(ret, "Error writing new menu option to allocated memory, aborting novis option addition.", 1);
 
-    return AppendItemToParent(ndgame, get_root_menu(ndgame, menu_base), mem);
+    return AppendItemToParent(get_root_menu(menu_base), mem);
 }
 

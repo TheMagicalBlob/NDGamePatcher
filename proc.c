@@ -3,6 +3,8 @@
 #include "inc/memory.h"
 
 
+extern ndgame_t * game;
+
 
 
 
@@ -32,7 +34,7 @@ int set_authid_for_ptrace()
 
 
 
-int attach(ndgame_t * ndgame)
+int attach()
 {
     int ret;
     errno = 0;
@@ -46,17 +48,17 @@ int attach(ndgame_t * ndgame)
     }
 
 
-    if ((ret = ptrace(PT_ATTACH, ndgame->pid, 0, 0)) != 0)
+    if ((ret = ptrace(PT_ATTACH, game->pid, 0, 0)) != 0)
     {
         notify("PT_ATTACH ERROR: %s\n", strerror(ret));
         
-        if(kill(ndgame->pid, SIGCONT))
+        if(kill(game->pid, SIGCONT))
         {
             echo("WARNING: Unable to resume process through SIGCONT");
         }
     }
     
-    echo("Attached to pid %d", ndgame->pid);
+    echo("Attached to pid %d", game->pid);
     return ret;
 }
 
@@ -67,29 +69,29 @@ int attach(ndgame_t * ndgame)
 
 
 
-pid_t proc_wait(ndgame_t * game, int wait);
+pid_t proc_wait(int wait);
 // //!
-int detach(ndgame_t * ndgame, const char * from)
+int detach(const char * from)
 {
-    if (ndgame->pid < 1)
+    if (game->pid < 1)
     {
-        echo("%s: Invalid pid provided (%d).", __FUNCTION__, ndgame->pid);
+        echo("%s: Invalid pid provided (%d).", __FUNCTION__, game->pid);
         return 1;
     }
-    echo("Detaching from process %d (%s)", ndgame->pid, from);
+    echo("Detaching from process %d (%s)", game->pid, from);
 
 
-    kill(ndgame->pid, SIGSTOP);
+    kill(game->pid, SIGSTOP);
     
     int ret;
-    ret = proc_wait(ndgame, false);
+    ret = proc_wait(false);
     if (ret < 0)
     {
         echo("Error waiting for process, but we're exiting anyway");
     }
 
     errno = 0;
-    if ((ret = ptrace(PT_DETACH, ndgame->pid, 0, 0)) != 0)
+    if ((ret = ptrace(PT_DETACH, game->pid, 0, 0)) != 0)
     {
         if (errno)
         {
@@ -100,11 +102,11 @@ int detach(ndgame_t * ndgame, const char * from)
         }
     }
     else{
-        notify("Detached from %d, exiting.", ndgame->pid);
+        notify("Detached from %d, exiting.", game->pid);
     }
 
-    kill(ndgame->pid, SIGCONT);
-    bzero(ndgame, sizeof(ndgame_t));
+    kill(game->pid, SIGCONT);
+    bzero(game, sizeof(ndgame_t));
     return ret;
 }
 
@@ -116,7 +118,7 @@ int detach(ndgame_t * ndgame, const char * from)
 // Wait for the secified process to either be stopped, or exit
 // If waitpid experiences an error, returns -1
 // otherwise, returns the result of WIFEXITED
-pid_t proc_wait(ndgame_t * ndgame, int wait)
+pid_t proc_wait(int wait)
 {
     // Set options for wait pid
     int options;
@@ -125,10 +127,10 @@ pid_t proc_wait(ndgame_t * ndgame, int wait)
     if (!wait)
     {
         options |= WNOHANG;
-        echo("Waiting for pid %d w/ NOHANG", ndgame->pid);
+        echo("Waiting for pid %d w/ NOHANG", game->pid);
     }
     else{
-        echo("Waiting for pid %d.", ndgame->pid);
+        echo("Waiting for pid %d.", game->pid);
     }
     
     
@@ -136,7 +138,7 @@ pid_t proc_wait(ndgame_t * ndgame, int wait)
     // Wait for a child like EDP at the mall
     errno = 0;
     pid_t returned_pid;
-    returned_pid = waitpid(-1, &ndgame->status, options); // WTRAPPED and WEXITED are set implicitly for waitpid, but meh
+    returned_pid = waitpid(-1, &game->status, options); // WTRAPPED and WEXITED are set implicitly for waitpid, but meh
     if (returned_pid == -1)
     {
         if (errno == ECHILD)
@@ -151,7 +153,7 @@ pid_t proc_wait(ndgame_t * ndgame, int wait)
     }
     
     
-    echo("Process %d stopped with status: 0x%llX.", returned_pid, ndgame->status);
+    echo("Process %d stopped with status: 0x%llX.", returned_pid, game->status);
 
 
     if (!returned_pid)
@@ -168,27 +170,27 @@ pid_t proc_wait(ndgame_t * ndgame, int wait)
     }
     
     // Get process' status once it has stopped
-    if (WIFEXITED(ndgame->status))
+    if (WIFEXITED(game->status))
     {
-        echo("Exited (sig %d)", WEXITSTATUS(ndgame->status));
+        echo("Exited (sig %d)", WEXITSTATUS(game->status));
     }
-    else if(WIFCONTINUED(ndgame->status))
+    else if(WIFCONTINUED(game->status))
     {
         echo("Continued (how? we're not even using WCONTINUED)");
     }
-    else if (WIFSIGNALED(ndgame->status))
+    else if (WIFSIGNALED(game->status))
     {
-        if (WCOREDUMP(ndgame->status))
+        if (WCOREDUMP(game->status))
         {
-            echo("Signaled w/ coredump (sig: %d)", WTERMSIG(ndgame->status));
+            echo("Signaled w/ coredump (sig: %d)", WTERMSIG(game->status));
         }
         else{
-            echo("Signaled (sig: %d)", WTERMSIG(ndgame->status));
+            echo("Signaled (sig: %d)", WTERMSIG(game->status));
         }
     }
-    else if (WIFSTOPPED(ndgame->status))
+    else if (WIFSTOPPED(game->status))
     {
-        echo("Stopped (sig: %d)", WSTOPSIG(ndgame->status));
+        echo("Stopped (sig: %d)", WSTOPSIG(game->status));
     }
 
 
@@ -200,7 +202,7 @@ pid_t proc_wait(ndgame_t * ndgame, int wait)
     int ret;
     errno = 0;
     struct ptrace_lwpinfo thread_info;
-    ret = ptrace(PT_LWPINFO, ndgame->pid, (caddr_t) &thread_info, sizeof(struct ptrace_lwpinfo));
+    ret = ptrace(PT_LWPINFO, game->pid, (caddr_t) &thread_info, sizeof(struct ptrace_lwpinfo));
     if (ret != 0)
     {
         if (errno)
@@ -233,12 +235,12 @@ pid_t proc_wait(ndgame_t * ndgame, int wait)
 
 
 // Resume execution on all threads in the traced process
-static int proc_resume_threads(ndgame_t * ndgame)
+static int proc_resume_threads()
 {
     int ret;
     int thread_count;
     pid_t pid;
-    pid = ndgame->pid;
+    pid = game->pid;
     lwpid_t * threads;
     
     echo("Resuming all threads in process %d", pid);
@@ -247,8 +249,8 @@ static int proc_resume_threads(ndgame_t * ndgame)
     // Get number of threads1
     errno = 0;
     thread_count = ptrace(PT_GETNUMLWPS, pid, 0, 0);
-    __rerr(thread_count < 0, "Error getting thread id list. PT_GETNUMLWPS returned a negative value.", 1);
-    __rerr(thread_count == 0, "Error getting thread id list. Process contains no threads??", 1);
+    __rerrv(thread_count < 0, "Error getting thread id list. PT_GETNUMLWPS returned a negative value.", 1);
+    __rerrv(thread_count == 0, "Error getting thread id list. Process contains no threads??", 1);
 
 
 
@@ -265,8 +267,8 @@ static int proc_resume_threads(ndgame_t * ndgame)
     // Get threads themselves
     errno = 0;
     ret = ptrace(PT_GETLWPLIST, pid, (caddr_t) threads, thread_count);
-    __rerr(ret != thread_count, strbufbuild("Error getting thread id list. Only read %d out of %d threads.", ret, thread_count), 1);
-    __rerr(!ret, "Error getting thread id list. (PT_GETLWPLIST returned error)", 1);
+    __rerrv(ret != thread_count, strbufbuild("Error getting thread id list. Only read %d out of %d threads.", ret, thread_count), 1);
+    __rerrv(!ret, "Error getting thread id list. (PT_GETLWPLIST returned error)", 1);
 
 
 
@@ -275,7 +277,7 @@ static int proc_resume_threads(ndgame_t * ndgame)
     for(int i = 0; i < thread_count; i++)
     {
         ret = ptrace(PT_RESUME, threads[i], 0, 0);
-        __rerr(ret, strbufbuild("Error resuming thread #%d out of %d", i, thread_count), 1);
+        __rerrv(ret, strbufbuild("Error resuming thread #%d out of %d", i, thread_count), 1);
     }
 
 
@@ -286,7 +288,7 @@ static int proc_resume_threads(ndgame_t * ndgame)
 
 
 // Suspend execution on all threads in the traced process
-static int proc_suspend_threads(ndgame_t * ndgame)
+static int proc_suspend_threads()
 {
     int ret;
     int thread_count;
@@ -294,14 +296,14 @@ static int proc_suspend_threads(ndgame_t * ndgame)
     errno = 0;
 
     pid_t pid;
-    pid = ndgame->pid;
+    pid = game->pid;
     echo("Suspending all threads in process %d", pid);
 
 
     // Get number of threads
     thread_count = ptrace(PT_GETNUMLWPS, pid, 0, 0);
-    __rerr(thread_count < 0, "Error getting thread id list. PT_GETNUMLWPS returned a negative value.", 1);
-    __rerr(thread_count == 0, "Error getting thread id list. Process contains no threads??", 1);
+    __rerrv(thread_count < 0, "Error getting thread id list. PT_GETNUMLWPS returned a negative value.", 1);
+    __rerrv(thread_count == 0, "Error getting thread id list. Process contains no threads??", 1);
 
 
     // Allocate space for the thread ids
@@ -314,8 +316,8 @@ static int proc_suspend_threads(ndgame_t * ndgame)
 
     // Get threads themselves
     ret = ptrace(PT_GETLWPLIST, pid, (caddr_t) threads, thread_count);
-    __rerr(ret != thread_count, strbufbuild("Error getting thread id list. Only read %d out of %d threads.", ret, thread_count), 1);
-    __rerr(!ret, "Error getting thread id list. (PT_GETLWPLIST returned error)", 1);
+    __rerrv(ret != thread_count, strbufbuild("Error getting thread id list. Only read %d out of %d threads.", ret, thread_count), 1);
+    __rerrv(!ret, "Error getting thread id list. (PT_GETLWPLIST returned error)", 1);
 
 
     
@@ -349,36 +351,36 @@ static int proc_suspend_threads(ndgame_t * ndgame)
 
 
 
-int proc_continue(ndgame_t * ndgame)
+int proc_continue()
 {
-    echo("Continuing %d", ndgame->pid);
+    echo("Continuing %d", game->pid);
     
     int ret;
-    ret = ptrace(PT_CONTINUE, ndgame->pid, (caddr_t) 1, SIGCONT);
+    ret = ptrace(PT_CONTINUE, game->pid, (caddr_t) 1, SIGCONT);
     if (ret)
     {
         echo("ERROR:\n# PT_CONTINUE failed with code %d (%s)", ret, strerror(ret));
         __err(1, (char *) nullptr);
     }
 
-    // ret = proc_resume_threads(ndgame->pid);
-    // __err(ret != 0, strbufbuild("proc_resume_threads failed", ndgame->pid));
+    // ret = proc_resume_threads(game->pid);
+    // __err(ret != 0, strbufbuild("proc_resume_threads failed", game->pid));
     return ret != 0;
 }
 
 
 
 
-int proc_stop(ndgame_t * ndgame)
+int proc_stop()
 {
-    echo("Stopping %d", ndgame->pid);
+    echo("Stopping %d", game->pid);
 
     int ret;
-    ret = kill(ndgame->pid, SIGSTOP);
-    __err(ret != 0, strbufbuild("kill(%d, SIGSTOP) failed", ndgame->pid));
+    ret = kill(game->pid, SIGSTOP);
+    __err(ret != 0, strbufbuild("kill(%d, SIGSTOP) failed", game->pid));
 
-    // ret = proc_suspend_threads(ndgame->pid);
-    // __err(ret != 0, strbufbuild("proc_suspend_threads failed", ndgame->pid));
+    // ret = proc_suspend_threads(game->pid);
+    // __err(ret != 0, strbufbuild("proc_suspend_threads failed", game->pid));
     return ret != 0;
 }
 
@@ -388,10 +390,10 @@ int proc_stop(ndgame_t * ndgame)
 
 
 
-int proc_get_regs(ndgame_t * ndgame, struct reg * regs)
+int proc_get_regs(struct reg * regs)
 {
     int ret;
-    if ((ret = ptrace(PT_GETREGS, ndgame->pid, (caddr_t) regs, 0)) != 0)
+    if ((ret = ptrace(PT_GETREGS, game->pid, (caddr_t) regs, 0)) != 0)
     {
         echo("ERROR:\n# PT_GETREGS failed with code %d (%s)\n", ret, strerror(ret));
     }
@@ -400,10 +402,10 @@ int proc_get_regs(ndgame_t * ndgame, struct reg * regs)
 }
 
 
-int proc_set_regs(ndgame_t * ndgame, struct reg * regs)
+int proc_set_regs(struct reg * regs)
 {
     int ret;
-    if ((ret = ptrace(PT_SETREGS, ndgame->pid, (caddr_t) regs, 0)) != 0)
+    if ((ret = ptrace(PT_SETREGS, game->pid, (caddr_t) regs, 0)) != 0)
     {
         echo("ERROR:\n# PT_SETREGS failed with code %d (%s)\n", ret, strerror(ret));
         if (errno)
@@ -416,11 +418,11 @@ int proc_set_regs(ndgame_t * ndgame, struct reg * regs)
 }
 
 
-int proc_get_dbregs(ndgame_t * ndgame, struct dbreg * dbregs)
+int proc_get_dbregs(struct dbreg * dbregs)
 {
     errno = 0;
     int ret;
-    if ((ret = ptrace(PT_GETDBREGS, ndgame->pid, (caddr_t) dbregs, 0)) != 0)
+    if ((ret = ptrace(PT_GETDBREGS, game->pid, (caddr_t) dbregs, 0)) != 0)
     {
         echo("ERROR:\n# PT_GETDBREGS failed with code %d (%d -> %s)\n", ret, errno, strerror(errno));
     }
@@ -429,11 +431,11 @@ int proc_get_dbregs(ndgame_t * ndgame, struct dbreg * dbregs)
 }
 
 
-int proc_set_dbregs(ndgame_t * ndgame, struct dbreg * dbregs)
+int proc_set_dbregs(struct dbreg * dbregs)
 {
     errno = 0;
     int ret;
-    if ((ret = ptrace(PT_SETDBREGS, ndgame->pid, (caddr_t) dbregs, 0)) != 0)
+    if ((ret = ptrace(PT_SETDBREGS, game->pid, (caddr_t) dbregs, 0)) != 0)
     {
         echo("ERROR:\n# PT_SETDBREGS failed with code %d (%d -> %s)\n", ret, errno, strerror(errno));
     }
@@ -450,7 +452,7 @@ int proc_set_dbregs(ndgame_t * ndgame, struct dbreg * dbregs)
 //! TODO: Replace these
 static struct dbreg regs;
 static struct ptrace_lwpinfo lwpinfo;
-int set_watchpoint(ndgame_t * ndgame, short index, void * address, int wp_type, int wp_len)
+int set_watchpoint(short index, void * address, int wp_type, int wp_len)
 {
     lwpid_t * lwpid_list;
     int
@@ -469,7 +471,7 @@ int set_watchpoint(ndgame_t * ndgame, short index, void * address, int wp_type, 
 
     // Get the current number of threads in the game process
     pid_t pid;
-    pid = ndgame->pid;
+    pid = game->pid;
     if ((thread_count = ptrace(PT_GETNUMLWPS, pid, null, 0)) == -1)
     {
         perror("PT_GETNUMLWPS: ");
@@ -571,7 +573,7 @@ _ret:
 
 
 // Clear the watchpoint in the process at the specified index, or all watchpoints if a value less than zero is provided
-int clear_watchpoint(ndgame_t * ndgame, short index)
+int clear_watchpoint(short index)
 {
     int ret;
     if (index > 3)
@@ -580,7 +582,7 @@ int clear_watchpoint(ndgame_t * ndgame, short index)
         return 1;
     }
     pid_t pid;
-    pid = ndgame->pid;
+    pid = game->pid;
     if (pid < 1)
     {
         echo("ERROR\nclear_watchpoint(): Invalid pid provided. (%d)", pid);
@@ -594,7 +596,7 @@ int clear_watchpoint(ndgame_t * ndgame, short index)
     {
         for (int i = 0; i < 4; i++)
         {
-            ret = set_watchpoint(ndgame, i, NULL, 0, 0);
+            ret = set_watchpoint(i, NULL, 0, 0);
             if (ret != 0)
             {
                 echo("ERROR\nclear_watchpoint(): error clearing watchpoint #%d", i);
@@ -607,7 +609,7 @@ int clear_watchpoint(ndgame_t * ndgame, short index)
 
 
     // Set specified watchpoint
-    return set_watchpoint(ndgame, index, NULL, 0, 0);
+    return set_watchpoint(index, NULL, 0, 0);
 }
 
 
@@ -617,7 +619,7 @@ int clear_watchpoint(ndgame_t * ndgame, short index)
 
 
 
-int proc_clear_args(ndgame_t * ndgame, struct reg * regs)
+int proc_clear_args(struct reg * regs)
 {
     if (!regs)
     {
@@ -628,7 +630,7 @@ int proc_clear_args(ndgame_t * ndgame, struct reg * regs)
 
     // Get the current register values to ensure critical registers like RSP are still filled
     int ret;
-    ret = proc_get_regs(ndgame, regs);
+    ret = proc_get_regs(regs);
     if (ret)
     {
         echo("ERROR: %s->proc_get_regs failed, unable to get register values when clearing args. clearing main registers anyway, but returning error", __FUNCTION__);
@@ -650,7 +652,7 @@ int proc_clear_args(ndgame_t * ndgame, struct reg * regs)
 
 
 
-int proc_set_args(ndgame_t * ndgame, struct reg * regs, uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rcx, uintptr_t rbx, uintptr_t r8, uintptr_t r9)
+int proc_set_args(struct reg * regs, uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rcx, uintptr_t rbx, uintptr_t r8, uintptr_t r9)
 {
     if (!regs)
     {
@@ -661,7 +663,7 @@ int proc_set_args(ndgame_t * ndgame, struct reg * regs, uintptr_t rdi, uintptr_t
 
     // Get the current register values to ensure critical registers like RSP are still filled
     int ret;
-    ret = proc_get_regs(ndgame, regs);
+    ret = proc_get_regs(regs);
     if (ret)
     {
         echo("ERROR: %s->proc_get_regs failed, unable to get register values when clearing args. clearing main registers anyway, but returning error", __FUNCTION__);
@@ -688,7 +690,7 @@ int proc_set_args(ndgame_t * ndgame, struct reg * regs, uintptr_t rdi, uintptr_t
 
 
 // Setup a function call at the specified function_address in the tracee.
-int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return_val_ptr, struct reg * arg_regs)
+int proc_call(void * function_address, unsigned long * return_val_ptr, struct reg * arg_regs)
 {
     if (function_address == 0)
     {
@@ -701,26 +703,26 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
     strncpy(errmsg, (const char *) strbufbuild("Unable to complete function call to 0x%llX", function_address), sizeof(errmsg));
 
     // Check for a null or invalid ndgame_t pointer
-    if (!ndgame)
+    if (!game)
     {
-        echo("ERROR: %s->Null ndgame ptr provided", __FUNCTION__);
-        __rerr(1, errmsg, 1);
+        echo("ERROR: %s->Null game ptr provided", __FUNCTION__);
+        __rerrv(1, errmsg, 1);
     }
 
     
     
     //! I guess we can't actually read from that address? I assume we can only read after the header?
     // int ret;
-    // ret = read_byte(ndgame->pid, (void *) 0x400000);
-    // __rerr(ret != 0xCC || errno, errmsg, 1);
+    // ret = read_byte(game->pid, (void *) 0x400000);
+    // __rerrv(ret != 0xCC || errno, errmsg, 1);
     
 
     
     // Back the regisers up
     int ret;
     struct reg og_registers;
-    ret = proc_get_regs(ndgame, &og_registers);
-    __rerr(ret, errmsg, 1);
+    ret = proc_get_regs(&og_registers);
+    __rerrv(ret, errmsg, 1);
 
     
     
@@ -735,23 +737,23 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
     
 
     // Set return address
-    write_ulong(ndgame->pid, (void *) (arg_regs->r_rsp -= 8), (unsigned long) 0x400000);
+    write_ulong(game->pid, (void *) (arg_regs->r_rsp -= 8), (unsigned long) 0x400000);
     
     // Set next instruction address
     arg_regs->r_rip = (critical_t) function_address;
     
-    ret = proc_set_regs(ndgame, arg_regs);
-    __rerr(ret, errmsg, 1);
+    ret = proc_set_regs(arg_regs);
+    __rerrv(ret, errmsg, 1);
 
     
     
     
     // Resume execution until the function returns and hits the breakpoint
-    ret = proc_continue(ndgame);
-    __rerr(ret, errmsg, 1);
+    ret = proc_continue();
+    __rerrv(ret, errmsg, 1);
 
-    ret = proc_wait(ndgame, true);
-    __rerr(!ret, errmsg, 1);
+    ret = proc_wait(true);
+    __rerrv(!ret, errmsg, 1);
 
 
 
@@ -762,8 +764,8 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
     if (return_val_ptr > 0)
     {
         // Read return value
-        ret = proc_get_regs(ndgame, &return_regs);
-        __rerr(ret, errmsg, 1);
+        ret = proc_get_regs(&return_regs);
+        __rerrv(ret, errmsg, 1);
 
         *(long long *) return_val_ptr = return_regs.r_rax;
         
@@ -778,8 +780,8 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
 
 
     // Restore the initial register values
-    ret = proc_set_regs(ndgame, &og_registers);
-    __rerr(ret, errmsg, 1);
+    ret = proc_set_regs(&og_registers);
+    __rerrv(ret, errmsg, 1);
     
     return 0;
 }
@@ -791,7 +793,7 @@ int proc_call(ndgame_t * ndgame, void * function_address, unsigned long * return
 
 
 
-void * proc_malloc(ndgame_t * ndgame, size_t amount)
+void * proc_malloc(size_t amount)
 {
     int ret;         // Return status for function calls
     void * mem;      // Allocated memory pointer
@@ -799,12 +801,12 @@ void * proc_malloc(ndgame_t * ndgame, size_t amount)
 
 
     // set malloc arguments
-    ret = proc_set_args(ndgame, &regs, amount, 0, 0, 0, 0, 0, 0);
-    __rerr(ret, nullstr, nullptr);
+    ret = proc_set_args(&regs, amount, 0, 0, 0, 0, 0, 0);
+    __rerrv(ret, nullstr, nullptr);
 
     // call malloc
-    ret = proc_call(ndgame, ndgame->func_malloc, (unsigned long *) &mem, &regs);
-    __rerr(ret, nullstr, nullptr);
+    ret = proc_call(game->func.malloc, (unsigned long *) &mem, &regs);
+    __rerrv(ret, nullstr, nullptr);
 
     return mem;
 }
@@ -812,19 +814,19 @@ void * proc_malloc(ndgame_t * ndgame, size_t amount)
 
 
 
-int proc_free(ndgame_t * ndgame, void * allocated_mem)
+int proc_free(void * allocated_mem)
 {
     int ret;         // Return status for function calls
     struct reg regs; // Register struct for call args
 
 
     // set free arguments
-    ret = proc_set_args(ndgame, &regs, (uintptr_t) allocated_mem, 0, 0, 0, 0, 0, 0);
-    __rerr(ret, "ERROR: free proc_set_args call failed!", 1);
+    ret = proc_set_args(&regs, (uintptr_t) allocated_mem, 0, 0, 0, 0, 0, 0);
+    __rerrv(ret, "ERROR: free proc_set_args call failed!", 1);
 
     // Call free
-    ret = proc_call(ndgame, (void *) ndgame->func_free, NULL, &regs);
-    __rerr(ret, "ERROR: Call to tracee's \"free\" failed", 1);
+    ret = proc_call((void *) game->func.free, NULL, &regs);
+    __rerrv(ret, "ERROR: Call to tracee's \"free\" failed", 1);
     
     return 0;
 }
@@ -835,26 +837,26 @@ int proc_free(ndgame_t * ndgame, void * allocated_mem)
 
 
 
-int patch_process(ndgame_t * ndgame, size_t patch_count, byte * patch_addresses[], const byte * patch_data[], size_t patch_sizes[])
+int patch_process(size_t patch_count, byte * patch_addresses[], const byte * patch_data[], size_t patch_sizes[])
 {
-    __rerr(1, "Unfinished function called prematurely.", 1);
+    __rerrv(1, "Unfinished function called prematurely.", 1);
     exit(1);
 
 
-    __rerr(!ndgame, "Invalid ndgame pointer provided.", 1);
-    __rerr(!patch_count, "WARNING: Patch count was zero.", 0);
-    __rerr(!(byte *) patch_data, "Invalid patch data array pointer provided.", 1);
+    __rerrv(!game, "Invalid game pointer provided.", 1);
+    __rerrv(!patch_count, "WARNING: Patch count was zero.", 0);
+    __rerrv(!(byte *) patch_data, "Invalid patch data array pointer provided.", 1);
 
-    proc_wait(ndgame, false);
+    proc_wait(false);
 
     int ret;
-    echo("Writing %d patches to process %d...", patch_count, ndgame->pid);
+    echo("Writing %d patches to process %d...", patch_count, game->pid);
     for (int i = 0, j = 0; i < patch_count; i++, j = 0)
     {
         while (j < patch_sizes[i])
         {
-            ret = write_byte(ndgame->pid, patch_addresses[i] + j, *(patch_data[i] + j));
-            __rerr(ret, strbufbuild("Error writing byte @0x%X to 0x%llX", *(patch_data[i] + j), patch_addresses[i] + j), 1);
+            ret = write_byte(game->pid, patch_addresses[i] + j, *(patch_data[i] + j));
+            __rerrv(ret, strbufbuild("Error writing byte @0x%X to 0x%llX", *(patch_data[i] + j), patch_addresses[i] + j), 1);
 
             ++j;
         }
@@ -862,13 +864,13 @@ int patch_process(ndgame_t * ndgame, size_t patch_count, byte * patch_addresses[
 
 
     byte chk;
-    echo("Verifying patches were written to %d...", ndgame->pid);
+    echo("Verifying patches were written to %d...", game->pid);
     for (int i = 0, j = 0; i < patch_count; i++, j = 0)
     {
         while (j < patch_sizes[i])
         {
-            chk = read_byte(ndgame->pid, patch_addresses[i] + j);
-            __rerr(errno, strbufbuild("Error reading expected byte @0x%X from 0x%llX", *(patch_data[i] + j), patch_addresses[i] + j), 1);
+            chk = read_byte(game->pid, patch_addresses[i] + j);
+            __rerrv(errno, strbufbuild("Error reading expected byte @0x%X from 0x%llX", *(patch_data[i] + j), patch_addresses[i] + j), 1);
 
             if (chk != *(patch_data[i] + j))
             {

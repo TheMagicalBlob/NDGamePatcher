@@ -35,72 +35,59 @@ typedef unsigned char byte;
 // #define LOGOUTPUT
 // #define NOTIFY
 
+#define __ERROR_PRINT(check, message) {\
+    if (check) {\
+        char output[0x400],\
+             bars[0x100],\
+             buf[0x600];\
+\
+        snprintf(output, sizeof(output), "# ERROR:\n# File %s\n# Func %s\n# Line %d", __FILE__, __FUNCTION__, __LINE__ - 1);\
+\
+        if ((char *) message && *(char *) message != 0) {\
+            snprintf(output, sizeof(output), "%s\n# Message: %s", output, message);\
+        }\
+        if (errno) {\
+            snprintf(output, sizeof(output), "%s\n# Message (errno): %s", output, strerror(errno));\
+        }\
+\
+        int len;\
+        len = get_longest_line_length(output, sizeof(output));\
+        for (int i = 0; i < sizeof(bars) && i < len + 2; i++) {\
+            *(bars + i) = '#';\
+        }\
+        *(bars + len + 2) = 0;\
+\
+        strncpy(buf, output, sizeof(output));\
+        snprintf(buf, sizeof(output), "\n%s\n%s\n%s\n", bars, output, bars);\
+        echo((char *) buf);\
+    }\
+}
 
 
-// Error status check/output
-// For where additional functionality beyond printing and asserting is not needed.
-// If check evaluates to true, assert and print message if it isn't null.
+
+// Output error details if check evaluates to true. Does not return or break.
 // Additionally check errno and output it's message accordingly
 #define __err(check, message) {\
-    if (check) {\
-        char output[0x400],\
-             bars[0x100],\
-             buf[0x600];\
-\
-        snprintf(output, sizeof(output), "# ERROR:\n# File %s\n# Func %s\n# Line %d", __FILE__, __FUNCTION__, __LINE__ - 1);\
-\
-        if ((char *) message && *(char *) message != 0) {\
-            snprintf(output, sizeof(output), "%s\n# Message: %s", output, message);\
-        }\
-        if (errno) {\
-            snprintf(output, sizeof(output), "%s\n# Message (errno): %s", output, strerror(errno));\
-        }\
-\
-        int len;\
-        len = get_longest_line_length(output, sizeof(output));\
-        for (int i = 0; i < sizeof(bars) && i < len + 2; i++) {\
-            *(bars + i) = '#';\
-        }\
-\
-        strncpy(buf, output, sizeof(output));\
-        snprintf(buf, sizeof(output), "\n%s\n%s\n%s\n", bars, output, bars);\
-        echo((char *) buf);\
-    }\
-}
+    __ERROR_PRINT(check, message)\
+}\
 
 
-// Error status check/output W/ return code.
-// For where additional functionality beyond printing and asserting is not needed.
-// If check evaluates to true, assert and print message if it isn't null.
+
+// Return void if check evaluates to true W/ output
 // Additionally check errno and output it's message accordingly
-#define __rerr(check, message, error_code) {\
-    if (check) {\
-        char output[0x400],\
-             bars[0x100],\
-             buf[0x600];\
-\
-        snprintf(output, sizeof(output), "# ERROR:\n# File %s\n# Func %s\n# Line %d", __FILE__, __FUNCTION__, __LINE__ - 1);\
-\
-        if ((char *) message && *(char *) message != 0) {\
-            snprintf(output, sizeof(output), "%s\n# Message: %s", output, message);\
-        }\
-        if (errno) {\
-            snprintf(output, sizeof(output), "%s\n# Message (errno): %s", output, strerror(errno));\
-        }\
-\
-        int len;\
-        len = get_longest_line_length(output, sizeof(output));\
-        for (int i = 0; i < sizeof(bars) && i < len + 2; i++) {\
-            *(bars + i) = '#';\
-        }\
-\
-        strncpy(buf, output, sizeof(output));\
-        snprintf(buf, sizeof(output), "\n%s\n%s\n%s\n", bars, output, bars);\
-        echo((char *) buf);\
-\
-        return error_code;\
-    }\
-}
+#define __rerr(check, message) {\
+    __ERROR_PRINT(check, message)\
+    return;\
+}\
+
+
+
+// Return provided error_code if check evaluates to true W/ output and return value/code
+// Additionally check errno and output it's message accordingly
+#define __rerrv(check, message, error_code) {\
+    __ERROR_PRINT(check, message)\
+    return error_code;\
+}\
 
 
 
@@ -114,20 +101,24 @@ typedef unsigned char byte;
 
 
 // Basic ID system for the loaded games. 
-typedef enum game_identifier : char
+typedef enum game_id : char
 {
-    Invalid = -1, // Unknown or unsupported
-    T2R,
-    T1x,
-    UC4,
-    TLL
+    NONE =  0, // Unset
+    T2   = -1, // The Last of Us Part II
+    T2R  =  1, // The Last of Us Part II Remastered
+    T1R  = -2, // The Last of Us Remastered
+    T1x  =  2, // The Last of Us Remake/Part I
+    UC4  = -3, // Uncharted 4
+    UC4R =  3, // Uncharted 4 Remastered
+    TLL  = -4, // Uncharted: The Lost Legacy
+    TLLR =  4  // Uncharted: The Lost Legacy Remastered
 
 } game_id_t;
 
 
 
 
-typedef enum watchpoint_type
+typedef enum wp_type
 {
     WP_CODE,     // Break on instruction execution only.
     WP_DATARW,   // Break on data writes only.
@@ -171,6 +162,8 @@ typedef struct app_info
 
 #pragma once
 typedef struct dmenu_menu_base_s dmenu_menu_base_t;
+typedef struct struct_dmenu_types_s dmenu_types_t;
+
 // Struct for handling game-specific addresses and other variables. Assigned after attaching
 typedef struct
 {
@@ -178,21 +171,33 @@ typedef struct
     game_id_t game_id;
     int status; // Status reported by waitpid the last time the process stopped
     int app_id;
-    char app_ver[0xA];
-    char title_id[0x80];
-    char title[0x40];
+    char app_ver[0xB];
+    char title_id[0xA];
+    char title[0x80];
+
     dmenu_menu_base_t * dev_menu_base;
     dmenu_menu_base_t * quick_menu_base;
     dmenu_menu_base_t * favorites_menu_base;
 
+    const dmenu_types_t * vptrs;
 
-    // Addresses of various functions/variables in the game process
-    byte * dat_novis;
-    void * func_malloc;
-    void * func_free;
-    void * func_lookup_symbol;
+    // Addresses of various functions/variables in the game process (not sure I'm actually gonna keep this, as it would be tedious to maintain)
+    struct {
+        // Boolean pointers
+        struct {
+            byte * novis; // Toggle usage of visibility info (culling)
+
+        } bool;
+    } dat;
+
+    struct {
+        void * malloc;
+        void * free;
+        void * lookup_symbol;
+    } func;
 
 } ndgame_t;
+
 
 
 
@@ -212,8 +217,6 @@ void notify(const char * message, ...);
 char * strbufbuild(char * format, ...);
 
 int get_longest_line_length(const char * str, size_t str_maxlen);
-
-ndgame_t * get_ndgame();
 
 int * get_watchpoint_count();
 

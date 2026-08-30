@@ -27,13 +27,13 @@ Credits so far:
 #include "inc/proc.h"
 #include "inc/memory.h"
 #include "inc/dmenu.h"
+#include "inc/dmenu_addresses.h"
 
 
 //# external functions to link
 extern int sceKernelSendNotificationRequest(int, notify_request_t *, size_t, int);
 extern int sceKernelGetAppInfo(pid_t pid, app_info_t *info);
 // extern int sceKernelLoadStartModule(const char *name, uint64_t argc, const void *argv, uint32_t flags, void *, int *result);
-// extern uint sceShellCoreUtilGetAppLaunchedParamString(int appid, const char * name, char * dst , size_t max);
 // extern int sceShellCoreUtilGetAppLaunchedParamInt(const uint32_t appid, const char* key, int* out);
 extern int sceShellCoreUtilGetAppLaunchedParamString(const uint32_t appid, const char* key, char* out, size_t out_sz);
 
@@ -50,10 +50,11 @@ extern int sceShellCoreUtilGetAppLaunchedParamString(const uint32_t appid, const
 // File handle for open logfile being saved in console's /data folder
 static int logfile;
 
-static ndgame_t * ndgame_ptr;
+static ndgame_t ndgame;
 
-static int watchpoint_count;
+static int watchpoint_count = 0;
 
+ndgame_t * game;
 
 
 
@@ -83,9 +84,9 @@ int echo(const char * string, ...)
     char msg[4000];
     len = vsnprintf(msg, sizeof(msg) - 2, string, list);
     
-    if (ndgame_ptr)
+    if (game)
     {
-        klog_printf("%d:%d: %s\n", getpid(), ndgame_ptr->pid, msg);
+        klog_printf("%d:%d: %s\n", getpid(), game->pid, msg);
     }
     else{
         klog_printf("%d:%d: %s\n", getpid(), 0, msg);
@@ -121,7 +122,7 @@ void notify(const char * message, ...)
     sceKernelSendNotificationRequest(0, &request, sizeof(request), 0); // Not sure what the first and last arg are for. One may be notification type though
 #endif
 #ifdef DEBUG
-    printf("[Notification]: %s\n", request.message);
+    echo("[Notification]: %s\n", request.message);
 #endif
 }
 
@@ -174,19 +175,22 @@ void log_message(const char * base_string, ...)
 
 
 
-// Construct one string in memory to be returned C#-style. Uses one static buffer, only use for certain prints (like the assertion macro)
+// [DEBUG-ONLY] Construct one string in memory to be returned C#-style. Uses one static buffer, only use for certain prints (like the assertion macro)
 char * strbufbuild(char * format, ...)
 {
-    va_list list;
-    static char message[2000];
-    bzero(message, sizeof(message));
+    #ifdef DEBUG
+        va_list list;
+        static char message[2000];
+        bzero(message, sizeof(message));
 
-    // Build string with variable arguments
-    va_start(list, format);
-    vsnprintf(message, sizeof(message) - 1, message, list);
-    va_end(list);
-    
-    return message;
+        // Build string with variable arguments
+        va_start(list, format);
+        vsnprintf(message, sizeof(message) - 1, message, list);
+        va_end(list);
+        return message;
+    #else
+        return nullptr;
+    #endif
 }
 
 
@@ -237,19 +241,6 @@ _ret:
     }
     return biggest;
 }
-
-
-
-
-
-
-
-
-ndgame_t * get_ndgame()
-{
-    return ndgame_ptr;
-}
-
 
 
 
@@ -319,11 +310,81 @@ pid_t find_pid(const char *name)
 //## Main Function Declarations
 //#
 
+static int get_app_metadata(pid_t pid)
+{
+    
+    app_info_t app_info;
+    ret = sceKernelGetAppInfo(pid, &app_info);
+    if (ret)
+    {
+        echo("Error getting app info, retrying in 5 seconds");
+        sleep(5);
+        goto _retry;
+    }
+    
+
+
+
+    echo("Read app info, checking for known title id");
+    if (!strncmp(app_info.title_id, titleids[i], 0xA))
+    {
+        echo("Known title id found, saving app info");
+        game->pid = pid;
+        game->app_id = app_info.app_id;
+errno = 0;
+        ret = sceShellCoreUtilGetAppLaunchedParamString(game->app_id, "TITLE_ID", game->title_id, sizeof(game->title_id));
+        __rerrv(ret != 0, "TITLE Err", 0);
+        if (!*game->title_id)
+        {
+            strncpy(game->title_id, app_info.title_id, sizeof(app_info.title_id));
+        }
+
+        ret = sceShellCoreUtilGetAppLaunchedParamString(game->app_id, "TITLE", game->title, sizeof(game->title));
+        __rerrv(ret != 0, "TITLE Err", 0);
+        ret = sceShellCoreUtilGetAppLaunchedParamString(game->app_id, "CONTENT_VERSION", game->app_ver, sizeof(game->app_ver));
+        __rerrv(ret != 0, "CONTENT_VERSION Err", 0);
+        if (!*(char *) game->app_ver)
+        {
+            ret = sceShellCoreUtilGetAppLaunchedParamString(game->app_id, "APP_VER", game->app_ver, sizeof(game->app_ver));
+            __rerrv(ret != 0, "APP_VER Err", 0);
+        }
+        
+        int ret;
+        if ((ret = attach()))
+        {
+            return 1;
+        }
+
+
+        notify(
+            "Attached to game process. (pid %d)\n"
+            "Title ID: %s (app id: %d)\n"
+            "App Version: %s\n"
+            "Title: %s\n",
+            
+            pid,
+            game->title_id,
+            game->app_id,
+            game->app_ver,
+            game->title
+        );
+        
+        proc_wait(true);
+        return 0;
+    }
+
+
+    goto _retry;
+}
+
+
+
+
 // Wait for an eboot.bin process to be found, then connect and attach to it if it's title id matches one of the known ones
 // Saves the pid, app id, and title id of the attached process to the provided ndgame struct
 // 
 //! TODO: Add support for the other naughtydog executable names so the payload works regardless of which is running
-static int wait_for_game_launch(ndgame_t * ndgame)
+static int wait_for_game_launch()
 {
     pid_t pid, skipped_ids[0x10];
 
@@ -339,14 +400,18 @@ static int wait_for_game_launch(ndgame_t * ndgame)
         // T1X Ids
         "PPSA03396",
         "PPSA07642",
-        "PPSA07643"
+        "PPSA07643",
+
+
+        // UC4 PS4 IDs
+        "CUSA00918",
+        "CUSA00341"
     };
 
 
     //! TODO: remember to check for the other possible NaughtyDog executable names
     //! TODO: Replace with kernel event method. We've already added credits for it, understand and then use it already
     // Check for any running eboot.bin
-_retry:
     pid = find_pid("eboot.bin");
     while (!pid)
     {
@@ -373,65 +438,15 @@ _retry:
 
     
     echo("Found eboot.bin (pid %d), reading app info...", pid);
-    app_info_t app_info;
-    ret = sceKernelGetAppInfo(pid, &app_info);
-    if (ret)
-    {
-        echo("Error getting app info, retrying in 5 seconds");
-        sleep(5);
-        goto _retry;
-    }
+    ret = get_app_metadata(pid);
+
+
     
-
-
-
-    echo("Read app info, checking for known title id");
-    for (int i = 0; i < sizeof(titleids) / 8; i++)
-    {
-        if (!strncmp(app_info.title_id, titleids[i], 0xA))
-        {
-            echo("Known title id found, saving app info");
-            ndgame->pid = pid;
-            ndgame->app_id = app_info.app_id;
-
-            sceShellCoreUtilGetAppLaunchedParamString(ndgame->app_id, "TITLE_ID", ndgame->title_id, sizeof(ndgame->title_id));
-            sceShellCoreUtilGetAppLaunchedParamString(ndgame->app_id, "TITLE", ndgame->title, sizeof(ndgame->title));
-            sceShellCoreUtilGetAppLaunchedParamString(ndgame->app_id, "CONTENT_VERSION", ndgame->app_ver, sizeof(ndgame->app_ver));
-            if (!*(char *) ndgame->app_ver)
-            {
-                sceShellCoreUtilGetAppLaunchedParamString(ndgame->app_id, "APP_VER", ndgame->app_ver, sizeof(ndgame->app_ver));
-            }
-            
-            int ret;
-            if ((ret = attach(ndgame)))
-            {
-                return 1;
-            }
-
-
-            notify(
-                "Attached to game process. (pid %d)\n"
-                "Title ID: %s (app id: %d)\n"
-                "App Version: %s\n"
-                "Title: %s\n",
-                
-                pid,
-                ndgame->title_id,
-                ndgame->app_id,
-                ndgame->app_ver,
-                ndgame->title
-            );
-            
-            proc_wait(ndgame, true);
-            return 0;
-        }
-    }
 
 
     echo("App's title id did not match any known, adding pid %d to list of ingored processes, and retrying when a different app launches", pid);
     skipped_ids[attempts++] = pid; // Only add the pid to skipped processes if we don't recognize the title id
     sleep(5);
-    goto _retry;
 }
 
 
@@ -441,66 +456,73 @@ _retry:
 
 
 
-static int find_and_trace_game(ndgame_t * ndgame)
+static game_id_t find_and_trace_game()
 {
     // Reset the current game instance
-    bzero(ndgame, sizeof(ndgame_t));
+    bzero(game, sizeof(ndgame_t));
 
-    // unsigned long id_check;
-    if (wait_for_game_launch(ndgame))
+    if (wait_for_game_launch(game))
     {
         echo("An error occured while waiting for game launch, aborting payload.");
-        return 1;
+        return NONE;
     }
 
     
 
+    //! TODO: Write an app_ver check
 
-    //! TODO: Load and check app.db for the game's app_ver
-    switch(* ((unsigned long *) ((unsigned long) ndgame->title_id + 1)))
+
+
+
+    // Read from the title id's string * + 1 so we can read it as an unsigned long without missing id's (e.x. reading both PSA15511 and PSA15512 as (ulong)PSA1551)
+    switch(* (unsigned long *) (game->title_id + 1))
     {
         // T2R
         case 3618138931251467088: // PSA10662
         case 4048794567581979472: // PSA15508
         case 3544672884293194576: // PSA15511
         case 3616730478331122512: // PSA15512
-            ndgame->game_id = T2R;
+            game->game_id = T2R;
             
-            ndgame->dev_menu_base       = (dmenu_menu_base_t *) read_ulong(ndgame->pid, (unsigned long *) T2RDMENU_DEV_MENU_BASE_PTR);
-            ndgame->quick_menu_base     = (dmenu_menu_base_t *) read_ulong(ndgame->pid, (unsigned long *) T2RDMENU_QUICK_MENU_BASE_PTR);
-            ndgame->favorites_menu_base = (dmenu_menu_base_t *) read_ulong(ndgame->pid, (unsigned long *) T2RDMENU_FAVORITES_MENU_BASE_PTR);
+            game->dev_menu_base       = (dmenu_menu_base_t *) read_ulong(game->pid, (unsigned long *) T2RDMENU_DEV_MENU_BASE_PTR);
+            game->quick_menu_base     = (dmenu_menu_base_t *) read_ulong(game->pid, (unsigned long *) T2RDMENU_QUICK_MENU_BASE_PTR);
+            game->favorites_menu_base = (dmenu_menu_base_t *) read_ulong(game->pid, (unsigned long *) T2RDMENU_FAVORITES_MENU_BASE_PTR);
 
-            ndgame->dat_novis = T2R_NOVIS;
-            ndgame->func_malloc = T2R_MALLOC;
-            ndgame->func_free = T2R_FREE;
-            ndgame->func_lookup_symbol = T2R_LOOKUPSYMBOL;
+            game->dat.bool.novis = T2R_FREE;
+            game->func.malloc = T2R_MALLOC;
+            game->func.free = T2R_FREE;
+            game->func.lookup_symbol = T2R_LOOKUPSYMBOL;
+
+            game->vptrs = &dmenu_t2r_02001010_vptrs;
             break;
 
         // T1X
         case 3907210446666552144: // PSA03396
         case 3617576011346039632: // PSA07642 
         case 3689633605383967568: // PSA07643
-            ndgame->game_id = T1x;
+            game->game_id = T1x;
             
-            ndgame->dev_menu_base       = (dmenu_menu_base_t *) read_ulong(ndgame->pid, (unsigned long *) T1XDMENU_DEV_MENU_BASE_PTR);
-            ndgame->quick_menu_base     = (dmenu_menu_base_t *) read_ulong(ndgame->pid, (unsigned long *) T1XDMENU_QUICK_MENU_BASE_PTR);
-            ndgame->favorites_menu_base = (dmenu_menu_base_t *) read_ulong(ndgame->pid, (unsigned long *) T1XDMENU_FAVORITES_MENU_BASE_PTR);
+            game->dev_menu_base       = (dmenu_menu_base_t *) read_ulong(game->pid, (unsigned long *) T1XDMENU_DEV_MENU_BASE_PTR);
+            game->quick_menu_base     = (dmenu_menu_base_t *) read_ulong(game->pid, (unsigned long *) T1XDMENU_QUICK_MENU_BASE_PTR);
+            game->favorites_menu_base = (dmenu_menu_base_t *) read_ulong(game->pid, (unsigned long *) T1XDMENU_FAVORITES_MENU_BASE_PTR);
 
-            ndgame->dat_novis = T1X_NOVIS;
-            ndgame->func_malloc = T1X_MALLOC;
-            ndgame->func_free = T1X_FREE;
-            ndgame->func_lookup_symbol = T1X_LOOKUPSYMBOL;
+            game->dat.bool.novis = T1X_FREE;
+            game->func.malloc = T1X_MALLOC;
+            game->func.free = T1X_FREE;
+            game->func.lookup_symbol = T1X_LOOKUPSYMBOL;
+
+            game->vptrs = &dmenu_t1x_02002000_vptrs;
             break;
 
 
         default:
-            echo("Unknown game title id read (%llu)", *((unsigned long *) ((unsigned long) ndgame->title_id + 1)));
-            // detach(ndgame, __FUNCTION__);
-            // bzero(ndgame, sizeof(ndgame_t));
+            echo("Unknown game title id read (%llu)", *((unsigned long *) ((unsigned long) game->title_id + 1)));
+            // detach(__FUNCTION__);
+            // bzero(sizeof(game_t));
             return 1;
     }
 
-    echo("Game id: %d", ndgame->game_id);
+    echo("Game id: %d", game->game_id);
     return 0;
 }
 
@@ -524,21 +546,21 @@ void cleanup(int exit_code)
     echo("\n==================================\n| DMenu Payload Exiting... (%d) |\n==================================", getpid());
     
 
-    if (ndgame_ptr && ndgame_ptr->pid)
+    if (game && game->pid)
     {
-        if (proc_stop((ndgame_t *) ndgame_ptr))
+        if (proc_stop())
         {
-            echo("Unable to suspend process %d", ndgame_ptr->pid);
+            echo("Unable to suspend process %d", game->pid);
         }
-        proc_wait((ndgame_t *) ndgame_ptr, false);
+        proc_wait(false);
         
         if (get_watchpoint_count())
         {
-            echo("Clearing watchpoints and detaching from process %d", ndgame_ptr->pid);
-            clear_watchpoint((ndgame_t *) ndgame_ptr, -1);
+            echo("Clearing watchpoints and detaching from process %d", game->pid);
+            clear_watchpoint(-1);
         }
 
-        detach((ndgame_t *) ndgame_ptr, __FUNCTION__);
+        detach(__FUNCTION__);
     }
 
 
@@ -579,21 +601,76 @@ void sighandler(int signal)
 
 
 
+//# Testing shit
+#ifdef DEBUG
+static void debug_misc()
+{
+    errno = 0;
+    
+    //#
+    //## Function Call issues
+    //#
+    int ret;
+    void * addr;
+    struct reg _args;
+    unsigned long return_check;
+
+    
+    // Find game process to trace
+    ret = find_and_trace_game();
+    __rerr(ret, "Unhandled error finding game process, payload debug_misc aborting.");
+
+    
+
+    ret = proc_clear_args(&_args);
+    __rerr(ret, "Error clearing args, aborting test call");
+
+    echo("call 1 pre");
+    addr = (void *) 0x16cc670; // Toggle menu's open state
+
+    ret = proc_call(addr, &return_check, &_args);
+    __rerr(ret, strbufbuild("Error calling test function 0x%llX", addr));
+    echo("call 1 post");
+
+
+    
+    // Detonate all enemies
+    ret = proc_clear_args(&_args);
+    __rerr(ret, "Error clearing args, aborting test call");
+
+    echo("call 2 pre");
+    addr = (void *) 0x16cc530;
+
+    ret = proc_call(addr, &return_check, &_args);
+    __rerr(ret, strbufbuild("Error calling test function 0x%llX", addr));
+    echo("call 2 post");
+
+    cleanup(ret);
+}
+#endif
+
+
+
+
+
+
+
 
 // Main payload loop (well, it will be a loop eventually)
-static int start(ndgame_t * ndgame, int module_pid)
+static int start(int this)
 {
-    int ret;
+    echo("Proceeding with new %s instance (%d)", PAYLOAD_NAME, this);
 
+    int ret;
     // Find game process to trace
-    ret = find_and_trace_game(ndgame);
-    __rerr(ret, "Unhandled error finding game process, payload aborting.", 1);
+    ret = find_and_trace_game();
+    __rerrv(ret, "Unhandled error finding game process, payload aborting.", 1);
 
 
 
 
     // Make sure novis is present
-    ret = add_novis_option(ndgame, menu_index_quick);
+    ret = add_novis_option(menu_index_quick);
     if (ret)
     {
         echo("Error adding novis option, proceeding processes may also fail.\n");
@@ -612,29 +689,25 @@ static int start(ndgame_t * ndgame, int module_pid)
 int main()
 {
     //#
-    //## Payload setup/init
+    //## Payload INIT
     //#
-
+    
     // Set process name
     syscall(SYS_thr_set_name, -1, PAYLOAD_NAME);
-
+    
     // Set handler to print exit message (cleanup not needed yet)
     atexit(print_exit_message);
-
-
-
-
+    
+    
     // Kill any previous instances
-    int ret;
-    errno = 0;
-    pid_t pid;
+    int pid,
+    tries = 0;
     if ((pid = find_pid(PAYLOAD_NAME)) > 0)
     {
-        ret = 0;
         do {
-            printf("Killing old instance (pid: %d)...\n", pid);
+            printf("Killing old %s instance (pid: %d)...\n", PAYLOAD_NAME, pid);
             
-            ret ++;
+            tries ++;
             if (kill(pid, SIGTERM))
             {
                 echo("ERROR: SIGTERM on process (%d) failed!!! - No idea how this failed, but something's clearly wrong. Off we screw.", pid);
@@ -649,7 +722,11 @@ int main()
             notify("Sent termination signal to previous %s instance %d", PAYLOAD_NAME, pid);
             sleep(2);
         }
-        while ((pid = find_pid(PAYLOAD_NAME)) > 0 && ret < 2);
+        while ((pid = find_pid(PAYLOAD_NAME)) > 0 && tries < 2);
+        if (pid)
+        {
+            echo("WARNING: Previous %s instance(s) still running", PAYLOAD_NAME);
+        }
 
         exit(0);
         return 0;
@@ -667,94 +744,38 @@ int main()
 
 
 
+
+
+
+
+
     
-
-
-
-
+#ifdef DEBUG
     //#
-    //## Global/local variable assignments/declarations
+    //## Payload DEBUG START
     //#
-
-
-    errno = 0;
-    pid_t this;
-    watchpoint_count = 0;
-    static ndgame_t ndgame;
-    ndgame_ptr = &ndgame;
-
-    this = getpid();
-    __rerr(!this || errno, "ERROR: getpid returned error?? What on earth have you done?! (or something else set errno)", 1);
-    
-    
-    
-
-
-
-
-    
-    //#
-    //## Testing shit START
-    //#
-    #ifdef DEBUG
-    {
-        //#
-        //## Function Call issues
-        //#
-        void * addr;
-        struct reg _args;
-        unsigned long return_check;
-
-        
-        // Find game process to trace
-        ret = find_and_trace_game(&ndgame);
-        __rerr(ret, "Unhandled error finding game process, payload aborting.", 1);
-
-        
-
-        ret = proc_clear_args(&ndgame, &_args);
-        __rerr(ret, "Error clearing args, aborting test call", 1);
-
-        echo("call 1 pre");
-        addr = (void *) 0x16cc670; // Toggle menu's open state
-
-        ret = proc_call(&ndgame, addr, &return_check, &_args);
-        __rerr(ret, strbufbuild("Error calling test function 0x%llX", addr), 1);
-        echo("call 1 post");
-
-
-        
-        // Detonate all enemies
-        ret = proc_clear_args(&ndgame, &_args);
-        __rerr(ret, "Error clearing args, aborting test call", 1);
-
-        echo("call 2 pre");
-        addr = (void *) 0x16cc530;
-
-        ret = proc_call(&ndgame, addr, &return_check, &_args);
-        __rerr(ret, strbufbuild("Error calling test function 0x%llX", addr), 1);
-        echo("call 2 post");
-
-
-        return ret != 0;
-        return 0;
-    }
-    #endif
-
-
+    debug_misc();
+#endif
 
     
 
 
 
-
+    
+    
+    
     //#
     //## Payload START
     //#
-    echo("Proceeding with new %s instance (%d)", PAYLOAD_NAME, this);
-    ret = start(&ndgame, this);
+    int ret;
+    watchpoint_count = 0;
+    game = &ndgame;
+    
+    // Payload start
+    ret = start(getpid());
     __err(ret, "Payload start exited with error");
 
+    // Payload exit cleanup
     cleanup(ret);
     return ret;
 }
