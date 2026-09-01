@@ -1,24 +1,8 @@
-/* Copyright (C) 2023 John Törnblom
-
-This program is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 3, or (at your option) any
-later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; see the file COPYING. If not, see
-<http://www.gnu.org/licenses/>.  */
-
 /*
 Credits so far:
 
 - John Tornblom (find_pid function)
-- Bestpid (kqueue/kevent stuff for monitoring game launch/exit was learned from backpork)
+- Bestpig (va_list/args & kqueue/kevent stuff for monitoring game launch/exit were both learned from backpork. Read the docs so I could write and understand both myself, though)
 - Illusiony (told about sceShellCoreUtilGetAppLaunchedParamString)
 - earthonion (told me how to link with other libraries)
 - AlAzif (can't think of anything at the moment, but very likely)
@@ -199,6 +183,56 @@ char * strbufbuild(char * format, ...)
 
 
 
+int decode_sid (SID sid)
+{
+    echo("Not Implemented Exception (%s)", __FUNCTION__);
+    kill(getpid(), SIGSEGV);
+    return 1;
+}
+
+
+
+
+
+
+
+// Encode a provided string as a 64-bit fnva-1 hash
+unsigned long encode_sid(const char * input)
+{
+    if (!input)
+    {
+        echo("ERROR: Null input string pointer provided for SID encoding.");
+        return null;
+    }
+    if (!*input)
+    {
+        echo("WARNING: Empty string provided for SID encoding.");
+        return (SID) 0;
+    }
+
+
+    SID hash = 14695981039346656037ul;
+    unsigned long prime = 1099511628211ul;
+
+    size_t input_len;
+
+    input_len = strlen(input);
+
+    for (int i = 0; i < input_len; ++i)
+    {
+        hash ^= input[i];
+        hash *= prime;
+    }
+
+    return hash;
+}
+
+
+
+
+
+
+
 
 // Get the length of the longest line in a string with line breaks/newlines
 // Returns the length on success, or -1 if the pointer is null
@@ -310,183 +344,71 @@ pid_t find_pid(const char *name)
 //## Main Function Declarations
 //#
 
-static int get_app_metadata(pid_t pid)
+static game_id_t get_game_id(title_id_check_t check)
 {
-    
-    app_info_t app_info;
-    ret = sceKernelGetAppInfo(pid, &app_info);
-    if (ret)
-    {
-        echo("Error getting app info, retrying in 5 seconds");
-        sleep(5);
-        goto _retry;
-    }
-    
-
-
-
-    echo("Read app info, checking for known title id");
-    if (!strncmp(app_info.title_id, titleids[i], 0xA))
-    {
-        echo("Known title id found, saving app info");
-        game->pid = pid;
-        game->app_id = app_info.app_id;
-errno = 0;
-        ret = sceShellCoreUtilGetAppLaunchedParamString(game->app_id, "TITLE_ID", game->title_id, sizeof(game->title_id));
-        __rerrv(ret != 0, "TITLE Err", 0);
-        if (!*game->title_id)
-        {
-            strncpy(game->title_id, app_info.title_id, sizeof(app_info.title_id));
-        }
-
-        ret = sceShellCoreUtilGetAppLaunchedParamString(game->app_id, "TITLE", game->title, sizeof(game->title));
-        __rerrv(ret != 0, "TITLE Err", 0);
-        ret = sceShellCoreUtilGetAppLaunchedParamString(game->app_id, "CONTENT_VERSION", game->app_ver, sizeof(game->app_ver));
-        __rerrv(ret != 0, "CONTENT_VERSION Err", 0);
-        if (!*(char *) game->app_ver)
-        {
-            ret = sceShellCoreUtilGetAppLaunchedParamString(game->app_id, "APP_VER", game->app_ver, sizeof(game->app_ver));
-            __rerrv(ret != 0, "APP_VER Err", 0);
-        }
-        
-        int ret;
-        if ((ret = attach()))
-        {
-            return 1;
-        }
-
-
-        notify(
-            "Attached to game process. (pid %d)\n"
-            "Title ID: %s (app id: %d)\n"
-            "App Version: %s\n"
-            "Title: %s\n",
-            
-            pid,
-            game->title_id,
-            game->app_id,
-            game->app_ver,
-            game->title
-        );
-        
-        proc_wait(true);
-        return 0;
-    }
-
-
-    goto _retry;
-}
-
-
-
-
-// Wait for an eboot.bin process to be found, then connect and attach to it if it's title id matches one of the known ones
-// Saves the pid, app id, and title id of the attached process to the provided ndgame struct
-// 
-//! TODO: Add support for the other naughtydog executable names so the payload works regardless of which is running
-static int wait_for_game_launch()
-{
-    pid_t pid, skipped_ids[0x10];
-
-    int ret, attempts = 0;
-    char * titleids[] =
-    {
-        // R2R Ids
-        "PPSA10662",
-        "PPSA15508",
-        "PPSA15511",
-        "PPSA15512",
-
-        // T1X Ids
-        "PPSA03396",
-        "PPSA07642",
-        "PPSA07643",
-
-
-        // UC4 PS4 IDs
-        "CUSA00918",
-        "CUSA00341"
-    };
-
-
-    //! TODO: remember to check for the other possible NaughtyDog executable names
-    //! TODO: Replace with kernel event method. We've already added credits for it, understand and then use it already
-    // Check for any running eboot.bin
-    pid = find_pid("eboot.bin");
-    while (!pid)
-    {
-        echo("Unable to find eboot, waiting a few seconds before retrying");
-        sleep(7);
-        pid = find_pid("eboot.bin");
-    }
-
-
-    // Skip any pid's that have already had their title id's checked and were unrelated games
-    if (attempts)
-    {
-        for (int i = 0; i < attempts; i++)
-        {
-            if (pid == skipped_ids[i])
-            {
-                sleep(1);
-                goto _retry;
-            }
-        }
-    }
-    
-
-
-    
-    echo("Found eboot.bin (pid %d), reading app info...", pid);
-    ret = get_app_metadata(pid);
-
-
-    
-
-
-    echo("App's title id did not match any known, adding pid %d to list of ingored processes, and retrying when a different app launches", pid);
-    skipped_ids[attempts++] = pid; // Only add the pid to skipped processes if we don't recognize the title id
-    sleep(5);
-}
-
-
-
-
-
-
-
-
-static game_id_t find_and_trace_game()
-{
-    // Reset the current game instance
-    bzero(game, sizeof(ndgame_t));
-
-    if (wait_for_game_launch(game))
-    {
-        echo("An error occured while waiting for game launch, aborting payload.");
-        return NONE;
-    }
-
-    
-
-    //! TODO: Write an app_ver check
-
-
-
-
     // Read from the title id's string * + 1 so we can read it as an unsigned long without missing id's (e.x. reading both PSA15511 and PSA15512 as (ulong)PSA1551)
-    switch(* (unsigned long *) (game->title_id + 1))
+    switch(check)
     {
         // T2R
-        case 3618138931251467088: // PSA10662
-        case 4048794567581979472: // PSA15508
-        case 3544672884293194576: // PSA15511
-        case 3616730478331122512: // PSA15512
-            game->game_id = T2R;
-            
-            game->dev_menu_base       = (dmenu_menu_base_t *) read_ulong(game->pid, (unsigned long *) T2RDMENU_DEV_MENU_BASE_PTR);
-            game->quick_menu_base     = (dmenu_menu_base_t *) read_ulong(game->pid, (unsigned long *) T2RDMENU_QUICK_MENU_BASE_PTR);
-            game->favorites_menu_base = (dmenu_menu_base_t *) read_ulong(game->pid, (unsigned long *) T2RDMENU_FAVORITES_MENU_BASE_PTR);
+        case PPSA10662:
+        case PPSA15508:
+        case PPSA15511:
+        case PPSA15512:
+            return T2R;
+
+
+        // T1X
+        case PPSA03396:
+        case PPSA07642:
+        case PPSA07643:
+            return T1X;
+
+
+        default:
+            echo("Unknown game title id read (%llu)", check);
+    }
+
+    return NONE;
+}
+
+
+
+
+static int load_ndgame(game_id_t game_id, pid_t pid, app_info_t * app_info)
+{
+#ifdef DEBUG
+    echo("Reading app metadata");
+#endif
+
+    int ret;
+    ret = sceKernelGetAppInfo(pid, app_info);
+    __rerrv(ret, "Error getting app info, aborting", 1);
+    
+    game->pid = pid;
+    game->app_id = app_info->app_id;
+    strncpy(game->title_id, app_info->title_id, sizeof(app_info->title_id));
+
+    ret = sceShellCoreUtilGetAppLaunchedParamString(game->app_id, "TITLE", game->title, sizeof(game->title));
+    __rerrv(ret != 0, "TITLE Err", 1);
+
+    ret = sceShellCoreUtilGetAppLaunchedParamString(game->app_id, "CONTENT_VERSION", game->app_ver, sizeof(game->app_ver));
+    __rerrv(ret != 0, "CONTENT_VERSION Err", 1);
+    
+    if (!*(char *) game->app_ver) // Read legacy app parameter name (for PS4 applications)
+    {
+        ret = sceShellCoreUtilGetAppLaunchedParamString(game->app_id, "APP_VER", game->app_ver, sizeof(game->app_ver));
+        __rerrv(ret != 0, "APP_VER Err", 1);
+    }
+
+
+
+    
+    switch(game_id | encode_sid(game->app_ver))
+    {
+        case T2R | V02001010:
+            game->dev_menu_base       = (dmenu_menu_base_t *) read_ulong(pid, (unsigned long *) T2RDMENU_DEV_MENU_BASE_PTR);
+            game->quick_menu_base     = (dmenu_menu_base_t *) read_ulong(pid, (unsigned long *) T2RDMENU_QUICK_MENU_BASE_PTR);
+            game->favorites_menu_base = (dmenu_menu_base_t *) read_ulong(pid, (unsigned long *) T2RDMENU_FAVORITES_MENU_BASE_PTR);
 
             game->dat.bool.novis = T2R_FREE;
             game->func.malloc = T2R_MALLOC;
@@ -494,17 +416,11 @@ static game_id_t find_and_trace_game()
             game->func.lookup_symbol = T2R_LOOKUPSYMBOL;
 
             game->vptrs = &dmenu_t2r_02001010_vptrs;
-            break;
 
-        // T1X
-        case 3907210446666552144: // PSA03396
-        case 3617576011346039632: // PSA07642 
-        case 3689633605383967568: // PSA07643
-            game->game_id = T1x;
-            
-            game->dev_menu_base       = (dmenu_menu_base_t *) read_ulong(game->pid, (unsigned long *) T1XDMENU_DEV_MENU_BASE_PTR);
-            game->quick_menu_base     = (dmenu_menu_base_t *) read_ulong(game->pid, (unsigned long *) T1XDMENU_QUICK_MENU_BASE_PTR);
-            game->favorites_menu_base = (dmenu_menu_base_t *) read_ulong(game->pid, (unsigned long *) T1XDMENU_FAVORITES_MENU_BASE_PTR);
+        case T1X | V02002000:
+            game->dev_menu_base       = (dmenu_menu_base_t *) read_ulong(pid, (unsigned long *) T1XDMENU_DEV_MENU_BASE_PTR);
+            game->quick_menu_base     = (dmenu_menu_base_t *) read_ulong(pid, (unsigned long *) T1XDMENU_QUICK_MENU_BASE_PTR);
+            game->favorites_menu_base = (dmenu_menu_base_t *) read_ulong(pid, (unsigned long *) T1XDMENU_FAVORITES_MENU_BASE_PTR);
 
             game->dat.bool.novis = T1X_FREE;
             game->func.malloc = T1X_MALLOC;
@@ -516,14 +432,106 @@ static game_id_t find_and_trace_game()
 
 
         default:
-            echo("Unknown game title id read (%llu)", *((unsigned long *) ((unsigned long) game->title_id + 1)));
-            // detach(__FUNCTION__);
-            // bzero(sizeof(game_t));
             return 1;
     }
+            
 
-    echo("Game id: %d", game->game_id);
     return 0;
+}
+
+
+
+
+// Wait for an eboot.bin process to be found, then connect and attach to it if it's title id matches one of the known ones
+// Saves the pid, app id, and title id of the attached process to the provided ndgame struct
+// 
+//! TODO: Add support for the other naughtydog executable names so the payload works regardless of which is running
+static pid_t wait_for_game_launch()
+{
+    pid_t pid;
+
+    //! TODO: Replace with kernel event method. We've already added credits for it, understand and then use it already
+    // Check for any running eboot.bin processes
+    pid = find_pid("eboot.bin");
+
+    while (!pid) {
+        sleep(10);
+        pid = find_pid("eboot.bin");
+
+        if (pid) {
+            echo("Game launched, waiting an extra 15 seconds for the game to fully launch"); // Also to wait for klog output to calm down
+            sleep(15);
+        }
+    }
+
+    return pid;
+}
+
+
+
+
+
+
+
+
+static game_id_t find_and_trace_game()
+{
+    game_id_t err;
+    bzero(game, sizeof(ndgame_t));
+
+
+    // Wait for a new bigapp process launch
+    pid_t pid;
+    pid = wait_for_game_launch();
+    err = (game_id_t) -1;
+
+    __rerrv(!pid, "ERROR: Invalid process id returned from launched game, aborting until new app launch", err)
+
+
+    // Read and check Title ID
+    int ret;
+    app_info_t app_info;
+    ret = sceKernelGetAppInfo(pid, &app_info);
+    __rerrv(ret != 0, "ERROR: sceKernelGetAppInfo Failed!!! Aborting payload.", err);
+    
+    ret = get_game_id(encode_sid(app_info.title_id));
+
+    if (ret == NONE)
+    {
+        echo("Unknown game, ignoring %s.", app_info.title_id);
+        return NONE;
+    }
+
+
+    // Attach to new game process
+    ret = attach(pid);
+    __rerrv(ret, "ERROR: Unable to attach to process, aborting.", err);
+
+
+    // Read application metadata (app version and title)
+    ret = load_ndgame(ret, pid, &app_info);
+    __rerrv(ret, "ERROR: Failed loading ndgame, aborting.", err);
+
+
+
+
+    notify(
+        "Attached to game process. (pid %d)\n"
+        "Title ID: %s (app id: %d)\n"
+        "App Version: %s\n"
+        "Title: %s\n",
+        
+        pid,
+        game->title_id,
+        game->app_id,
+        game->app_ver,
+        game->title
+    );
+    
+
+    // Wait for the attached process to stop
+    __rerrv(proc_wait(true) == -1, "proc_wait returned error- subsequent functions will likely fail.", err);
+    return ret;
 }
 
 
@@ -598,11 +606,8 @@ void sighandler(int signal)
 
 
 
-
-
-
-//# Testing shit
 #ifdef DEBUG
+//### Testing shit
 static void debug_misc()
 {
     errno = 0;
@@ -614,11 +619,6 @@ static void debug_misc()
     void * addr;
     struct reg _args;
     unsigned long return_check;
-
-    
-    // Find game process to trace
-    ret = find_and_trace_game();
-    __rerr(ret, "Unhandled error finding game process, payload debug_misc aborting.");
 
     
 
@@ -660,21 +660,13 @@ static void debug_misc()
 static int start(int this)
 {
     echo("Proceeding with new %s instance (%d)", PAYLOAD_NAME, this);
-
     int ret;
-    // Find game process to trace
-    ret = find_and_trace_game();
-    __rerrv(ret, "Unhandled error finding game process, payload aborting.", 1);
-
-
-
+    
+    
 
     // Make sure novis is present
     ret = add_novis_option(menu_index_quick);
-    if (ret)
-    {
-        echo("Error adding novis option, proceeding processes may also fail.\n");
-    }
+    __err(ret, "Error adding novis option, proceeding processes may also fail.\n");
 
     return ret != 0;
 }
@@ -695,7 +687,7 @@ int main()
     // Set process name
     syscall(SYS_thr_set_name, -1, PAYLOAD_NAME);
     
-    // Set handler to print exit message (cleanup not needed yet)
+    // Set handler to print exit message
     atexit(print_exit_message);
     
     
@@ -705,7 +697,7 @@ int main()
     if ((pid = find_pid(PAYLOAD_NAME)) > 0)
     {
         do {
-            printf("Killing old %s instance (pid: %d)...\n", PAYLOAD_NAME, pid);
+            echo("Killing old %s instance (pid: %d)...\n", PAYLOAD_NAME, pid);
             
             tries ++;
             if (kill(pid, SIGTERM))
@@ -742,7 +734,9 @@ int main()
     sigaction(SIGTERM, &handler, NULL);
     sigaction(SIGSEGV, &handler, NULL);
 
-
+    watchpoint_count = 0;
+    game = &ndgame;
+    int ret;
 
 
 
@@ -750,26 +744,26 @@ int main()
 
 
     
+
+    // Find game process to trace
+    ret = find_and_trace_game();
+    __rerrv(ret, "Unhandled error finding game process, payload aborting.", 1);
+
+
 #ifdef DEBUG
     //#
     //## Payload DEBUG START
     //#
     debug_misc();
+    cleanup(ret);
+    return 0;
 #endif
 
-    
 
-
-
-    
-    
     
     //#
     //## Payload START
     //#
-    int ret;
-    watchpoint_count = 0;
-    game = &ndgame;
     
     // Payload start
     ret = start(getpid());

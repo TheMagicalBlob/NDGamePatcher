@@ -1,4 +1,9 @@
 
+//#
+//## DMenu Structs and Enums
+//#
+
+
 
 // Pointer to DMenu vitrual function table for DMenu components
 typedef void * dmenu_vptr_t;

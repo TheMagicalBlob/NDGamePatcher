@@ -531,21 +531,13 @@ void dump_menu_entries()
 
 
 
+// STILL UNFINISHED!! Treats the item as though it's in the payload's memory, which it isn't
 dmenu_item_t * CreateBaseComponent(dmenu_component_t * entry, const char * component_name)
 {
-    echo("ERROR: Call to unimplemented function %s", __FUNCTION__);
-    kill(getpid(), SIGSEGV); // Force a crash if I call it before finishing the damn thing
     return nullptr;
 
-
-    void *pcVar1;
-    long lVar2;
-    uint name_length;
-    size_t sVar4;
-    char *__dest;
-    long *puVar5;
-    uint uVar6;
-    long uStack_38;
+    char * __dest;
+    int name_length;
 
     bzero(&entry, sizeof(entry));
 
@@ -554,31 +546,30 @@ dmenu_item_t * CreateBaseComponent(dmenu_component_t * entry, const char * compo
     entry->on_state_colour = 0xff00ffff;
     entry->neutral_state_colour = 0xffb0ffb0;
 
-    if (component_name == NULL) {
+    if (component_name == NULL)
+    {
         echo("Unnamed item created");
-        return ;
+        return nullptr;
     }
 
 
-    sVar4 = strlen(component_name);
-    name_length = (uint)sVar4;
-    if ((int) name_length < 0x20)
+    name_length = strlen(component_name);
+    if (name_length < 0x20)
     {
         __dest = entry->item_text_buffer;
         strcpy(__dest, component_name);
     }
     else {
-        name_length = 0xff;
-        if ((int)name_length < 0xff)
+        if (name_length < 0xFF)
         {
-            uVar6 = name_length;
+            name_length = 0xFF;
         }
 
-        __dest = (char *) proc_malloc(uVar6 + 1);
+        __dest = (char *) proc_malloc(name_length + 1);
         __rerrv(__dest == NULL, "ERROR: Unable to allocate space for large component name!!!", nullptr);
         
         write_string(game->pid, __dest, component_name);
-        __dest[uVar6] = 0;
+        __dest[name_length] = 0;
     }
 
     entry->item_text = __dest;

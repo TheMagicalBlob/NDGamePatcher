@@ -34,7 +34,7 @@ int set_authid_for_ptrace()
 
 
 
-int attach()
+int attach(pid_t pid)
 {
     int ret;
     errno = 0;
@@ -48,17 +48,17 @@ int attach()
     }
 
 
-    if ((ret = ptrace(PT_ATTACH, game->pid, 0, 0)) != 0)
+    if ((ret = ptrace(PT_ATTACH, pid, 0, 0)) != 0)
     {
         notify("PT_ATTACH ERROR: %s\n", strerror(ret));
         
-        if(kill(game->pid, SIGCONT))
+        if(kill(pid, SIGCONT))
         {
             echo("WARNING: Unable to resume process through SIGCONT");
         }
     }
     
-    echo("Attached to pid %d", game->pid);
+    echo("Attached to pid %d", pid);
     return ret;
 }
 

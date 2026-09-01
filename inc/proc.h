@@ -8,7 +8,7 @@
 int set_authid_for_ptrace();
 
 
-int attach();
+int attach(pid_t pid);
 int detach(const char * from);
 pid_t proc_wait(int wait);
 
