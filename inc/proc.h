@@ -1,4 +1,5 @@
-#include "include.h"
+#include <unistd.h>
+#include <sys/ptrace.h>
 
 
 //#

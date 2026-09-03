@@ -118,7 +118,7 @@ typedef struct dmenu_component_s
     void * item_variable;
     unsigned int off_state_colour;
     unsigned int on_state_colour;
-    unsigned int neutral_state_colour;
+    unsigned int unknown_int;
     unsigned int shortcut_info;
     void * callback;
     unsigned long unmapped3;
@@ -147,15 +147,15 @@ typedef struct dmenu_item_s
     void * item_variable;
     unsigned int off_state_colour;
     unsigned int on_state_colour;
-    unsigned int neutral_state_colour;
+    unsigned int unknown_int;
     unsigned int shortcut_info;
     void * callback;
     unsigned long unmapped3;
     char unmapped4[0x8];
     dmenu_menu_base_t * menu_base; // Points to the dmenu base entry [0x90] 
     char unmapped5[0x4];
-    int selection_index;
-    unsigned int item_count; //!
+    int _selection_index;
+    unsigned int _item_count; //!
     unsigned int event_handler_type_id; // unsure
     void * event_handler;
     unsigned long return_buffer;
@@ -184,7 +184,7 @@ typedef struct dmenu_menu_s // 0xE0
     unsigned long unknown_menu_array_index;
     void * menu_variable;
     unsigned int on_state_colour;
-    unsigned int neutral_state_colour;
+    unsigned int unknown_int;
     unsigned int shortcut_info;
     void * callback;
     unsigned long unmapped2;
@@ -220,7 +220,7 @@ typedef struct dmenu_menu_base_s // x >= 0x328
     char unused2[0x30]; // Always zero
     unsigned int off_state_colour;
     unsigned int on_state_colour;
-    unsigned int neutral_state_colour;
+    unsigned int unknown_int;
     unsigned int shortcut_info;
     char unmapped1[0x30]; // Unmapped
     dmenu_menu_t * root_menu; // The actual dmenu menu that gets populated with items and acts as this menu base's root submenu // 0xA8

@@ -1,12 +1,13 @@
-#include "include.h"
+#include <unistd.h>
+typedef unsigned char byte;
 
 
 //#
 //## Memory I/O functionality
 //#
 
-int read_bytes(pid_t pid, size_t len, void * source, void * destination);
-int write_bytes(pid_t pid, size_t len, void * destination, void * value);
+int read_bytes(pid_t pid, size_t len, byte * source, byte * destination);
+int write_bytes(pid_t pid, size_t len, byte * destination, byte * value);
 
 byte read_byte(int pid, byte * address);
 int write_byte(int pid, byte * address, byte data);
@@ -28,7 +29,7 @@ int write_string(int pid, void * address, const char * str);
 
 unsigned long align(unsigned long value);
 
-unsigned long reverse64(unsigned int little);
+unsigned long reverse64(unsigned long little);
 unsigned reverse32(unsigned little);
-unsigned short reverse16(unsigned int little);
+unsigned short reverse16(unsigned short little);
 

@@ -226,7 +226,7 @@ typedef struct ndgame
 {
     pid_t pid;
     int status; // Status reported by waitpid the last time the process stopped
-    int app_id; // Application ID for ShellCore stuffs
+    game_id_t game_id;
 
     char title_id[0xA];
     char app_ver[0xB]; // String representation
@@ -238,21 +238,18 @@ typedef struct ndgame
 
     const dmenu_types_t * vptrs;
 
-    // Addresses of various functions/variables in the game process (not sure I'm actually gonna keep this, as it would be tedious to maintain)
-    struct {
-        // Boolean pointers
-        struct {
-            byte * novis; // Toggle usage of visibility info (culling)
-
-        } bool;
-    } dat;
-
+    // Addresses of various functions in the game process
     struct {
         void * malloc;
         void * free;
         void * lookup_symbol;
     } func;
 
+    // Addresses of various variables in the game process (not sure I'm actually gonna keep this, as it would be tedious to maintain)
+    struct {
+        byte * novis; // Toggle usage of visibility info (culling)
+
+    } dat;
 } ndgame_t;
 
 

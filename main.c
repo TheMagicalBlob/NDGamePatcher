@@ -8,10 +8,12 @@ Credits so far:
 - AlAzif (can't think of anything at the moment, but very likely)
 */
 
+
+#include "inc/include.h"
 #include "inc/proc.h"
 #include "inc/memory.h"
 #include "inc/dmenu.h"
-#include "inc/dmenu_addresses.h"
+#include "inc/addresses.h"
 
 
 //# external functions to link
@@ -374,8 +376,13 @@ static game_id_t get_game_id(title_id_check_t check)
 
 
 
+
+
 static int load_ndgame(game_id_t game_id, pid_t pid, app_info_t * app_info)
 {
+    //#
+    //## Load app metadata
+    //#
 #ifdef DEBUG
     echo("Reading app metadata");
 #endif
@@ -385,59 +392,31 @@ static int load_ndgame(game_id_t game_id, pid_t pid, app_info_t * app_info)
     __rerrv(ret, "Error getting app info, aborting", 1);
     
     game->pid = pid;
-    game->app_id = app_info->app_id;
     strncpy(game->title_id, app_info->title_id, sizeof(app_info->title_id));
 
-    ret = sceShellCoreUtilGetAppLaunchedParamString(game->app_id, "TITLE", game->title, sizeof(game->title));
+    ret = sceShellCoreUtilGetAppLaunchedParamString(app_info->app_id, "TITLE", game->title, sizeof(game->title));
     __rerrv(ret != 0, "TITLE Err", 1);
 
-    ret = sceShellCoreUtilGetAppLaunchedParamString(game->app_id, "CONTENT_VERSION", game->app_ver, sizeof(game->app_ver));
+    ret = sceShellCoreUtilGetAppLaunchedParamString(app_info->app_id, "CONTENT_VERSION", game->app_ver, sizeof(game->app_ver));
     __rerrv(ret != 0, "CONTENT_VERSION Err", 1);
     
     if (!*(char *) game->app_ver) // Read legacy app parameter name (for PS4 applications)
     {
-        ret = sceShellCoreUtilGetAppLaunchedParamString(game->app_id, "APP_VER", game->app_ver, sizeof(game->app_ver));
+        ret = sceShellCoreUtilGetAppLaunchedParamString(app_info->app_id, "APP_VER", game->app_ver, sizeof(game->app_ver));
         __rerrv(ret != 0, "APP_VER Err", 1);
     }
 
 
 
-    
-    switch(game_id | encode_sid(game->app_ver))
-    {
-        case T2R | V02001010:
-            game->dev_menu_base       = (dmenu_menu_base_t *) read_ulong(pid, (unsigned long *) T2RDMENU_DEV_MENU_BASE_PTR);
-            game->quick_menu_base     = (dmenu_menu_base_t *) read_ulong(pid, (unsigned long *) T2RDMENU_QUICK_MENU_BASE_PTR);
-            game->favorites_menu_base = (dmenu_menu_base_t *) read_ulong(pid, (unsigned long *) T2RDMENU_FAVORITES_MENU_BASE_PTR);
 
-            game->dat.bool.novis = T2R_FREE;
-            game->func.malloc = T2R_MALLOC;
-            game->func.free = T2R_FREE;
-            game->func.lookup_symbol = T2R_LOOKUPSYMBOL;
-
-            game->vptrs = &dmenu_t2r_02001010_vptrs;
-
-        case T1X | V02002000:
-            game->dev_menu_base       = (dmenu_menu_base_t *) read_ulong(pid, (unsigned long *) T1XDMENU_DEV_MENU_BASE_PTR);
-            game->quick_menu_base     = (dmenu_menu_base_t *) read_ulong(pid, (unsigned long *) T1XDMENU_QUICK_MENU_BASE_PTR);
-            game->favorites_menu_base = (dmenu_menu_base_t *) read_ulong(pid, (unsigned long *) T1XDMENU_FAVORITES_MENU_BASE_PTR);
-
-            game->dat.bool.novis = T1X_FREE;
-            game->func.malloc = T1X_MALLOC;
-            game->func.free = T1X_FREE;
-            game->func.lookup_symbol = T1X_LOOKUPSYMBOL;
-
-            game->vptrs = &dmenu_t1x_02002000_vptrs;
-            break;
-
-
-        default:
-            return 1;
-    }
-            
-
+    //#
+    //## Load function and variable addresses
+    //#
+    do_load_ndgame(game_id, encode_sid(game->app_ver));
     return 0;
 }
+
+
 
 
 
@@ -494,9 +473,10 @@ static game_id_t find_and_trace_game()
     ret = sceKernelGetAppInfo(pid, &app_info);
     __rerrv(ret != 0, "ERROR: sceKernelGetAppInfo Failed!!! Aborting payload.", err);
     
-    ret = get_game_id(encode_sid(app_info.title_id));
+    game_id_t game_id;
+    game_id = get_game_id(encode_sid(app_info.title_id));
 
-    if (ret == NONE)
+    if (game_id == NONE)
     {
         echo("Unknown game, ignoring %s.", app_info.title_id);
         return NONE;
@@ -508,8 +488,11 @@ static game_id_t find_and_trace_game()
     __rerrv(ret, "ERROR: Unable to attach to process, aborting.", err);
 
 
+    // Save id of process only once attached
+    game->game_id = game_id;
+
     // Read application metadata (app version and title)
-    ret = load_ndgame(ret, pid, &app_info);
+    ret = load_ndgame(game_id, pid, &app_info);
     __rerrv(ret, "ERROR: Failed loading ndgame, aborting.", err);
 
 
@@ -517,13 +500,12 @@ static game_id_t find_and_trace_game()
 
     notify(
         "Attached to game process. (pid %d)\n"
-        "Title ID: %s (app id: %d)\n"
+        "Title ID: %s\n"
         "App Version: %s\n"
         "Title: %s\n",
         
         pid,
         game->title_id,
-        game->app_id,
         game->app_ver,
         game->title
     );
@@ -635,6 +617,10 @@ static void debug_misc()
 
     
     // Detonate all enemies
+    if (game->game_id != T2R)
+    {
+        return;
+    }
     ret = proc_clear_args(&_args);
     __rerr(ret, "Error clearing args, aborting test call");
 
@@ -644,8 +630,6 @@ static void debug_misc()
     ret = proc_call(addr, &return_check, &_args);
     __rerr(ret, strbufbuild("Error calling test function 0x%llX", addr));
     echo("call 2 post");
-
-    cleanup(ret);
 }
 #endif
 

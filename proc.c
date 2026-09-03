@@ -1,6 +1,6 @@
 #include "inc/include.h"
-#include "inc/dmenu.h"
 #include "inc/memory.h"
+// #include "inc/dmenu.h"
 
 
 extern ndgame_t * game;
@@ -748,25 +748,25 @@ int proc_call(void * function_address, unsigned long * return_val_ptr, struct re
     
     
     
-    // Resume execution until the function returns and hits the breakpoint
-    ret = proc_continue();
-    __rerrv(ret, errmsg, 1);
-
-    ret = proc_wait(true);
-    __rerrv(!ret, errmsg, 1);
-
-
-
-
-    
-    
+    // Resume execution until the function returns, hitting the breakpoint present at the start of every ps5 elf
     struct reg return_regs;
+    do {
+        ret = proc_continue();   // Resume process
+        __rerrv(ret, errmsg, 1);
+
+        ret = proc_wait(true);   // Wait for stop
+        __rerrv(!ret, errmsg, 1);
+
+        ret = proc_get_regs(&return_regs);
+        __rerrv(ret, errmsg, 1);
+    }
+    while (return_regs.r_rip != 0x400001); // Repeat if it's stopped for an unrelated reason (//! handle that)
+
+    
+    
     if (return_val_ptr > 0)
     {
         // Read return value
-        ret = proc_get_regs(&return_regs);
-        __rerrv(ret, errmsg, 1);
-
         *(long long *) return_val_ptr = return_regs.r_rax;
         
         echo("Function at 0x%llX returned: 0x%llX", function_address, *return_val_ptr);
@@ -775,7 +775,6 @@ int proc_call(void * function_address, unsigned long * return_val_ptr, struct re
         echo("Function at 0x%llX returned.", function_address);
     }
     
-    echo("RIP post-function-call: 0x%llX", return_regs.r_rip);
 
 
 

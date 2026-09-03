@@ -1,5 +1,5 @@
 #include "inc/include.h"
-#include "inc/dmenu.h"
+#include "inc/memory.h"
 
 
 /*
@@ -217,9 +217,9 @@ int write_double(int pid, double * address, double value)
 
 
 
-double read_single(int pid, float * address)
+float read_single(int pid, float * address)
 {
-    double data;
+    float data;
 
     if (proc_read(pid, 4, address, &data, __FUNCTION__))
     {
@@ -232,7 +232,7 @@ double read_single(int pid, float * address)
 
 
 
-int write_single(int pid, double * address, float value)
+int write_single(int pid, float * address, float value)
 {
     return proc_write(pid, 4, address, &value, __FUNCTION__);
 }

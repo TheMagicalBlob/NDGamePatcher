@@ -1,5 +1,6 @@
-#include "inc/memory.h"
+#include "inc/include.h"
 #include "inc/dmenu.h"
+#include "inc/memory.h"
 #include "inc/proc.h"
 
 
@@ -159,7 +160,7 @@ static void * find_dmenu_component(const char * expected_entry_name, dmenu_stype
     
     
     dmenu_menu_t menu;
-    read_bytes(game->pid, sizeof(dmenu_menu_t), parent_base.root_menu, &menu);
+    read_bytes(game->pid, sizeof(dmenu_menu_t), (byte *) parent_base.root_menu, (byte *) &menu);
     
     char parent_name[0x40];
     void * entry_ptr;
@@ -194,7 +195,7 @@ static void * find_dmenu_component(const char * expected_entry_name, dmenu_stype
         // Menu
         if (next_is_menu)
         {
-            ret = read_bytes(game->pid, sizeof(dmenu_menu_t), entry_ptr, &menu);
+            ret = read_bytes(game->pid, sizeof(dmenu_menu_t), entry_ptr, (byte *) &menu);
             if (ret)
             {
                 break;
@@ -219,7 +220,7 @@ static void * find_dmenu_component(const char * expected_entry_name, dmenu_stype
         }
         // Item
         else {
-            read_bytes(game->pid, sizeof(dmenu_item_t), entry_ptr, &item);
+            read_bytes(game->pid, sizeof(dmenu_item_t), entry_ptr, (byte *) &item);
             
             if (item.item_text == nullptr)
             {
@@ -327,7 +328,7 @@ dmenu_menu_t * get_root_menu(dmenu_menu_index_t menu_base_index)
 // Copy the dmenu_menu_base_t pointed to by the dmenu_menu_base_t * at the provided address in the traced process' memory into the provided menu base struct
 int load_menu_base(void * address, dmenu_menu_base_t * menu_base)
 {
-    return read_bytes(game->pid, sizeof(dmenu_menu_base_t), (void *) address, menu_base);
+    return read_bytes(game->pid, sizeof(dmenu_menu_base_t), (void *) address, (byte *) menu_base);
 }
 
 
@@ -336,7 +337,7 @@ int load_menu_base(void * address, dmenu_menu_base_t * menu_base)
 // Copy the dmenu_menu_t at the provided address in the traced process' memory into the provided menu struct
 int load_menu(void * address, dmenu_menu_t * menu)
 {
-    return read_bytes(game->pid, sizeof(dmenu_menu_t), address, menu);
+    return read_bytes(game->pid, sizeof(dmenu_menu_t), address, (byte *) menu);
 }
 
 
@@ -345,7 +346,7 @@ int load_menu(void * address, dmenu_menu_t * menu)
 // Copy the dmenu_item_t at the provided address in the traced process' memory into the provided item struct
 int load_item(void * address, dmenu_item_t * item)
 {
-    return read_bytes(game->pid, sizeof(dmenu_item_t), address, item);
+    return read_bytes(game->pid, sizeof(dmenu_item_t), address, (byte *) item);
 }
 
 
@@ -377,7 +378,7 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
 
 
     dmenu_menu_t menu;
-    read_bytes(game->pid, sizeof(dmenu_menu_t), parent_base->root_menu, &menu);
+    read_bytes(game->pid, sizeof(dmenu_menu_t), (byte *) parent_base->root_menu, (byte *) &menu);
     
     void * entry_ptr;
     if((entry_ptr = menu.first_item) == 0)
@@ -544,7 +545,7 @@ dmenu_item_t * CreateBaseComponent(dmenu_component_t * entry, const char * compo
     entry->vptr = game->vptrs->base_component;
     entry->off_state_colour = 0xffc8c8c8;
     entry->on_state_colour = 0xff00ffff;
-    entry->neutral_state_colour = 0xffb0ffb0;
+    entry->unknown_int = 0xffb0ffb0;
 
     if (component_name == NULL)
     {
@@ -707,25 +708,25 @@ int add_novis_option(dmenu_menu_index_t menu_base)
 
     item.event_handler_type_id = 3; // Bool item
     item.event_handler = (void *) 0x0114d100; // Bool event handler
-    item.return_buffer = read_byte(game->pid, (byte *) game->dat.bool.novis);
+    item.return_buffer = read_byte(game->pid, (byte *) game->dat.novis);
 
     item.off_state_colour = 0xB0FFB0FF; // White
     item.on_state_colour = 0xEF00FFFF;  // Yellow
-    item.neutral_state_colour = 0xB0FFB0FF; // Red
-    item.selection_index = 1;
-    item.item_count = 1;
+    item.unknown_int = 0xB0FFB0FF; // Value it always has
+    item._selection_index = 1;
+    item._item_count = 1;
 
     
     strcpy(item.item_text_buffer, "Disable All Visibility");
 
     item.item_text = (char *) &((dmenu_item_t *) mem)->item_text_buffer;
 
-    item.item_variable = game->dat.bool.novis;
+    item.item_variable = game->dat.novis;
 
 
 
     int ret;
-    ret = write_bytes(game->pid, sizeof(dmenu_item_t), mem, &item);
+    ret = write_bytes(game->pid, sizeof(dmenu_item_t), mem, (byte *) &item);
     __rerrv(ret, "Error writing new menu option to allocated memory, aborting novis option addition.", 1);
 
     return AppendItemToParent(get_root_menu(menu_base), mem);
