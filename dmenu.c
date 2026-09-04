@@ -58,11 +58,11 @@ dmenu_stype_t get_dmenu_entry_base_type(void * item)
 // [DEBUG-ONLY] Convert the name of the provided vptr to it's string representation, without the prefixed the game id and type name (assuming I haven't removed the latter)
 const char * get_dmenu_entry_type_as_string(dmenu_vptr_t type)
 {
-    static char return_string[0x20] = "unknown_type";
+    static char return_string[0x20];
+    memset(return_string, 0, sizeof(return_string));
+    strncpy(return_string, "unknown_type", strlen("unknown_type"));
     
 #ifdef DEBUG
-    echo("Char array base value check: %s (%d)", return_string, sizeof(return_string));
-
     const char * names[] = 
     {
         "menu_base",
@@ -119,15 +119,23 @@ const char * get_dmenu_entry_type_as_string(dmenu_vptr_t type)
         game->vptrs.string_item
     };
 
-
+    if (sizeof(names) != sizeof(types))
+    {
+        echo("ERROR: Type and Size arrays have different sizes!! %d != %d (types, names)", __FUNCTION__, types, names);
+        strncpy(return_string, "unknown_type", sizeof(return_string));
+        return return_string;
+    }
+    
 
     for(int i = 0; i < sizeof(names); i++)
     {
-        if (type == types[i])
+        if (type != types[i])
         {
-            strncpy(return_string, names[i], sizeof(return_string));
-            break;
+            continue;
         }
+        
+        strncpy(return_string, names[i], sizeof(return_string));
+        break;
     }
 #endif
 
@@ -357,6 +365,21 @@ int load_item(void * address, dmenu_item_t * item)
 
 
 
+// Try and scan the current game process for all known dmenu types after getting the dev and quick menu base pointer addresses
+// Returns: non-zero on failure- otherwise, zero 
+static int try_dump_menu_entry_types()
+{
+    return 1;
+    //! TODO:
+    // 1 cycle through menu types, printing details on first instance of each type
+    // 2 Take these entries (combed to avoid obvious game-specific options) and create this option to do the following
+
+    // 3 Search for each item string, saving the type of each one found.
+    // 3a at the end, if any exist- print all found unknown types and all unknown item names for manual assignment (also print the item name of the items these unknown types were found in this run)
+}
+
+
+
 
 
 static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
@@ -413,6 +436,7 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
     while(entry_ptr != null)
     {
         
+        type = (dmenu_vptr_t) read_ulong(game->pid, entry_ptr);
         
         dtype = get_dmenu_entry_type_as_string(type);
         // Check for unknown dmenu component types
@@ -423,7 +447,6 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
         
         
         
-        type = (dmenu_vptr_t) read_ulong(game->pid, entry_ptr);
 
         // Menu
         if (next_is_menu)

@@ -593,8 +593,11 @@ void sighandler(int signal)
 //### Testing shit
 static void debug_misc()
 {
+    dump_menu_entries();
+    return;
+
     errno = 0;
-    
+
     //#
     //## Function Call issues
     //#
@@ -603,7 +606,6 @@ static void debug_misc()
     struct reg _args;
     unsigned long return_check;
 
-    
 
     ret = proc_clear_args(&_args);
     __rerr(ret, "Error clearing args, aborting test call");
@@ -615,7 +617,7 @@ static void debug_misc()
     __rerr(ret, strbufbuild("Error calling test function 0x%llX", addr));
     echo("call 1 post");
 
-
+    
     
     // Detonate all enemies
     if (game->game_id != T2R)
