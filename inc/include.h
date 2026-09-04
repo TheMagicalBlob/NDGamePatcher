@@ -103,6 +103,7 @@
 
 
 
+
 //#
 //## typedefs
 //#
@@ -111,6 +112,8 @@ typedef char sbyte;
 typedef unsigned char byte;
 
 typedef unsigned long SID;
+
+typedef void * dmenu_vptr_t;
 
 
 
@@ -218,8 +221,65 @@ typedef struct app_info
 
 
 #pragma once
+// DMenu component virtual pointers
+typedef struct dmenu_types_s
+{
+    dmenu_vptr_t menu_base; // The base for each debug menu
+    
+    dmenu_vptr_t menu; // The menus themselves which contain individual items
+    dmenu_vptr_t dyn_menu; // Menus with dynamic contents that're cleared and repopulated every time they're opened
+    dmenu_vptr_t weapon_upgrades_menu;
+
+    dmenu_vptr_t item_submenu;
+    dmenu_vptr_t task_item_submenu;
+    dmenu_vptr_t subnode_task_item_submenu;
+
+    dmenu_vptr_t base_component; // 0x??
+    dmenu_vptr_t separator_item; // 0xA8
+    dmenu_vptr_t bool_item; // 0xB8
+    dmenu_vptr_t exec_item; // 0xC0
+    dmenu_vptr_t alt_exec_item;
+    dmenu_vptr_t string_item;
+    dmenu_vptr_t string_list_item;
+    dmenu_vptr_t decimal_item;
+    dmenu_vptr_t task_history_item;
+    dmenu_vptr_t task_item;
+    dmenu_vptr_t user_item; // Entirely useless, I assume it's meant to be replaced by an actual username
+    dmenu_vptr_t timer_item;
+    dmenu_vptr_t checkpoint_item;
+    dmenu_vptr_t float_item; // 0x158
+
+} dmenu_types_t;
+
+
+
+
 typedef struct dmenu_menu_base_s dmenu_menu_base_t;
-typedef struct struct_dmenu_types_s dmenu_types_t;
+// Addresses of various functions and variables in the game process, assuming aslr has been removed
+typedef struct dmenu_addresses_s
+{
+    dmenu_menu_base_t * dev_menu_base;
+    dmenu_menu_base_t * quick_menu_base;
+    dmenu_menu_base_t * favorites_menu_base;
+
+    // Function addresses
+    struct {
+        void * malloc; // Malloc
+        void * free;   // Free
+        void * lookup_symbol; // Lookup a script symbol via a provided SID
+        
+    } func;
+    
+    // Variable addresses
+    struct {
+        byte * novis; // Toggle usage of visibility info (culling)
+
+    } dat;
+
+} dmenu_addresses_t;
+
+
+
 
 // Struct for handling game-specific addresses and other variables. Assigned after attaching
 typedef struct ndgame
@@ -232,24 +292,9 @@ typedef struct ndgame
     char app_ver[0xB]; // String representation
     char title[0x80];
 
-    dmenu_menu_base_t * dev_menu_base;
-    dmenu_menu_base_t * quick_menu_base;
-    dmenu_menu_base_t * favorites_menu_base;
+    dmenu_types_t vptrs; // vPtr's for DMenu component class vTables
+    dmenu_addresses_t addrs;
 
-    const dmenu_types_t * vptrs;
-
-    // Addresses of various functions in the game process
-    struct {
-        void * malloc;
-        void * free;
-        void * lookup_symbol;
-    } func;
-
-    // Addresses of various variables in the game process (not sure I'm actually gonna keep this, as it would be tedious to maintain)
-    struct {
-        byte * novis; // Toggle usage of visibility info (culling)
-
-    } dat;
 } ndgame_t;
 
 

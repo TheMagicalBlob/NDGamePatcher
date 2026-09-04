@@ -15,33 +15,33 @@ dmenu_stype_t get_dmenu_entry_base_type(void * item)
     void * chk;
     chk = (void *) read_ulong(game->pid, item);
 
-    if (chk == game->vptrs->menu_base)
+    if (chk == game->vptrs.menu_base)
         return stype_menu_base;
 
-    if (chk == game->vptrs->dyn_menu ||
-        chk == game->vptrs->weapon_upgrades_menu ||
-        chk == game->vptrs->menu)
+    if (chk == game->vptrs.dyn_menu ||
+        chk == game->vptrs.weapon_upgrades_menu ||
+        chk == game->vptrs.menu)
         return stype_menu;
 
-    if (chk == game->vptrs->item_submenu ||
-        chk == game->vptrs->task_item_submenu ||
-        chk == game->vptrs->subnode_task_item_submenu)
+    if (chk == game->vptrs.item_submenu ||
+        chk == game->vptrs.task_item_submenu ||
+        chk == game->vptrs.subnode_task_item_submenu)
         return stype_itemsubmenu;
 
-    if (chk == game->vptrs->base_component ||
-        chk == game->vptrs->bool_item ||
-        chk == game->vptrs->exec_item ||
-        chk == game->vptrs->alt_exec_item ||
-        chk == game->vptrs->float_item ||
-        chk == game->vptrs->decimal_item ||
-        chk == game->vptrs->separator_item ||
-        chk == game->vptrs->string_list_item ||
-        chk == game->vptrs->string_item ||
-        chk == game->vptrs->task_history_item ||
-        chk == game->vptrs->task_item ||
-        chk == game->vptrs->timer_item ||
-        chk == game->vptrs->user_item ||
-        chk == game->vptrs->checkpoint_item)
+    if (chk == game->vptrs.base_component ||
+        chk == game->vptrs.bool_item ||
+        chk == game->vptrs.exec_item ||
+        chk == game->vptrs.alt_exec_item ||
+        chk == game->vptrs.float_item ||
+        chk == game->vptrs.decimal_item ||
+        chk == game->vptrs.separator_item ||
+        chk == game->vptrs.string_list_item ||
+        chk == game->vptrs.string_item ||
+        chk == game->vptrs.task_history_item ||
+        chk == game->vptrs.task_item ||
+        chk == game->vptrs.timer_item ||
+        chk == game->vptrs.user_item ||
+        chk == game->vptrs.checkpoint_item)
         return stype_item;
 
 
@@ -63,68 +63,71 @@ const char * get_dmenu_entry_type_as_string(dmenu_vptr_t type)
 #ifdef DEBUG
     echo("Char array base value check: %s (%d)", return_string, sizeof(return_string));
 
-    if (type == game->vptrs->base_component) {
-        strncpy("base_component", return_string, sizeof(return_string));
-    }
-    if (type == game->vptrs->bool_item) {
-        strncpy("bool_item", return_string, sizeof(return_string));
-    }
-    if (type == game->vptrs->exec_item) {
-        strncpy("exec_item", return_string, sizeof(return_string));
-    }
-    if (type == game->vptrs->alt_exec_item) {
-        strncpy("alt_exec_item", return_string, sizeof(return_string));
-    }
-    if (type == game->vptrs->float_item) {
-        strncpy("float_item", return_string, sizeof(return_string));
-    }
-    if (type == game->vptrs->decimal_item) {
-        strncpy("decimal_item", return_string, sizeof(return_string));
-    }
-    if (type == game->vptrs->separator_item) {
-        strncpy("separator_item", return_string, sizeof(return_string));
-    }
-    if (type == game->vptrs->string_list_item) {
-        strncpy("string_list_item", return_string, sizeof(return_string));
-    }
-    if (type == game->vptrs->task_history_item) {
-        strncpy("task_history_item", return_string, sizeof(return_string));
-    }
-    if (type == game->vptrs->task_item) {
-        strncpy("task_item", return_string, sizeof(return_string));
-    }
-    if (type == game->vptrs->user_item) {
-        strncpy("user_item", return_string, sizeof(return_string));
-    }
-    if (type == game->vptrs->timer_item) {
-        strncpy("timer_item", return_string, sizeof(return_string));
-    }
-    if (type == game->vptrs->checkpoint_item) {
-        strncpy("checkpoint_item", return_string, sizeof(return_string));
-    }
-    if (type == game->vptrs->string_item) {
-        strncpy("string_item", return_string, sizeof(return_string));
-    }
-    if (type == game->vptrs->item_submenu) {
-        strncpy("item_submenu", return_string, sizeof(return_string));
-    }
-    if (type == game->vptrs->task_item_submenu) {
-        strncpy("task_item_submenu", return_string, sizeof(return_string));
-    }
-    if (type == game->vptrs->subnode_task_item_submenu) {
-        strncpy("subnode_task_item_submenu", return_string, sizeof(return_string));
-    }
-    if (type == game->vptrs->menu) {
-        strncpy("menu", return_string, sizeof(return_string));
-    }
-    if (type == game->vptrs->dyn_menu) {
-        strncpy("dyn_menu", return_string, sizeof(return_string));
-    }
-    if (type == game->vptrs->weapon_upgrades_menu) {
-        strncpy("weapon_upgrades_menu", return_string, sizeof(return_string));
-    }
-    if (type == game->vptrs->menu_base) {
-        strncpy("meni_base", return_string, sizeof(return_string));
+    const char * names[] = 
+    {
+        "menu_base",
+
+        "menu",
+        "dyn_menu",
+        "weapon_upgrades_menu",
+
+        "item_submenu",
+        "task_item_submenu",
+        "subnode_task_item_submenu"
+        
+        "base_component",
+        "separator_item",
+        "bool_item",
+        "exec_item",
+        "alt_exec_item",
+        "float_item",
+        "decimal_item",
+        "string_list_item",
+        "task_history_item",
+        "task_item",
+        "user_item",
+        "timer_item",
+        "checkpoint_item",
+        "string_item",
+    };
+
+    const dmenu_vptr_t types[] =
+    {
+        game->vptrs.menu_base,
+        
+        game->vptrs.menu,
+        game->vptrs.dyn_menu,
+        game->vptrs.weapon_upgrades_menu,
+        
+        game->vptrs.item_submenu,
+        game->vptrs.task_item_submenu,
+        game->vptrs.subnode_task_item_submenu,
+
+        game->vptrs.base_component,
+        game->vptrs.separator_item,
+        game->vptrs.bool_item,
+        game->vptrs.exec_item,
+        game->vptrs.alt_exec_item,
+        game->vptrs.float_item,
+        game->vptrs.decimal_item,
+        game->vptrs.string_list_item,
+        game->vptrs.task_history_item,
+        game->vptrs.task_item,
+        game->vptrs.user_item,
+        game->vptrs.timer_item,
+        game->vptrs.checkpoint_item,
+        game->vptrs.string_item
+    };
+
+
+
+    for(int i = 0; i < sizeof(names); i++)
+    {
+        if (type == types[i])
+        {
+            strncpy(return_string, names[i], sizeof(return_string));
+            break;
+        }
     }
 #endif
 
@@ -150,7 +153,7 @@ static void * find_dmenu_component(const char * expected_entry_name, dmenu_stype
     
     
     dmenu_menu_base_t parent_base;
-    load_menu_base(*(&game->dev_menu_base + parent_index), &parent_base);
+    load_menu_base(*(&game->addrs.dev_menu_base + parent_index), &parent_base);
 
     if (parent_base.root_menu == 0)
     {
@@ -315,7 +318,7 @@ dmenu_item_t * find_submenu(const char * submenu_name, dmenu_menu_index_t parent
 // Get the root menu of the specified menu base without loading the base in to memory first
 dmenu_menu_t * get_root_menu(dmenu_menu_index_t menu_base_index)
 {
-    return ((dmenu_menu_t *) read_ulong(game->pid, (unsigned long *) &(* (dmenu_menu_base_t **) ((unsigned long) &game->dev_menu_base + menu_base_index * sizeof(dmenu_menu_base_t *)))->root_menu));
+    return ((dmenu_menu_t *) read_ulong(game->pid, (unsigned long *) &(* (dmenu_menu_base_t **) ((unsigned long) &game->addrs.dev_menu_base + menu_base_index * sizeof(dmenu_menu_base_t *)))->root_menu));
 }
 
 
@@ -516,12 +519,12 @@ void dump_menu_entries()
 {
     echo("\n\nDumping Dev Menu entries.");
     dmenu_menu_base_t base;
-    load_menu_base(game->dev_menu_base, &base);
+    load_menu_base(game->addrs.dev_menu_base, &base);
     do_dump_menu_entries(&base);
     echo("Finished dumping Dev Menu entries\n\n\n");
 
     echo("Dumping Quick Menu entries.");
-    load_menu_base(game->quick_menu_base, &base);
+    load_menu_base(game->addrs.quick_menu_base, &base);
     do_dump_menu_entries(&base);
     echo("Finished dumping Quick Menu entries\n\n");
 }
@@ -542,7 +545,7 @@ dmenu_item_t * CreateBaseComponent(dmenu_component_t * entry, const char * compo
 
     bzero(&entry, sizeof(entry));
 
-    entry->vptr = game->vptrs->base_component;
+    entry->vptr = game->vptrs.base_component;
     entry->off_state_colour = 0xffc8c8c8;
     entry->on_state_colour = 0xff00ffff;
     entry->unknown_int = 0xffb0ffb0;
@@ -704,11 +707,11 @@ int add_novis_option(dmenu_menu_index_t menu_base)
     dmenu_item_t item;
     bzero(&item, sizeof(dmenu_item_t));
 
-    item.vptr = game->vptrs->bool_item;
+    item.vptr = game->vptrs.bool_item;
 
     item.event_handler_type_id = 3; // Bool item
     item.event_handler = (void *) 0x0114d100; // Bool event handler
-    item.return_buffer = read_byte(game->pid, (byte *) game->dat.novis);
+    item.return_buffer = read_byte(game->pid, (byte *) game->addrs.dat.novis);
 
     item.off_state_colour = 0xB0FFB0FF; // White
     item.on_state_colour = 0xEF00FFFF;  // Yellow
@@ -721,7 +724,7 @@ int add_novis_option(dmenu_menu_index_t menu_base)
 
     item.item_text = (char *) &((dmenu_item_t *) mem)->item_text_buffer;
 
-    item.item_variable = game->dat.novis;
+    item.item_variable = game->addrs.dat.novis;
 
 
 

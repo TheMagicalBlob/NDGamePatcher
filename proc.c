@@ -750,17 +750,21 @@ int proc_call(void * function_address, unsigned long * return_val_ptr, struct re
     
     // Resume execution until the function returns, hitting the breakpoint present at the start of every ps5 elf
     struct reg return_regs;
-    do {
-        ret = proc_continue();   // Resume process
-        __rerrv(ret, errmsg, 1);
+_wait:
+    ret = proc_continue();   // Resume process
+    __rerrv(ret, errmsg, 1);
 
-        ret = proc_wait(true);   // Wait for stop
-        __rerrv(!ret, errmsg, 1);
+    ret = proc_wait(true);   // Wait for stop
+    __rerrv(!ret, errmsg, 1);
 
-        ret = proc_get_regs(&return_regs);
-        __rerrv(ret, errmsg, 1);
+    ret = proc_get_regs(&return_regs);
+    __rerrv(ret, errmsg, 1);
+
+    if (return_regs.r_rip != 0x400001)
+    {
+        echo("WARNING: Process stopped before returning from call to 0x%llX. (Next instruction after stop: 0x%llX)", function_address, return_regs.r_rip);
+        goto _wait; // Repeat if it's stopped for an unrelated reason (//! handle that)
     }
-    while (return_regs.r_rip != 0x400001); // Repeat if it's stopped for an unrelated reason (//! handle that)
 
     
     
@@ -804,7 +808,7 @@ void * proc_malloc(size_t amount)
     __rerrv(ret, nullstr, nullptr);
 
     // call malloc
-    ret = proc_call(game->func.malloc, (unsigned long *) &mem, &regs);
+    ret = proc_call(game->addrs.func.malloc, (unsigned long *) &mem, &regs);
     __rerrv(ret, nullstr, nullptr);
 
     return mem;
@@ -824,7 +828,7 @@ int proc_free(void * allocated_mem)
     __rerrv(ret, "ERROR: free proc_set_args call failed!", 1);
 
     // Call free
-    ret = proc_call((void *) game->func.free, NULL, &regs);
+    ret = proc_call((void *) game->addrs.func.free, NULL, &regs);
     __rerrv(ret, "ERROR: Call to tracee's \"free\" failed", 1);
     
     return 0;

@@ -10,7 +10,7 @@ typedef void * dmenu_vptr_t;
 
 
 // simplified dmenu type enum boiling it down to structurally different items
-typedef enum : char
+typedef enum dmenu_stype_e : char
 {
     stype_menu_base,    // The base instance containing all submenus
     stype_menu,         // the menus themselves
@@ -24,7 +24,7 @@ typedef enum : char
 
 
 // Indexing for the game's existing debug menus
-typedef enum : char
+typedef enum dmenu_menu_index_e : char
 {
    menu_index_dev,      // Dev Menu
    menu_index_quick,    // Quick Menu
@@ -35,7 +35,7 @@ typedef enum : char
 
 
 
-typedef enum : int
+typedef enum dmenu_item_eh_type_e : int
 {
     INVALID = -1,
     menu,
@@ -51,46 +51,6 @@ typedef enum : int
 
 } dmenu_item_eh_type_t;
 
-
-
-
-
-
-
-
-
-
-
-
-// DMenu component virtual pointers
-typedef struct struct_dmenu_types_s
-{
-    dmenu_vptr_t menu_base; // The base for each debug menu
-
-    dmenu_vptr_t menu; // The menus themselves which contain individual items
-    dmenu_vptr_t dyn_menu; // Menus with dynamic contents that're cleared and repopulated every time they're opened
-    dmenu_vptr_t weapon_upgrades_menu;
-
-    dmenu_vptr_t item_submenu;
-    dmenu_vptr_t task_item_submenu;
-    dmenu_vptr_t subnode_task_item_submenu;
-
-    dmenu_vptr_t base_component; // 0x??
-    dmenu_vptr_t separator_item; // 0xA8
-    dmenu_vptr_t bool_item; // 0xB8
-    dmenu_vptr_t exec_item; // 0xC0
-    dmenu_vptr_t alt_exec_item;
-    dmenu_vptr_t string_item;
-    dmenu_vptr_t string_list_item;
-    dmenu_vptr_t decimal_item;
-    dmenu_vptr_t task_history_item;
-    dmenu_vptr_t task_item;
-    dmenu_vptr_t user_item; // Entirely useless, I assume it's meant to be replaced by an actual username
-    dmenu_vptr_t timer_item;
-    dmenu_vptr_t checkpoint_item;
-    dmenu_vptr_t float_item; // 0x158
-
-} dmenu_types_t;
 
 
 

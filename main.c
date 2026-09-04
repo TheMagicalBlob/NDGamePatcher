@@ -20,8 +20,8 @@ Credits so far:
 extern int sceKernelSendNotificationRequest(int, notify_request_t *, size_t, int);
 extern int sceKernelGetAppInfo(pid_t pid, app_info_t *info);
 // extern int sceKernelLoadStartModule(const char *name, uint64_t argc, const void *argv, uint32_t flags, void *, int *result);
-// extern int sceShellCoreUtilGetAppLaunchedParamInt(const uint32_t appid, const char* key, int* out);
-extern int sceShellCoreUtilGetAppLaunchedParamString(const uint32_t appid, const char* key, char* out, size_t out_sz);
+// extern int sceShellCoreUtilGetAppLaunchedParamInt(const uint32_t appid, const char * key, int* out);
+extern int sceShellCoreUtilGetAppLaunchedParamString(const uint32_t appid, const char * key, char* out, size_t out_sz);
 
 
 
@@ -346,6 +346,7 @@ pid_t find_pid(const char *name)
 //## Main Function Declarations
 //#
 
+//! TODO: Add remaining title ids
 static game_id_t get_game_id(title_id_check_t check)
 {
     // Read from the title id's string * + 1 so we can read it as an unsigned long without missing id's (e.x. reading both PSA15511 and PSA15512 as (ulong)PSA1551)
