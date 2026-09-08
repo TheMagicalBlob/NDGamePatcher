@@ -33,11 +33,14 @@
 
 #define _SHELLCORE_AUTHID 0x4800000000010003L
 
+
 #define PAYLOAD_NAME "dmenu_payload.bin"
-// #define DEBUG
+#define DEBUG
 #define ECHO
 #define LOGOUTPUT
+// #define TESTS
 // #define NOTIFY
+
 
 
 

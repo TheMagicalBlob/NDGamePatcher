@@ -1,12 +1,11 @@
 #include "inc/include.h"
 #include "inc/memory.h"
 // #include "inc/dmenu.h"
-
+#ifdef DEBUG
+#include "inc/debug.h"
+#endif
 
 extern ndgame_t * game;
-
-
-
 
 
 
@@ -358,8 +357,9 @@ int proc_get_regs(struct reg * regs)
 
     __rerrv(ret != 0, strbufbuild("ERROR:\n# PT_GETREGS failed with code %d (%s)\n", ret, strerror(ret)), 1);
 
+    #ifdef DEBUG
     echo("");
-    echo("# Registers:");
+    echo("# Registers (READ):");
     echo("# rax: %llX  rbx: %llX", regs->r_rax, regs->r_rbx);
     echo("# rcx: %llX  rdx: %llX", regs->r_rcx, regs->r_rdx);
     echo("# rsi: %llX  rdi: %llX", regs->r_rsi, regs->r_rdi);
@@ -371,8 +371,6 @@ int proc_get_regs(struct reg * regs)
     echo("# rip: %llX  eflags: %llX", regs->r_rip, regs->r_rflags);
     echo("# trapno:  %llX  err: %d", regs->r_trapno, regs->r_err);
     echo("");
-    #ifdef DEBUG
-    if (0) {}
     #endif
     return 0;
 }
@@ -390,6 +388,22 @@ int proc_set_regs(struct reg * regs)
         }
     }
     
+    
+    #ifdef DEBUG
+    echo("");
+    echo("# Registers (WRITTEN):");
+    echo("# rax: %llX  rbx: %llX", regs->r_rax, regs->r_rbx);
+    echo("# rcx: %llX  rdx: %llX", regs->r_rcx, regs->r_rdx);
+    echo("# rsi: %llX  rdi: %llX", regs->r_rsi, regs->r_rdi);
+    echo("# rbp: %llX  rsp: %llX", regs->r_rbp, regs->r_rsp);
+    echo("# r8:  %llX  r9:  %llX", regs->r_r8, regs->r_r9);
+    echo("# r10: %llX  r11: %llX", regs->r_r10, regs->r_r11);
+    echo("# r12: %llX  r13: %llX", regs->r_r12, regs->r_r13);
+    echo("# r14: %llX  r15: %llX", regs->r_r14, regs->r_r15);
+    echo("# rip: %llX  eflags: %llX", regs->r_rip, regs->r_rflags);
+    echo("# trapno:  %llX  err: %d", regs->r_trapno, regs->r_err);
+    echo("");
+    #endif
     return ret != 0;
 }
 
@@ -674,25 +688,17 @@ int proc_call(void * function_address, unsigned long * return_val_ptr, struct re
         return 1;
     }
 
-    echo("constructing string");
     
     // Construct reused error message
     char errmsg[0x200];
-    const char * ffs;
-
-    ffs = (const char *) strbufbuild("Unable to complete function call to 0x%llX", function_address);
-    echo("AAAAAA: %llX, %s", ffs, ffs);
-    strncpy(errmsg, ffs, sizeof(errmsg));
-
-    echo("string built:");
-    echo("(%s)", errmsg);
+    strncpy(errmsg, (const char *) strbufbuild("Unable to complete function call to 0x%llX", function_address), sizeof(errmsg));
 
     
     
-    //! I guess we can't actually read from that address? I assume we can only read after the header?
+    //! I guess we can't actually read from that address? Can we only read after the header?
     // int ret;
     // ret = read_byte(game->pid, (void *) 0x400000);
-    // __rerrv(ret != 0xCC || errno, errmsg, 1);
+    // __rerrv(ret != 0xCC, errmsg, 1);
     
 
     
@@ -715,7 +721,8 @@ int proc_call(void * function_address, unsigned long * return_val_ptr, struct re
     
 
     // Set return address
-    write_ulong(game->pid, (void *) (arg_regs->r_rsp -= 8), (unsigned long) 0x400000);
+    ret = write_ulong(game->pid, (void *) (arg_regs->r_rsp -= 8), (unsigned long) 0x400000);
+    __rerrv(ret != 0, "ERROR: Failed setting return address, aborting function call", 1);
     
     // Set next instruction address
     arg_regs->r_rip = (critical_t) function_address;
@@ -728,7 +735,6 @@ int proc_call(void * function_address, unsigned long * return_val_ptr, struct re
     
     // Resume execution until the function returns, hitting the breakpoint present at the start of every ps5 elf
     struct reg return_regs;
-_wait:
     ret = proc_continue();   // Resume process
     __rerrv(ret, errmsg, 1);
 
@@ -740,8 +746,8 @@ _wait:
 
     if (return_regs.r_rip != 0x400001)
     {
-        echo("WARNING: Process stopped before returning from call to 0x%llX. (Next instruction after stop: 0x%llX)", function_address, return_regs.r_rip);
-        goto _wait; // Repeat if it's stopped for an unrelated reason (//! handle that)
+        echo("WARNING: Process stopped before returning from call to 0x%llX. (Next instruction when stopped: 0x%llX)", function_address, return_regs.r_rip);
+        goto _return; // Repeat if it's stopped for an unrelated reason (//! handle that)
     }
 
     
@@ -760,6 +766,7 @@ _wait:
 
 
 
+_return:
     // Restore the initial register values
     ret = proc_set_regs(&og_registers);
     __rerrv(ret, errmsg, 1);

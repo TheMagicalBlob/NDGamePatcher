@@ -28,7 +28,6 @@ extern int sceShellCoreUtilGetAppLaunchedParamString(const uint32_t appid, const
 
 
 
-
 //#
 //## Variable Declarations
 //#
@@ -164,7 +163,7 @@ void log_message(const char * base_string, ...)
 // [DEBUG-ONLY] Construct one string in memory to be returned C#-style. Uses one static buffer, only use for certain prints (like the assertion macro)
 char * strbufbuild(char * format, ...)
 {
-    #ifdef DEBUG
+    #ifdef ECHO
         va_list list;
         static char message[2000];
         bzero(message, sizeof(message));
@@ -175,7 +174,8 @@ char * strbufbuild(char * format, ...)
         va_end(list);
         return message;
     #else
-        return nullptr;
+        static char * msg = " ";
+        return msg;
     #endif
 }
 
@@ -596,18 +596,10 @@ void sighandler(int signal)
 
 
 
-#ifdef DEBUG
+#ifdef TESTS
 //### Testing shit
 static void debug_misc()
 {
-    // dump_menu_entries();
-    echo("Bingus");
-    (void * (*)() NULL)();
-    echo("FUCK");
-    return;
-
-    errno = 0;
-
     //#
     //## Function Call issues
     //#
@@ -740,7 +732,7 @@ int main()
 
 
 
-#ifdef DEBUG
+#ifdef TESTS
     //#
     //## Payload DEBUG START
     //#
