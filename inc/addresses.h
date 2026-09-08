@@ -60,7 +60,7 @@ static const address_table_t fuck[] =
             
             .base_component = (dmenu_vptr_t) 0x322d5c8,
             .separator_item = (dmenu_vptr_t) 0x322D6A0,
-            .bool_item = (dmenu_vptr_t) 0x322DA18,
+            .toggle_item = (dmenu_vptr_t) 0x322DA18,
             .exec_item = (dmenu_vptr_t) 0x322E238,
             .alt_exec_item = (dmenu_vptr_t) 0x322E360,
             .string_item = (dmenu_vptr_t) 0x322DFE8,
@@ -119,7 +119,7 @@ static const address_table_t fuck[] =
             
             .base_component = (dmenu_vptr_t) 0x3937c98,
             .separator_item = (dmenu_vptr_t) 0x39380B0,
-            .bool_item = (dmenu_vptr_t) 0x3938860,
+            .toggle_item = (dmenu_vptr_t) 0x3938860,
             .exec_item = (dmenu_vptr_t) 0x3938978,
             .alt_exec_item = (dmenu_vptr_t) 0x3938630,
             .string_item = (dmenu_vptr_t) 0x39382E0,

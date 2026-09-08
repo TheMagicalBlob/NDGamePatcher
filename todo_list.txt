@@ -1,16 +1,17 @@
-1. Update dmenu item struct to reflect the fact that there's clearly multiple of differing sizes
+1. Figure out sighandler stuff enough to have a basic assertion macro we can use per-function. Current error handling is vauge. It may as well say "something happened somewhere"
 
-2. Find an easy of way adding custom functions needed for new menu options to the game's memory
+2. Implement the various dmenu item creation functions from the exectuable (I may take liberties)
 
-3. Implement the various dmenu item creation functions from the exectuable (I may take liberties)
+3. Update dmenu item struct to reflect the fact that there's clearly multiple of differing sizes
+
+4. Find an easy of way adding custom functions needed for new menu options to the game's memory
 
 
+
+?. Clean up code for consistency reasons. We still have a few instances of standardized code being neglected in place of old implementations
 
 ?. Re-implement invoke function in-payload to avoid needing prepatched executables
 
-?. Load and check app.db for app_ver (and the game's title, I supppose) to avoid running on incorrect patch versions
-
 ?. Figure out what's up with that crash we get when sending sigstop after proc_call
 
-?. Figure out sig
 

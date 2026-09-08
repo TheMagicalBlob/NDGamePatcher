@@ -18,9 +18,9 @@ dmenu_stype_t get_dmenu_entry_base_type(void * item)
     if (chk == game->vptrs.menu_base)
         return stype_menu_base;
 
-    if (chk == game->vptrs.dyn_menu ||
-        chk == game->vptrs.weapon_upgrades_menu ||
-        chk == game->vptrs.menu)
+    if (chk == game->vptrs.menu ||
+        chk == game->vptrs.dyn_menu ||
+        chk == game->vptrs.weapon_upgrades_menu)
         return stype_menu;
 
     if (chk == game->vptrs.item_submenu ||
@@ -29,13 +29,13 @@ dmenu_stype_t get_dmenu_entry_base_type(void * item)
         return stype_itemsubmenu;
 
     if (chk == game->vptrs.base_component ||
-        chk == game->vptrs.bool_item ||
+        chk == game->vptrs.string_list_item ||
+        chk == game->vptrs.toggle_item ||
         chk == game->vptrs.exec_item ||
         chk == game->vptrs.alt_exec_item ||
         chk == game->vptrs.float_item ||
         chk == game->vptrs.decimal_item ||
         chk == game->vptrs.separator_item ||
-        chk == game->vptrs.string_list_item ||
         chk == game->vptrs.string_item ||
         chk == game->vptrs.task_history_item ||
         chk == game->vptrs.task_item ||
@@ -63,6 +63,8 @@ const char * get_dmenu_entry_type_as_string(dmenu_vptr_t type)
     strncpy(return_string, "unknown_type", strlen("unknown_type"));
     
 #ifdef DEBUG
+    int count;
+
     const char * names[] = 
     {
         "menu_base",
@@ -70,14 +72,14 @@ const char * get_dmenu_entry_type_as_string(dmenu_vptr_t type)
         "menu",
         "dyn_menu",
         "weapon_upgrades_menu",
-
+        
         "item_submenu",
         "task_item_submenu",
-        "subnode_task_item_submenu"
+        "subnode_task_item_submenu",
         
-        "base_component",
+        "base_component",    
         "separator_item",
-        "bool_item",
+        "toggle_item",
         "exec_item",
         "alt_exec_item",
         "float_item",
@@ -88,7 +90,7 @@ const char * get_dmenu_entry_type_as_string(dmenu_vptr_t type)
         "user_item",
         "timer_item",
         "checkpoint_item",
-        "string_item",
+        "string_item"
     };
 
     const dmenu_vptr_t types[] =
@@ -105,7 +107,7 @@ const char * get_dmenu_entry_type_as_string(dmenu_vptr_t type)
 
         game->vptrs.base_component,
         game->vptrs.separator_item,
-        game->vptrs.bool_item,
+        game->vptrs.toggle_item,
         game->vptrs.exec_item,
         game->vptrs.alt_exec_item,
         game->vptrs.float_item,
@@ -118,22 +120,20 @@ const char * get_dmenu_entry_type_as_string(dmenu_vptr_t type)
         game->vptrs.checkpoint_item,
         game->vptrs.string_item
     };
-
-    if (sizeof(names) != sizeof(types))
-    {
-        echo("ERROR: Type and Size arrays have different sizes!! %d != %d (types, names)", __FUNCTION__, types, names);
-        strncpy(return_string, "unknown_type", sizeof(return_string));
-        return return_string;
-    }
     
-
-    for(int i = 0; i < sizeof(names); i++)
+    count = sizeof(types) / 8;
+    for(int i = 0; i < count; i++)
     {
         if (type != types[i])
         {
             continue;
         }
         
+        if(!names[i])
+        {
+            strncpy(return_string, "(null)", sizeof(return_string));
+            break;
+        }
         strncpy(return_string, names[i], sizeof(return_string));
         break;
     }
@@ -148,10 +148,10 @@ const char * get_dmenu_entry_type_as_string(dmenu_vptr_t type)
 
 
 
+
 // Recursively check every item and submenu for an item matching the specified dmenu simple type and component name
 static void * find_dmenu_component(const char * expected_entry_name, dmenu_stype_t expected_base_type, dmenu_menu_index_t parent_index)
 {
-    
     if (parent_index < 0 || parent_index > 2)
     {
         echo("Invalid parent menu index provided, defaulting to dev menu");
@@ -410,17 +410,19 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
     if((entry_ptr = menu.first_item) == 0)
     {
         echo("ERROR:\n# %s %s has no entries (%d).\n# Aborting.", get_dmenu_entry_type_as_string(menu.vptr), menu.menu_name, entry_ptr);
+        return;
     }
 
 
 
+    #ifdef DEBUG
+    // SID known_types[0x15] = {0};
+    #endif
 
     
     
     
     int depth = 0;
-    char padding[0x40] = { 0x20 }; // used for indentation during output
-
     dmenu_menu_t * history[0x20]; // surely there's no place with a submenu depth even approaching 32, so this should be more than sufficient in size
     
     char item_name[0x80];
@@ -435,16 +437,14 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
 
     while(entry_ptr != null)
     {
-        
         type = (dmenu_vptr_t) read_ulong(game->pid, entry_ptr);
-        
         dtype = get_dmenu_entry_type_as_string(type);
+        
         // Check for unknown dmenu component types
-        if (((unsigned long long) ( *(unsigned long long *) dtype)) == 2336936577129475669) // just the start of the "Unknown value..." string read as an unsigned 64bit integer
+        if (*(unsigned long long *) dtype == 2336936577129475669) // just the start of the "Unknown value..." string read as an unsigned 64bit integer
         {
             unknown_type_count++;
         }
-        
         
         
 
@@ -457,12 +457,19 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
             read_string(game->pid, menu.menu_name, item_name);
             read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &menu.parent_menu->menu_name), parent_name);
 
-            echo("0x%llX %s%s->%s (type: %s)", entry_ptr, padding, parent_name, item_name, dtype);
-            echo(
-                "%s[\n%s  vPtr: %llX\n%s  Unknown Pointer: 0x%llX\n%s  Unknown Bool: 0x%llX\n%s  Menu Callback: 0x%llX\n%s  Menu Variable: 0x%llX\n%s  Menu Index: 0x%llX\n%s]\n",
-                padding, padding, type, padding, menu.unknown_function_ptr, padding, menu.unknown_bool, padding, menu.callback, padding, menu.menu_variable, padding, menu.unknown_menu_array_index, padding);
+            echo("0x%llX %s->%s (type: %s)", entry_ptr, parent_name, item_name, dtype);
+            echo("\n"
+                "vPtr: %llX\n"
+                "Callback: %llX\n"
+                "Variable: %llX\n",
 
+                menu.vptr,
+                menu.callback,
+                menu.menu_variable
+            );
             
+
+
             // Read next item pointer
             entry_ptr = menu.first_item;
             next_is_menu = 0;
@@ -482,11 +489,21 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
 
             read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &item.parent_menu->menu_name), parent_name);
 
-            echo("0x%llX %s%s->%s (type: %s)", entry_ptr, padding, parent_name, item_name, dtype);
-            echo(
-                "%s[\n%s  vPtr: %llX\n%s  Unknown Pointer: 0x%llX\n%s  ItemOrEH TypeID: 0x%llX\n%s  Event Handler: 0x%llX\n%s  Item Callback: 0x%llX\n%s  Item Variable: 0x%llX\n%s  Item Index: 0x%llX\n%s]\n",
-                padding, padding, type, padding, item.unknown_function_ptr, padding, item.event_handler_type_id, padding, item.event_handler, padding, item.callback, padding, item.item_variable, padding, item.unknown_item_index, padding);
+            echo("0x%llX %s->%s (type: %s)", entry_ptr, parent_name, item_name, dtype);
+            echo("\n"
+                "vPtr: %llX\n"
+                "Callback: %llX\n"
+                "Variable: %llX\n"
+                "EventHandler: %llX\n"
+                "ItemType: %llX\n",
 
+                item.vptr,
+                item.callback,
+                item.item_variable,
+                item.event_handler,
+                item.event_handler_type_id
+            );
+            
 
             
 
@@ -498,19 +515,6 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
                 history[++depth] = (dmenu_menu_t *) item.next_item;
                 
                 next_is_menu = 1;
-
-
-                 // Write padding for output formatting
-                for(int i = 0;;)
-                {
-                    *(padding + i++) = ' ';
-
-                    if (i >= depth * 4)
-                    {
-                        *(padding + i) = 0; // Terminate new padding string
-                        break;
-                    }
-                }
             }
             else{
                 entry_ptr = item.next_item;
@@ -526,8 +530,6 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
             entry_ptr = history[depth];
             history[depth--] = nullptr;
         
-            *(padding + depth * 4) = 0; // truncate padding
-
             next_is_menu = 0;
         }
     }
@@ -559,7 +561,7 @@ void dump_menu_entries()
 
 
 // STILL UNFINISHED!! Treats the item as though it's in the payload's memory, which it isn't
-dmenu_item_t * CreateBaseComponent(dmenu_component_t * entry, const char * component_name)
+dmenu_item_t * CreateBaseComponent(/*dmenu_component_t*/ dmenu_item_t * entry, const char * component_name)
 {
     return nullptr;
 
@@ -702,6 +704,93 @@ int AppendItemToParent(dmenu_menu_t * parent_menu, dmenu_item_t * item)
 
 
 
+int PrependItemToParent(dmenu_menu_t * parent_menu, dmenu_item_t * item)
+{
+    dmenu_item_t
+        **next_item_p = &parent_menu->first_item,
+        *current_item = NULL,
+        *prev_item
+    ;
+
+
+
+    // get the last item in the menu, if it has any contents
+    do {
+        prev_item = current_item;
+        current_item = (dmenu_item_t *) read_ulong(game->pid, (unsigned long *) next_item_p);
+        next_item_p = &current_item->next_item;
+        
+    } while (current_item != NULL);
+    
+    if (prev_item == NULL)
+    {
+        // Default to the menu's first item if it has no entries
+        next_item_p = &parent_menu->first_item;
+    }
+    else{
+        next_item_p = &prev_item->next_item;
+    }
+
+
+    
+    int ret;
+    ret = write_ulong(game->pid, (unsigned long *) next_item_p, (unsigned long) item);
+    if (ret)
+    {
+        echo("ERROR @ Line: %d", __LINE__ - 3);
+        return 1;
+    }
+
+    // Assign parent menu and set next item
+    write_ulong(game->pid, (unsigned long *) &item->next_item, (unsigned long) &(item->parent_menu->first_item));
+    write_ulong(game->pid, (unsigned long *) &(item->parent_menu->first_item), (unsigned long) &item);
+    write_ulong(game->pid, (unsigned long *) &item->parent_menu, (u_long) parent_menu);
+
+    // Increment parent menu's item count, and set that unknown bool to 1 like the game does (menu updated, maybe? still need to figure out what this boolean is)
+    write_uint(game->pid, (unsigned int *) &parent_menu->item_count, read_uint(game->pid, &parent_menu->item_count) + 1);
+    write_uint(game->pid, (unsigned int *) &parent_menu->unknown_bool, 1);
+    
+    char _menu_is_open;
+    _menu_is_open = read_byte(game->pid, (byte *) &parent_menu->menu_is_open);
+
+    if (_menu_is_open)
+    {
+        echo("menu is open");
+        void * update_menu;
+        if (!(update_menu = (void *) read_ulong(game->pid, (unsigned long *) read_ulong(game->pid, (unsigned long *) &item->vptr) + 0x18)))
+        {
+            echo("Unable to read item's vPtr!!");
+            return 1;
+        }
+        
+        
+        struct reg args;
+
+        ret = proc_set_args(&args, (uintptr_t) item, 0, 0, 0, 0, 0, 0);
+        if (ret)
+        {
+            echo("ERROR @ Line: %d", __LINE__ - 3);
+            return 1;
+        }
+
+
+        ret = proc_call(update_menu, nullptr, &args);
+        if (ret)
+        {
+            echo("ERROR @ Line: %d", __LINE__ - 3);
+            return 1;
+        }
+    }
+    echo("menu not open");
+
+    return 0;
+}
+
+
+
+
+
+
 
 
 
@@ -716,13 +805,16 @@ int add_novis_option(dmenu_menu_index_t menu_base)
         echo("Novis already added to specified menu base");
         return 0;
     }
-    echo("Adding new novis optiom");
+    echo("Adding new novis option");
 
-    void * mem;    
+
+    // Allocate space for new menu entry
+    void * mem;
     mem = proc_malloc(align(sizeof(dmenu_item_t)));
     __rerrv(!mem, "Error allocating space for novis option", 1);
-    proc_wait(false);
 
+    echo("Allocated mem for new entry");
+    proc_wait(false);
 
 
 
@@ -730,17 +822,17 @@ int add_novis_option(dmenu_menu_index_t menu_base)
     dmenu_item_t item;
     bzero(&item, sizeof(dmenu_item_t));
 
-    item.vptr = game->vptrs.bool_item;
+    item.vptr = game->vptrs.toggle_item;
 
     item.event_handler_type_id = 3; // Bool item
     item.event_handler = (void *) 0x0114d100; // Bool event handler
     item.return_buffer = read_byte(game->pid, (byte *) game->addrs.dat.novis);
 
     item.off_state_colour = 0xB0FFB0FF; // White
-    item.on_state_colour = 0xEF00FFFF;  // Yellow
-    item.unknown_int = 0xB0FFB0FF; // Value it always has
+    item.on_state_colour  = 0xEF00FFFF; // Yellow
+    item.unknown_int      = 0xB0FFB0FF; // Value it always has, still not sure what this does. My original assumption appears to be wrong, though
     item._selection_index = 1;
-    item._item_count = 1;
+    item._item_count      = 1;
 
     
     strcpy(item.item_text_buffer, "Disable All Visibility");
@@ -749,12 +841,14 @@ int add_novis_option(dmenu_menu_index_t menu_base)
 
     item.item_variable = game->addrs.dat.novis;
 
-
-
+    
+    echo("Writing local item to allocated memory space");
     int ret;
     ret = write_bytes(game->pid, sizeof(dmenu_item_t), mem, (byte *) &item);
     __rerrv(ret, "Error writing new menu option to allocated memory, aborting novis option addition.", 1);
 
+
+    echo("Appending item to parent menu");
     return AppendItemToParent(get_root_menu(menu_base), mem);
 }
 

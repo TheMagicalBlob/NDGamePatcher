@@ -58,6 +58,7 @@ int attach(pid_t pid)
         }
     }
     
+    game->pid = pid;
     echo("Attached to pid %d", pid);
     return ret;
 }
@@ -78,35 +79,27 @@ int detach(const char * from)
         echo("%s: Invalid pid provided (%d).", __FUNCTION__, game->pid);
         return 1;
     }
+    int ret;
+    pid_t pid;
+
     echo("Detaching from process %d (%s)", game->pid, from);
 
 
-    kill(game->pid, SIGSTOP);
+    pid = game->pid;
+
+
+    kill(pid, SIGSTOP);
     
-    int ret;
     ret = proc_wait(false);
-    if (ret < 0)
-    {
-        echo("Error waiting for process, but we're exiting anyway");
-    }
-
-    errno = 0;
-    if ((ret = ptrace(PT_DETACH, game->pid, 0, 0)) != 0)
-    {
-        if (errno)
-        {
-            perror("PT_DETACH: ");
-        }
-        else {
-            echo("PT_DETACH: %s (verify code)", strerror(ret));
-        }
-    }
-    else{
-        notify("Detached from %d, exiting.", game->pid);
-    }
-
-    kill(game->pid, SIGCONT);
+    __err(ret != 0, "Error waiting for process, but we're exiting anyway");
     bzero(game, sizeof(ndgame_t));
+
+
+    ret = ptrace(PT_DETACH, pid, 0, 0);
+    __err(ret != 0, "Error detaching from game process.");
+
+    kill(pid, SIGCONT);
+
     return ret;
 }
 
@@ -138,37 +131,23 @@ pid_t proc_wait(int wait)
     // Wait for a child like EDP at the mall
     errno = 0;
     pid_t returned_pid;
-    returned_pid = waitpid(-1, &game->status, options); // WTRAPPED and WEXITED are set implicitly for waitpid, but meh
-    if (returned_pid == -1)
+    returned_pid = waitpid(game->pid, &game->status, options); // WTRAPPED and WEXITED are set implicitly for waitpid, but meh
+    __rerrv(returned_pid == -1, "", -1);
+    
+    
+
+
+    if (returned_pid == 0)
     {
-        if (errno == ECHILD)
-        {
-            echo("No children not previously awaited");
-        }
-        else {
-            echo("ERROR: waitpid returned error: %d->%s", errno, strerror(errno));
-        }
-        
-        return -1;
+        __rerrv(wait != 0, "ERROR: NOHANG was not specified, but waitpid returned 0 anyway.", -1);
+
+        echo("No processes wishing to report status.");
+        return returned_pid;
     }
     
     
     echo("Process %d stopped with status: 0x%llX.", returned_pid, game->status);
 
-
-    if (!returned_pid)
-    {
-        if (wait)
-        {
-            echo("ERROR: NOHANG was not specified, but waitpid returned 0 anyway.");
-            errno = 1;
-            return -1;
-        }
-
-        echo("No processes wishing to report status.");
-        return 0;
-    }
-    
     // Get process' status once it has stopped
     if (WIFEXITED(game->status))
     {
@@ -203,27 +182,9 @@ pid_t proc_wait(int wait)
     errno = 0;
     struct ptrace_lwpinfo thread_info;
     ret = ptrace(PT_LWPINFO, game->pid, (caddr_t) &thread_info, sizeof(struct ptrace_lwpinfo));
-    if (ret != 0)
-    {
-        if (errno)
-        {
-            perror("PT_LWPINFO: ");
-        }
-        else{
-            if (ret)
-            {
-                echo("Error getting lwp info. (%s)", strerror(ret));
-            }
-            else{
-                echo("Unknown error getting lwp info for stopped tracee. PT_LWPINFO returned %d", ret);
-            }
-        }
-    }
-    else{
-        echo("Thread that stopped / terminated: %s (%d:%d)", thread_info.pl_tdname, returned_pid, thread_info.pl_child_pid);
-    }
+    __rerrv(ret != 0, strbufbuild("ERROR: unable to get lwp info for stopped process in pid %d", game->pid), -1);
 
-
+    echo("Thread that stopped / terminated: %s (%d:%d)", thread_info.pl_tdname, returned_pid, thread_info.pl_child_pid);
     return returned_pid;
 }
 
@@ -393,12 +354,27 @@ int proc_stop()
 int proc_get_regs(struct reg * regs)
 {
     int ret;
-    if ((ret = ptrace(PT_GETREGS, game->pid, (caddr_t) regs, 0)) != 0)
-    {
-        echo("ERROR:\n# PT_GETREGS failed with code %d (%s)\n", ret, strerror(ret));
-    }
+    ret = ptrace(PT_GETREGS, game->pid, (caddr_t) regs, 0);
 
-    return ret != 0;
+    __rerrv(ret != 0, strbufbuild("ERROR:\n# PT_GETREGS failed with code %d (%s)\n", ret, strerror(ret)), 1);
+
+    echo("");
+    echo("# Registers:");
+    echo("# rax: %llX  rbx: %llX", regs->r_rax, regs->r_rbx);
+    echo("# rcx: %llX  rdx: %llX", regs->r_rcx, regs->r_rdx);
+    echo("# rsi: %llX  rdi: %llX", regs->r_rsi, regs->r_rdi);
+    echo("# rbp: %llX  rsp: %llX", regs->r_rbp, regs->r_rsp);
+    echo("# r8:  %llX  r9:  %llX", regs->r_r8, regs->r_r9);
+    echo("# r10: %llX  r11: %llX", regs->r_r10, regs->r_r11);
+    echo("# r12: %llX  r13: %llX", regs->r_r12, regs->r_r13);
+    echo("# r14: %llX  r15: %llX", regs->r_r14, regs->r_r15);
+    echo("# rip: %llX  eflags: %llX", regs->r_rip, regs->r_rflags);
+    echo("# trapno:  %llX  err: %d", regs->r_trapno, regs->r_err);
+    echo("");
+    #ifdef DEBUG
+    if (0) {}
+    #endif
+    return 0;
 }
 
 
@@ -697,17 +673,19 @@ int proc_call(void * function_address, unsigned long * return_val_ptr, struct re
         echo("ERROR: Null address provided for function.");
         return 1;
     }
+
+    echo("constructing string");
     
     // Construct reused error message
     char errmsg[0x200];
-    strncpy(errmsg, (const char *) strbufbuild("Unable to complete function call to 0x%llX", function_address), sizeof(errmsg));
+    const char * ffs;
 
-    // Check for a null or invalid ndgame_t pointer
-    if (!game)
-    {
-        echo("ERROR: %s->Null game ptr provided", __FUNCTION__);
-        __rerrv(1, errmsg, 1);
-    }
+    ffs = (const char *) strbufbuild("Unable to complete function call to 0x%llX", function_address);
+    echo("AAAAAA: %llX, %s", ffs, ffs);
+    strncpy(errmsg, ffs, sizeof(errmsg));
+
+    echo("string built:");
+    echo("(%s)", errmsg);
 
     
     
@@ -807,8 +785,11 @@ void * proc_malloc(size_t amount)
     ret = proc_set_args(&regs, amount, 0, 0, 0, 0, 0, 0);
     __rerrv(ret, nullstr, nullptr);
 
+    
+    echo("Calling 0x%llX", game->addrs.func.malloc);
     // call malloc
     ret = proc_call(game->addrs.func.malloc, (unsigned long *) &mem, &regs);
+    echo("call done");
     __rerrv(ret, nullstr, nullptr);
 
     return mem;
@@ -843,8 +824,9 @@ int proc_free(void * allocated_mem)
 int patch_process(size_t patch_count, byte * patch_addresses[], const byte * patch_data[], size_t patch_sizes[])
 {
     __rerrv(1, "Unfinished function called prematurely.", 1);
+    ((void * (*)()) NULL)();
+    echo("We still fucking goin");
     exit(1);
-
 
     __rerrv(!game, "Invalid game pointer provided.", 1);
     __rerrv(!patch_count, "WARNING: Patch count was zero.", 0);
@@ -859,7 +841,7 @@ int patch_process(size_t patch_count, byte * patch_addresses[], const byte * pat
         while (j < patch_sizes[i])
         {
             ret = write_byte(game->pid, patch_addresses[i] + j, *(patch_data[i] + j));
-            __rerrv(ret, strbufbuild("Error writing byte @0x%X to 0x%llX", *(patch_data[i] + j), patch_addresses[i] + j), 1);
+            __err(ret, strbufbuild("Error writing byte @0x%X to 0x%llX", *(patch_data[i] + j), patch_addresses[i] + j));
 
             ++j;
         }

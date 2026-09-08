@@ -35,19 +35,20 @@ typedef enum dmenu_menu_index_e : char
 
 
 
-typedef enum dmenu_item_eh_type_e : int
+typedef enum dmenu_item_eh_type_e : unsigned int
 {
-    INVALID = -1,
-    menu,
-    unk1,
-    unk2,
+    INVALID = INT_MAX,
+    item_submenu = 0,
+    float_item,
+    decimal_item,
     toggle_item,
-    unk4,
-    unk5,
-    unk6,
-    unk7,
-    unk8,
-    separator_item
+    string_list_item,
+    exec_item,
+    user_item,
+    string_item,
+    unknown_item_8,
+    separator_item,
+    unknown_item_10
 
 } dmenu_item_eh_type_t;
 
@@ -60,35 +61,6 @@ typedef enum dmenu_item_eh_type_e : int
 
 typedef struct dmenu_menu_s dmenu_menu_t;
 typedef struct dmenu_item_s dmenu_item_t;
-
-typedef struct dmenu_component_s 
-{
-    dmenu_vptr_t vptr;
-    void * unknown_function_ptr;
-    char item_text_buffer[0x20];
-    char * item_text;
-    dmenu_menu_t * parent_menu;
-    dmenu_item_t * next_item;
-    const unsigned short horizontal_padding;
-    const unsigned short vertical_padding;
-    const unsigned short width;
-    const unsigned short height;
-    char unmapped0[0x8];
-    unsigned long unknown_item_index;
-    void * item_variable;
-    unsigned int off_state_colour;
-    unsigned int on_state_colour;
-    unsigned int unknown_int;
-    unsigned int shortcut_info;
-    void * callback;
-    unsigned long unmapped3;
-    char unmapped4[0x8];
-    dmenu_menu_base_t * menu_base; // Points to the dmenu base entry [0x90] 
-
-} dmenu_component_t;
-
-
-
 
 typedef struct dmenu_item_s 
 {
@@ -116,7 +88,7 @@ typedef struct dmenu_item_s
     char unmapped5[0x4];
     int _selection_index;
     unsigned int _item_count; //!
-    unsigned int event_handler_type_id; // unsure
+    dmenu_item_eh_type_t event_handler_type_id; // unsure
     void * event_handler;
     unsigned long return_buffer;
 

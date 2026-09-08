@@ -34,9 +34,12 @@
 #define _SHELLCORE_AUTHID 0x4800000000010003L
 
 #define PAYLOAD_NAME "dmenu_payload.bin"
-#define DEBUG
-// #define LOGOUTPUT
+// #define DEBUG
+#define ECHO
+#define LOGOUTPUT
 // #define NOTIFY
+
+
 
 #define __ERROR_PRINT(check, message) {\
     char output[0x400],\
@@ -62,6 +65,7 @@
     strncpy(buf, output, sizeof(output));\
     snprintf(buf, sizeof(output), "\n%s\n%s\n%s\n", bars, output, bars);\
     echo((char *) buf);\
+    errno = 0;\
 }
 
 
@@ -95,6 +99,12 @@
         return error_code;\
     }\
 }\
+
+
+// Assertion macro
+#define __ASSERTIF {\
+    setup_assertion(__FUNCTION__, __LINE__);\
+}
 
 
 
@@ -236,7 +246,7 @@ typedef struct dmenu_types_s
 
     dmenu_vptr_t base_component; // 0x??
     dmenu_vptr_t separator_item; // 0xA8
-    dmenu_vptr_t bool_item; // 0xB8
+    dmenu_vptr_t toggle_item; // 0xB8
     dmenu_vptr_t exec_item; // 0xC0
     dmenu_vptr_t alt_exec_item;
     dmenu_vptr_t string_item;

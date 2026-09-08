@@ -62,7 +62,7 @@ ndgame_t * game;
 // Print (and optionally format) the specified string to kernel output, as well as to the log file if one is active
 int echo(const char * string, ...)
 {
-#ifdef DEBUG
+#ifdef ECHO
     int len;
     va_list list;
     va_start(list, string);
@@ -122,8 +122,8 @@ void notify(const char * message, ...)
 // Log (and optionally format) a message to an active log file on the ps5 at /data/bLog.txt
 void log_message(const char * base_string, ...)
 {
+#ifdef ECHO
 #ifdef LOGOUTPUT
-#ifdef DEBUG
     errno = 0;
     va_list args;
     char message[4000];
@@ -244,7 +244,6 @@ int get_longest_line_length(const char * str, size_t str_maxlen)
         current = 0;
 
 
-    
     if (str != null && str_maxlen > 0)
     {
         for(int i = 0; i < str_maxlen; i++)
@@ -258,6 +257,7 @@ int get_longest_line_length(const char * str, size_t str_maxlen)
                 current = 0;
                 continue;
             }
+
             if (*(str + i) == 0)
             {
                 goto _ret;
@@ -384,9 +384,7 @@ static int load_ndgame(game_id_t game_id, pid_t pid, app_info_t * app_info)
     //#
     //## Load app metadata
     //#
-#ifdef DEBUG
-    echo("Reading app metadata");
-#endif
+    echo("Loading NDGame for pid %d", pid);
 
     int ret;
     ret = sceKernelGetAppInfo(pid, app_info);
@@ -433,10 +431,12 @@ static pid_t wait_for_game_launch()
     //! TODO: Replace with kernel event method. We've already added credits for it, understand and then use it already
     // Check for any running eboot.bin processes
     pid = find_pid("eboot.bin");
+    echo("find_pid: %d", pid);
 
-    while (!pid) {
+    while (pid == -1) {
         sleep(10);
         pid = find_pid("eboot.bin");
+        echo("find_pid: %d", pid);
 
         if (pid) {
             echo("Game launched, waiting an extra 15 seconds for the game to fully launch"); // Also to wait for klog output to calm down
@@ -456,16 +456,15 @@ static pid_t wait_for_game_launch()
 
 static game_id_t find_and_trace_game()
 {
+    pid_t pid;
     game_id_t err;
     bzero(game, sizeof(ndgame_t));
 
 
     // Wait for a new bigapp process launch
-    pid_t pid;
-    pid = wait_for_game_launch();
     err = (game_id_t) -1;
-
-    __rerrv(!pid, "ERROR: Invalid process id returned from launched game, aborting until new app launch", err)
+    pid = wait_for_game_launch();
+    __rerrv(pid < 1, strbufbuild("ERROR: Invalid process id returned from launched game (%d), aborting until new app launch", pid), err)
 
 
     // Read and check Title ID
@@ -487,6 +486,10 @@ static game_id_t find_and_trace_game()
     // Attach to new game process
     ret = attach(pid);
     __rerrv(ret, "ERROR: Unable to attach to process, aborting.", err);
+
+    // Wait for the process to stop
+    ret = proc_wait(true);
+    __rerrv(ret == -1, "ERROR: proc_wait returned error when waiting after initial attachment, aborting", err)
 
 
     // Save id of process only once attached
@@ -510,10 +513,7 @@ static game_id_t find_and_trace_game()
         game->app_ver,
         game->title
     );
-    
 
-    // Wait for the attached process to stop
-    __rerrv(proc_wait(true) == -1, "proc_wait returned error- subsequent functions will likely fail.", err);
     return ret;
 }
 
@@ -566,6 +566,13 @@ void cleanup(int exit_code)
 
 
 
+void setup_assertion(const char * function, int line)
+{
+
+}
+
+
+
 
 void sighandler(int signal)
 {
@@ -593,7 +600,10 @@ void sighandler(int signal)
 //### Testing shit
 static void debug_misc()
 {
-    dump_menu_entries();
+    // dump_menu_entries();
+    echo("Bingus");
+    (void * (*)() NULL)();
+    echo("FUCK");
     return;
 
     errno = 0;
@@ -645,12 +655,8 @@ static void debug_misc()
 
 // Main payload loop (well, it will be a loop eventually)
 static int start(int this)
-{
-    echo("Proceeding with new %s instance (%d)", PAYLOAD_NAME, this);
+{    
     int ret;
-    
-    
-
     // Make sure novis is present
     ret = add_novis_option(menu_index_quick);
     __err(ret, "Error adding novis option, proceeding processes may also fail.\n");
@@ -721,20 +727,17 @@ int main()
     sigaction(SIGTERM, &handler, NULL);
     sigaction(SIGSEGV, &handler, NULL);
 
-    watchpoint_count = 0;
-    game = &ndgame;
     int ret;
-
-
-
-
-
-
+    game = &ndgame;
+    watchpoint_count = 0;
     
-
+    
+    
     // Find game process to trace
+    echo("Proceeding with new %s instance (%d) - Waiting/Searching for game process.", PAYLOAD_NAME, getpid());
     ret = find_and_trace_game();
-    __rerrv(ret, "Unhandled error finding game process, payload aborting.", 1);
+    __rerrv(ret != 0, "Unhandled error finding game process, payload aborting with error.", 1);
+
 
 
 #ifdef DEBUG
@@ -745,7 +748,7 @@ int main()
     cleanup(ret);
     return 0;
 #endif
-
+    
 
     
     //#
