@@ -700,9 +700,10 @@ int main()
             sleep(2);
         }
         while ((pid = find_pid(PAYLOAD_NAME)) > 0 && tries < 2);
+
         if (pid)
         {
-            echo("WARNING: Previous %s instance(s) still running", PAYLOAD_NAME);
+            echo("WARNING: Previous %s instance(s) still running (%d)", PAYLOAD_NAME, pid);
         }
 
         exit(0);

@@ -31,25 +31,34 @@ static int proc_read(pid_t pid, size_t len, void * source, void * buffer)
     if (!source)
     {
         echo("ERROR:\n# %s:%d->ptrace PT_IO (read) source address was null (src addr: 0x%llX)", function, line, source);
-        return errno = EFAULT;
+        errno = EFAULT;
+        return -1;
     }
     if (!buffer)
     {
         echo("ERROR:\n# %s:%d->ptrace PT_IO (read) destination address was null (buffer addr: 0x%llX)", function, line, buffer);
-        return errno = EFAULT;
+        errno = EFAULT;
+        return -1;
+    }
+    if (pid == 0 || pid == -1)
+    {
+        echo("ERROR:\n# %s:%d->ptrace PT_IO (read) provided process id was invalid (pid: %d)", function, line, pid);
+        errno = EINVAL;
+        return -1;
     }
 
 
-
     
+    int ret;
     struct ptrace_io_desc iod = { PIOD_READ_D, source, buffer, len };
 
 
-    int ret;
-    if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, null)) != 0)
+    ret = ptrace(PT_IO, pid, (caddr_t) &iod, null);
+    if (ret != 0)
     {
         echo("ERROR:\n# %s:%d->ptrace PT_IO (read) failed with code %d (%s)\n\n# Source address: %llX\n# buffer address: %llX\n", function, line, ret, strerror(ret), source, buffer);
         errno = EIO;
+        return -1;
     }
 
 
@@ -73,22 +82,34 @@ static int proc_write(pid_t pid, size_t len, void * dest, void * value)
     if (!dest)
     {
         echo("ERROR:\n# %s:%d->ptrace PT_IO (write) destination address was invalid (src addr: 0x%llX)", function, line, dest);
-        return errno = EFAULT;
+        errno = EFAULT;
+        return -1;
     }
     if (!value)
     {
         echo("ERROR:\n# %s:%d->ptrace PT_IO (write) value address was invalid (val addr: 0x%llX)", function, line, value);
-        return errno = EFAULT;
+        errno = EFAULT;
+        return -1;
     }
+    if (pid == 0 || pid == -1)
+    {
+        echo("ERROR:\n# %s:%d->ptrace PT_IO (write) provided process id was invalid (pid: %d)", function, line, pid);
+        // errno = ESRCH;
+        errno = EINVAL;
+        return -1;
+    }
+
+
     
-    
+    int ret;
     struct ptrace_io_desc iod = { PIOD_WRITE_D, dest, value, len };
 
-    int ret;
-    if ((ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0)) != 0)
+    ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0);
+    if (ret != 0)
     {
         echo("ERROR:\n# %s:%d->ptrace PT_IO (write) failed with code %d (%s)\n\n# Destination address: %llX\n# Value Pointer: %llX (value as ulong: %llX)\n", function, line, ret, strerror(ret), dest, value, *(unsigned long *) value);
         errno = EIO;
+        return -1;
     }
 
     
@@ -144,11 +165,9 @@ byte read_byte(const char * function, int line, pid_t pid, byte * address)
 byte read_byte(pid_t pid, byte * address)
 #endif
 {
-    int ret;
     byte data;
 
-    ret = proc_read(pid, 1, address, &data);
-    if (ret != 1)
+    if (proc_read(pid, sizeof(byte), address, &data) != sizeof(byte))
     {
         return -1;
     }
@@ -165,7 +184,7 @@ int write_byte(const char * function, int line, pid_t pid, byte * address, byte 
 int write_byte(pid_t pid, byte * address, byte data)
 #endif
 {
-    return proc_write(pid, 1, address, &data) != 1;
+    return proc_write(pid, sizeof(byte), address, &data) != sizeof(byte);
 }
 
 
@@ -183,9 +202,9 @@ unsigned long read_ulong(pid_t pid, unsigned long * address)
 {
     unsigned long data;
 
-    if (proc_read(pid, 8, address, &data))
+    if (proc_read(pid, sizeof(unsigned long), address, &data) != sizeof(unsigned long))
     {
-        return errno = -1;
+        return -1;
     }
 
     return data;
@@ -200,7 +219,7 @@ int write_ulong(const char * function, int line, pid_t pid, unsigned long * addr
 int write_ulong(pid_t pid, unsigned long * address, unsigned long value)
 #endif
 {
-    return proc_write(pid, 8, address, &value) != 8;
+    return proc_write(pid, sizeof(unsigned long), address, &value) != sizeof(unsigned long);
 }
 
 
@@ -218,9 +237,9 @@ unsigned read_uint(pid_t pid, unsigned * address)
 {
     unsigned data;
 
-    if (proc_read(pid, 4, address, &data))
+    if (proc_read(pid, sizeof(unsigned), address, &data) != sizeof(unsigned))
     {
-        return errno = -1;
+        return -1;
     }
 
     return data;
@@ -235,7 +254,7 @@ int write_uint(const char * function, int line, pid_t pid, unsigned * address, u
 int write_uint(pid_t pid, unsigned * address, unsigned value)
 #endif
 {
-    return proc_write(pid, 4, address, &value) != 4;
+    return proc_write(pid, sizeof(unsigned), address, &value) != sizeof(unsigned);
 }
 
 
@@ -253,9 +272,9 @@ double read_double(pid_t pid, double * address)
 {
     double data;
 
-    if (proc_read(pid, 8, address, &data))
+    if (proc_read(pid, sizeof(double), address, &data) != sizeof(double))
     {
-        return errno = -1;
+        return -1;
     }
 
     return data;
@@ -270,7 +289,7 @@ int write_double(const char * function, int line, pid_t pid, double * address, d
 int write_double(pid_t pid, double * address, double value)
 #endif
 {
-    return proc_write(pid, 8, address, &value) != 8;
+    return proc_write(pid, sizeof(double), address, &value) != sizeof(double);
 }
 
 
@@ -288,9 +307,9 @@ float read_single(pid_t pid, float * address)
 {
     float data;
 
-    if (proc_read(pid, 4, address, &data))
+    if (proc_read(pid, sizeof(float), address, &data) != sizeof(float))
     {
-        return errno = -1;
+        return -1;
     }
 
     return data;
@@ -305,7 +324,7 @@ int write_single(const char * function, int line, pid_t pid, float * address, fl
 int write_single(pid_t pid, float * address, float value)
 #endif
 {
-    return proc_write(pid, 4, address, &value) != 4;
+    return proc_write(pid, sizeof(float), address, &value) != sizeof(float);
 }
 
 
