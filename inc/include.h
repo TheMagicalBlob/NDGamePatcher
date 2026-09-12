@@ -35,39 +35,40 @@
 
 
 #define PAYLOAD_NAME "dmenu_payload.bin"
+
+// Do some basic extra debugging processes, as well as prints
 #define DEBUG
 #define ECHO
+#ifdef ECHO
+// #define VERBOSEDEBUG
 #define LOGOUTPUT
-// #define TESTS
+#endif
+#define TESTS
 // #define NOTIFY
 
-
-
-
-#define __ERROR_PRINT(check, message) {\
+#define __ERROR_PRINT(message) {\
     char output[0x400],\
-            bars[0x100],\
-            buf[0x600];\
-\
-    snprintf(output, sizeof(output), "# ERROR:\n# File %s\n# Func %s\n# Line %d", __FILE__, __FUNCTION__, __LINE__ - 1);\
-\
-    if ((char *) message && *(char *) message != 0) {\
+         bars[0x100],\
+         buf[0x600];\
+    \
+    snprintf(output, sizeof(output), "# ERROR:\n# File %s\n# Func %s\n# ~Line %d", __FILE__, __FUNCTION__, __LINE__ - 1);\
+    \
+    if (message != (char *) 0) {\
         snprintf(output, sizeof(output), "%s\n# Message: %s", output, message);\
     }\
+    errno = 1;\
     if (errno) {\
         snprintf(output, sizeof(output), "%s\n# Message (errno): %s", output, strerror(errno));\
     }\
-\
-    int len;\
+    unsigned int len;\
     len = get_longest_line_length(output, sizeof(output));\
-    for (int i = 0; i < sizeof(bars) && i < len + 2; i++) {\
+    for (unsigned int i = 0; i < sizeof(bars) && i < len + 2; i++) {\
         *(bars + i) = '#';\
     }\
     *(bars + len + 2) = 0;\
+    snprintf(buf, sizeof(buf), "\n%s\n%s\n%s\n", bars, output, bars);\
+    echo("%s", (char *) buf);\
 \
-    strncpy(buf, output, sizeof(output));\
-    snprintf(buf, sizeof(output), "\n%s\n%s\n%s\n", bars, output, bars);\
-    echo((char *) buf);\
     errno = 0;\
 }
 
@@ -77,7 +78,7 @@
 // Additionally check errno and output it's message accordingly
 #define __err(check, message) {\
     if (check){\
-        __ERROR_PRINT(check, message)\
+        __ERROR_PRINT(message)\
     }\
 }\
 
@@ -87,7 +88,7 @@
 // Additionally check errno and output it's message accordingly
 #define __rerr(check, message) {\
     if (check){\
-        __ERROR_PRINT(check, message)\
+        __ERROR_PRINT(message)\
         return;\
     }\
 }\
@@ -98,7 +99,7 @@
 // Additionally check errno and output it's message accordingly
 #define __rerrv(check, message, error_code) {\
     if (check){\
-        __ERROR_PRINT(check, message)\
+        __ERROR_PRINT(message)\
         return error_code;\
     }\
 }\

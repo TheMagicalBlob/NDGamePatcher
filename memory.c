@@ -62,7 +62,7 @@ static int proc_read(pid_t pid, size_t len, void * source, void * buffer)
     }
 
 
-    #ifdef DEBUG
+    #ifdef VERBOSEDEBUG
     echo("Read %d bytes from 0x%llX", iod.piod_len, source);
     #endif
     return iod.piod_len;
@@ -113,7 +113,7 @@ static int proc_write(pid_t pid, size_t len, void * dest, void * value)
     }
 
     
-    #ifdef DEBUG
+    #ifdef VERBOSEDEBUG
     echo("Wrote %d bytes to 0x%llX", iod.piod_len, dest);
     #endif
     return iod.piod_len;
@@ -352,7 +352,9 @@ int read_string(pid_t pid, const char * address, char * buffer)
     unsigned len;
     
     ret = proc_read(pid, 1, (void *) address, buffer);
-    __rerrv(ret != 0, strbufbuild("ERROR: Failed checking first character of string at 0x%llX before reading full string, aborting %s", address, __FUNCTION__), -1);
+    __rerrv(ret != 1, "ERROR: Failed checking first character of string at 0x%llX before reading full string, aborting %s", -1);
+    __rerrv(ret != 1, strbufbuild("ERROR: Failed checking first character of string at 0x%llX before reading full string, aborting %s", address, __FUNCTION__), -1);
+
     if (buffer == 0) 
     {
         echo("Empty string at address 0x%llX.", (unsigned long) address);
@@ -362,10 +364,10 @@ int read_string(pid_t pid, const char * address, char * buffer)
     
     len = 0;
     do {
-        ret = proc_read(pid, 1, (void *) address, buffer + len ++);
-        __rerrv(ret != 0, strbufbuild("ERROR: Failed reading character #%d at 0x%llX when reading string, %s aborting.", len, address, __FUNCTION__), -1);
+        ret = proc_read(pid, 1, (void *) address + len, buffer + len);
+        __rerrv(ret != 1, strbufbuild("ERROR: Failed reading character #%d at 0x%llX when reading string, %s aborting.", len + 1, address, __FUNCTION__), -1);
     }
-    while(*(char *) (buffer + (len - 1)));
+    while(*(char *) (buffer + (++len - 1)));
 
     return len;
 }

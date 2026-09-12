@@ -6,6 +6,7 @@ Credits so far:
 - Illusiony (told about sceShellCoreUtilGetAppLaunchedParamString)
 - earthonion (told me how to link with other libraries)
 - AlAzif (can't think of anything at the moment, but very likely)
+- LM (force kill process method that works better than sigkill)
 */
 
 
@@ -22,7 +23,7 @@ extern int sceKernelGetAppInfo(pid_t pid, app_info_t *info);
 // extern int sceKernelLoadStartModule(const char *name, uint64_t argc, const void *argv, uint32_t flags, void *, int *result);
 // extern int sceShellCoreUtilGetAppLaunchedParamInt(const uint32_t appid, const char * key, int* out);
 extern int sceShellCoreUtilGetAppLaunchedParamString(const uint32_t appid, const char * key, char* out, size_t out_sz);
-
+// extern int sceKernelTerminateProcess(pid_t, int *);
 
 
 
@@ -58,10 +59,23 @@ ndgame_t * game;
 //## Common Function Declarations
 //#
 
+void failed_echo(const char * string, ...)
+{
+#ifdef ECHO
+    klog_printf("Segfault received on attempt to print string from address 0x%llX", (unsigned long) string);
+#endif
+}
+
 // Print (and optionally format) the specified string to kernel output, as well as to the log file if one is active
 int echo(const char * string, ...)
 {
 #ifdef ECHO
+    // struct sigaction handler;
+    // bzero(&handler, sizeof(struct sigaction));
+
+    // handler.__sigaction_u.__sa_handler = failed_echo;
+    // sigaction(SIGSEGV, &handler, NULL);
+
     int len;
     va_list list;
     va_start(list, string);
@@ -69,12 +83,12 @@ int echo(const char * string, ...)
     char msg[4000];
     len = vsnprintf(msg, sizeof(msg) - 2, string, list);
     
-    if (game)
+    if (game != NULL)
     {
-        klog_printf("%d:%d: %s\n", getpid(), game->pid, msg);
+        klog_printf("%d:%d: %s\n", getpid(), game->pid, &msg);
     }
     else{
-        klog_printf("%d:%d: %s\n", getpid(), 0, msg);
+        klog_printf("%d:%d: %s\n", getpid(), 0, &msg);
     }
 
     log_message("%s\n", msg);
@@ -121,7 +135,6 @@ void notify(const char * message, ...)
 // Log (and optionally format) a message to an active log file on the ps5 at /data/bLog.txt
 void log_message(const char * base_string, ...)
 {
-#ifdef ECHO
 #ifdef LOGOUTPUT
     errno = 0;
     va_list args;
@@ -139,7 +152,7 @@ void log_message(const char * base_string, ...)
 
         if (logfile < 0)
         {
-            printf("Unable to open logfile, maybe error code: %s", strerror(errno));
+            klog_printf("Unable to open logfile, maybe error code: %s", strerror(errno));
         }
     }
 
@@ -147,9 +160,13 @@ void log_message(const char * base_string, ...)
     if (logfile)
     {
         // Write the message to the log file
-        write(logfile, message, strlen(message));
+        int ret;
+        ret = write(logfile, message, strlen(message));
+        if (ret != 0)
+        {
+            klog_printf("Write returned %d", ret);
+        }
     }
-#endif
 #endif
 }
 
@@ -163,20 +180,20 @@ void log_message(const char * base_string, ...)
 // [DEBUG-ONLY] Construct one string in memory to be returned C#-style. Uses one static buffer, only use for certain prints (like the assertion macro)
 char * strbufbuild(char * format, ...)
 {
-    #ifdef ECHO
-        va_list list;
-        static char message[2000];
-        bzero(message, sizeof(message));
+#ifdef ECHO
+    va_list list;
+    static char message[2000];
+    bzero(message, sizeof(message));
 
-        // Build string with variable arguments
-        va_start(list, format);
-        vsnprintf(message, sizeof(message) - 1, message, list);
-        va_end(list);
-        return message;
-    #else
-        static char * msg = " ";
-        return msg;
-    #endif
+    // Build string with variable arguments
+    va_start(list, format);
+    vsnprintf(message, sizeof(message) - 1, format, list);
+    va_end(list);
+    return message;
+#else
+    static char * msg = " ";
+    return msg;
+#endif
 }
 
 
@@ -220,7 +237,7 @@ unsigned long encode_sid(const char * input)
 
     input_len = strlen(input);
 
-    for (int i = 0; i < input_len; ++i)
+    for (unsigned i = 0; i < input_len; ++i)
     {
         hash ^= input[i];
         hash *= prime;
@@ -240,13 +257,13 @@ unsigned long encode_sid(const char * input)
 // Returns the length on success, or -1 if the pointer is null
 int get_longest_line_length(const char * str, size_t str_maxlen)
 {
-    int biggest = 0,
+    unsigned biggest = 0,
         current = 0;
 
 
     if (str != null && str_maxlen > 0)
     {
-        for(int i = 0; i < str_maxlen; i++)
+        for(unsigned i = 0; i < str_maxlen; i++)
         {
             if (*(str + i) == '\n')
             {
@@ -287,6 +304,46 @@ _ret:
 int * get_watchpoint_count()
 {
     return &watchpoint_count;
+}
+
+
+
+
+
+
+
+
+// Force kill process the proper way, from LM
+void ForceKillProc(int pid)
+{
+    if (pid < 0)
+    {
+        klog_printf("Invalid PID: %d\n", pid);
+        return;
+    }
+
+    int ret;
+    pid_t this;
+    uintptr_t authid;
+    #define DECID_AUTH_ID 0x4800000000000022 // required for killing with sceKernelTerminateProcess / sys_proc_term  syscall
+
+
+    this = getpid();
+    authid = kernel_get_ucred_authid(this);
+    kernel_set_ucred_authid(this, DECID_AUTH_ID);
+
+
+    ret = syscall(0x28C, pid);
+    if (ret != 0)
+    {
+        klog_printf("Failed to terminate process with PID: %d. ret: %d, error: %s\n", pid, ret, strerror(errno));
+    }
+    else {
+        klog_printf("Successfully terminated pid: %d\n", pid);
+    }
+
+    #undef DECID_AUTH_ID
+    kernel_set_ucred_authid(this, authid); // Restore original authid
 }
 
 
@@ -436,10 +493,10 @@ static pid_t wait_for_game_launch()
     while (pid == -1) {
         sleep(10);
         pid = find_pid("eboot.bin");
-        echo("find_pid: %d", pid);
+        echo("_find_pid: %d", pid);
 
-        if (pid) {
-            echo("Game launched, waiting an extra 15 seconds for the game to fully launch"); // Also to wait for klog output to calm down
+        if (pid > 0) {
+            echo("Game launched (%d), waiting an extra 15 seconds for the game to fully launch", pid); // Also to wait for klog output to calm down
             sleep(15);
         }
     }
@@ -608,6 +665,8 @@ static void debug_misc()
     struct reg _args;
     unsigned long return_check;
 
+    __rerr(1, strbufbuild("ERROR: Failed checking first character of string at 0x%llX before reading full string, aborting %s", "ass"));
+
 
     ret = proc_clear_args(&_args);
     __rerr(ret, "Error clearing args, aborting test call");
@@ -646,7 +705,7 @@ static void debug_misc()
 
 
 // Main payload loop (well, it will be a loop eventually)
-static int start(int this)
+static int start()
 {    
     int ret;
     // Make sure novis is present
@@ -685,25 +744,16 @@ int main()
             echo("Killing old %s instance (pid: %d)...\n", PAYLOAD_NAME, pid);
             
             tries ++;
-            if (kill(pid, SIGTERM))
-            {
-                echo("ERROR: SIGTERM on process (%d) failed!!! - No idea how this failed, but something's clearly wrong. Off we screw.", pid);
-                if (errno)
-                {
-                    echo("kill(%d, SIGTERM): %s", pid, strerror(errno));
-                }
-                return -1;
-            }
-
+            ForceKillProc(pid);
 
             notify("Sent termination signal to previous %s instance %d", PAYLOAD_NAME, pid);
             sleep(2);
         }
-        while ((pid = find_pid(PAYLOAD_NAME)) > 0 && tries < 2);
+        while ((pid = find_pid(PAYLOAD_NAME)) > 0 && tries < 8);
 
         if (pid)
         {
-            echo("WARNING: Previous %s instance(s) still running (%d)", PAYLOAD_NAME, pid);
+            echo("WARNING: Previous %s instance(s) still running (%d)\n\n", PAYLOAD_NAME, pid);
         }
 
         exit(0);
@@ -749,7 +799,7 @@ int main()
     //#
     
     // Payload start
-    ret = start(getpid());
+    ret = start();
     __err(ret, "Payload start exited with error");
 
     // Payload exit cleanup

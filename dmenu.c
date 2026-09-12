@@ -6,8 +6,8 @@
 #include "inc/debug.h"
 #endif
 
-extern ndgame_t * game;
 
+extern ndgame_t * game;
 
 
 
@@ -322,6 +322,7 @@ dmenu_item_t * find_submenu(const char * submenu_name, dmenu_menu_index_t parent
 // Get the root menu of the specified menu base without loading the base in to memory first
 dmenu_menu_t * get_root_menu(dmenu_menu_index_t menu_base_index)
 {
+    // Why did I write it this way?!
     return ((dmenu_menu_t *) read_ulong(game->pid, (unsigned long *) &(* (dmenu_menu_base_t **) ((unsigned long) &game->addrs.dev_menu_base + menu_base_index * sizeof(dmenu_menu_base_t *)))->root_menu));
 }
 
@@ -335,7 +336,7 @@ dmenu_menu_t * get_root_menu(dmenu_menu_index_t menu_base_index)
 // Copy the dmenu_menu_base_t pointed to by the dmenu_menu_base_t * at the provided address in the traced process' memory into the provided menu base struct
 int load_menu_base(void * address, dmenu_menu_base_t * menu_base)
 {
-    return read_bytes(game->pid, sizeof(dmenu_menu_base_t), (void *) address, (byte *) menu_base);
+    return read_bytes(game->pid, sizeof(dmenu_menu_base_t), (void *) address, (byte *) menu_base) != sizeof(dmenu_menu_base_t);
 }
 
 
@@ -344,7 +345,7 @@ int load_menu_base(void * address, dmenu_menu_base_t * menu_base)
 // Copy the dmenu_menu_t at the provided address in the traced process' memory into the provided menu struct
 int load_menu(void * address, dmenu_menu_t * menu)
 {
-    return read_bytes(game->pid, sizeof(dmenu_menu_t), address, (byte *) menu);
+    return read_bytes(game->pid, sizeof(dmenu_menu_t), address, (byte *) menu) != sizeof(dmenu_menu_t);
 }
 
 
@@ -353,7 +354,7 @@ int load_menu(void * address, dmenu_menu_t * menu)
 // Copy the dmenu_item_t at the provided address in the traced process' memory into the provided item struct
 int load_item(void * address, dmenu_item_t * item)
 {
-    return read_bytes(game->pid, sizeof(dmenu_item_t), address, (byte *) item);
+    return read_bytes(game->pid, sizeof(dmenu_item_t), address, (byte *) item) != sizeof(dmenu_item_t);
 }
 
 
@@ -619,7 +620,6 @@ int AppendItemToParent(dmenu_menu_t * parent_menu, dmenu_item_t * item)
     ;
 
 
-
     // get the last item in the menu, if it has any contents
     do {
         prev_item = current_item;
@@ -643,11 +643,7 @@ int AppendItemToParent(dmenu_menu_t * parent_menu, dmenu_item_t * item)
     
     int ret;
     ret = write_ulong(game->pid, (unsigned long *) next_item_p, (unsigned long) item);
-    if (ret)
-    {
-        echo("ERROR @ Line: %d", __LINE__ - 3);
-        return 1;
-    }
+    __rerrv(ret != 0, "ERROR: unable to write item pointer to game memory, aborting append function. ", 1);
 
     // Assign parent menu and set next item
     write_ulong(game->pid, (unsigned long *) &item->next_item, 0);
@@ -657,38 +653,33 @@ int AppendItemToParent(dmenu_menu_t * parent_menu, dmenu_item_t * item)
     write_uint(game->pid, (unsigned int *) &parent_menu->item_count, read_uint(game->pid, &parent_menu->item_count) + 1);
     write_uint(game->pid, (unsigned int *) &parent_menu->unknown_bool, 1);
     
+
+
+
     char _menu_is_open;
-    _menu_is_open = read_byte(game->pid, (byte *) &parent_menu->menu_is_open);
+    _menu_is_open = (char) read_byte(game->pid, (byte *) &parent_menu->menu_is_open);
 
     if (_menu_is_open)
     {
-        echo("menu is open");
+        echo("updating menu");
+        
         void * update_menu;
-        if (!(update_menu = (void *) read_ulong(game->pid, (unsigned long *) read_ulong(game->pid, (unsigned long *) &item->vptr) + 0x18)))
+        update_menu = (void *) read_ulong(game->pid, (unsigned long *) read_ulong(game->pid, (unsigned long *) &item->vptr) + 0x18);
+        if (!update_menu)
         {
             echo("Unable to read item's vPtr!!");
             return 1;
         }
         
-        
+
         struct reg args;
-
         ret = proc_set_args(&args, (uintptr_t) item, 0, 0, 0, 0, 0, 0);
-        if (ret)
-        {
-            echo("ERROR @ Line: %d", __LINE__ - 3);
-            return 1;
-        }
-
-
+        __rerrv(ret != 0, "ERROR: Unable to set args for call to menu update function.", 1)
+        
+        
         ret = proc_call(update_menu, nullptr, &args);
-        if (ret)
-        {
-            echo("ERROR @ Line: %d", __LINE__ - 3);
-            return 1;
-        }
+        __rerrv(ret != 0, "ERROR: Failed calling menu update function.", 1)
     }
-    echo("menu not open");
 
     return 0;
 }
@@ -746,13 +737,14 @@ int add_novis_option(dmenu_menu_index_t menu_base)
 
     item.vptr = game->vptrs.toggle_item;
 
-    item.event_handler_type_id = 3; // Bool item
+    item.event_handler_type_id = toggle_item; // Bool item
     item.event_handler = (void *) 0x0114d100; // Bool event handler
     item.return_buffer = read_byte(game->pid, (byte *) game->addrs.dat.novis);
 
-    item.off_state_colour = 0xB0FFB0FF; // White
+    item.off_state_colour = 0xF0E0E0E0; // White
     item.on_state_colour  = 0xEF00FFFF; // Yellow
     item.unknown_int      = 0xB0FFB0FF; // Value it always has, still not sure what this does. My original assumption appears to be wrong, though
+    
     item._selection_index = 1;
     item._item_count      = 1;
 

@@ -9,7 +9,7 @@ endif
 ELF := dmenu_payload.bin
 SENDER := ./ps.exe
 
-CFLAGS := -Wall -g -lSceSystemService
+CFLAGS := -Wall -Wno-unused-function -g -lSceSystemService
 
 all: $(ELF)
 

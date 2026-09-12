@@ -357,7 +357,7 @@ int proc_get_regs(struct reg * regs)
 
     __rerrv(ret != 0, strbufbuild("ERROR:\n# PT_GETREGS failed with code %d (%s)\n", ret, strerror(ret)), 1);
 
-    #ifdef DEBUG
+    #ifdef VERBOSEDEBUG
     echo("");
     echo("# Registers (READ):");
     echo("# rax: %llX  rbx: %llX", regs->r_rax, regs->r_rbx);
@@ -389,7 +389,7 @@ int proc_set_regs(struct reg * regs)
     }
     
     
-    #ifdef DEBUG
+    #ifdef VERBOSEDEBUG
     echo("");
     echo("# Registers (WRITTEN):");
     echo("# rax: %llX  rbx: %llX", regs->r_rax, regs->r_rbx);

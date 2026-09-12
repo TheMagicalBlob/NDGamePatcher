@@ -172,7 +172,7 @@ int do_load_ndgame(game_id_t game_id, app_version_sid_t app_ver)
     pid_t pid;
     pid = game->pid;
 
-    for (int i = 0; i < sizeof(fuck); i++)
+    for (unsigned i = 0; i < sizeof(fuck); i++)
     {
         if (game_id == fuck[i].game_id && app_ver == fuck[i].app_ver_sid)
         {
