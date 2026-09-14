@@ -3,6 +3,7 @@
 //## Debugging replacements for I/O functions. Things keep failing seemingly at random, and I can't reproduce the issues long enough to debug them. This should be helpful
 //#
 
+#ifdef DEBUG
 #define read_bytes(pid, len, source, destination) read_bytes(__FUNCTION__, __LINE__, pid, len, source, destination)
 #define write_bytes(pid, len, destination, value) write_bytes(__FUNCTION__, __LINE__, pid, len, destination, value)
 
@@ -23,3 +24,4 @@
 
 #define read_string(pid, address, buffer) read_string(__FUNCTION__, __LINE__, pid, address, buffer)
 #define write_string(pid, address, str) write_string(__FUNCTION__, __LINE__, pid, address, str)
+#endif

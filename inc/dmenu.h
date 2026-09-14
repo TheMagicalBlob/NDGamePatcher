@@ -35,9 +35,9 @@ typedef enum dmenu_menu_index_e : char
 
 
 
-typedef enum dmenu_item_eh_type_e : unsigned int
+typedef enum dmenu_item_eh_type_e : unsigned
 {
-    INVALID = INT_MAX,
+    INVALID = __INT_MAX__,
     item_submenu = 0,
     float_item,
     decimal_item,
@@ -184,20 +184,20 @@ dmenu_stype_t get_dmenu_entry_base_type(void * item);
 const char * get_dmenu_entry_type_as_string(dmenu_vptr_t type);
 
 
-dmenu_item_t * find_item(const char * item_name, dmenu_menu_index_t parent_index);
-dmenu_menu_t * find_menu(const char * menu_name, dmenu_menu_index_t parent_index);
-dmenu_item_t * find_submenu(const char * submenu_name, dmenu_menu_index_t parent_index);
+dmenu_item_t * find_item(const char * item_name, dmenu_menu_t * start_menu, char recurse);
+dmenu_menu_t * find_menu(const char * menu_name, dmenu_menu_t * start_menu, char recurse);
+dmenu_item_t * find_submenu(const char * submenu_name, dmenu_menu_t * start_menu, char recurse);
 
 dmenu_menu_t * get_root_menu(dmenu_menu_index_t menu_base_index);
 
 
 
-int load_menu_base(void * address, dmenu_menu_base_t * menu_base);
-int load_menu(void * address, dmenu_menu_t * menu);
-int load_item(void * address, dmenu_item_t * item);
+int load_menu_base(const dmenu_menu_base_t * address, dmenu_menu_base_t * menu_base);
+int load_menu(const dmenu_menu_t * address, dmenu_menu_t * menu);
+int load_item(const dmenu_item_t * address, dmenu_item_t * item);
 
 void dump_menu_entries();
 
 int AppendItemToParent(dmenu_menu_t * parent_menu, dmenu_item_t * item);
 
-int add_novis_option(dmenu_menu_index_t menu_base);
+int add_novis_option(dmenu_menu_t * menu);

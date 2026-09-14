@@ -350,9 +350,8 @@ int read_string(pid_t pid, const char * address, char * buffer)
     }
     int ret;
     unsigned len;
-    
+
     ret = proc_read(pid, 1, (void *) address, buffer);
-    __rerrv(ret != 1, "ERROR: Failed checking first character of string at 0x%llX before reading full string, aborting %s", -1);
     __rerrv(ret != 1, strbufbuild("ERROR: Failed checking first character of string at 0x%llX before reading full string, aborting %s", address, __FUNCTION__), -1);
 
     if (buffer == 0) 

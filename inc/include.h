@@ -43,7 +43,7 @@
 // #define VERBOSEDEBUG
 #define LOGOUTPUT
 #endif
-#define TESTS
+// #define TESTS
 // #define NOTIFY
 
 #define __ERROR_PRINT(message) {\
@@ -56,11 +56,10 @@
     if (message != (char *) 0) {\
         snprintf(output, sizeof(output), "%s\n# Message: %s", output, message);\
     }\
-    errno = 1;\
     if (errno) {\
         snprintf(output, sizeof(output), "%s\n# Message (errno): %s", output, strerror(errno));\
     }\
-    unsigned int len;\
+    size_t len;\
     len = get_longest_line_length(output, sizeof(output));\
     for (unsigned int i = 0; i < sizeof(bars) && i < len + 2; i++) {\
         *(bars + i) = '#';\
@@ -329,7 +328,7 @@ void notify(const char * message, ...);
 
 char * strbufbuild(char * format, ...);
 
-int get_longest_line_length(const char * str, size_t str_maxlen);
+size_t get_longest_line_length(const char * str, size_t str_maxlen);
 
 int * get_watchpoint_count();
 

@@ -152,63 +152,96 @@ const char * get_dmenu_entry_type_as_string(dmenu_vptr_t type)
 
 
 // Recursively check every item and submenu for an item matching the specified dmenu simple type and component name
-static void * find_dmenu_component(const char * expected_entry_name, dmenu_stype_t expected_base_type, dmenu_menu_index_t parent_index)
+static void * find_dmenu_component(const char * expected_component_name, dmenu_menu_t * start_menu, dmenu_stype_t expected_component_stype, char recurse)
 {
-    if (parent_index < 0 || parent_index > 2)
-    {
-        echo("Invalid parent menu index provided, defaulting to dev menu");
-        parent_index = 0;
-    }
-    
     #ifdef DEBUG
     echo("find_dmenu_component");
     #endif
+    __rerrv(start_menu == (dmenu_menu_t *) -1, "start_menu == -1", nullptr);
+
 
     int ret;
-    dmenu_menu_base_t parent_base;
-    ret = load_menu_base(*(&game->addrs.dev_menu_base + parent_index), &parent_base);
-    __rerrv(ret != 0, strbufbuild("ERROR: Failed loading menu base when preparing to find dmenu component \"%s\", aborting.", expected_entry_name), nullptr);
-
-    if (parent_base.root_menu == 0)
+    dmenu_menu_t * menu;
+    if (start_menu == nullptr)
     {
-        echo("ERROR: Empty menu base pointer provided. (%s)", parent_base.name ? parent_base.name : (char *) &parent_base.menu_base_name_buffer);
-        return nullptr;
+        dmenu_menu_index_t curr_base_index;
+        dmenu_menu_base_t * parent_base;
+    
+        curr_base_index = 0;
+        if (0)
+        {
+    _recheck:
+            if (curr_base_index >= 2)
+            {
+                #ifdef DEBUG
+                echo("Didn't find component %s in Menu #%d; checking next menu", expected_component_name, curr_base_index);
+                #endif
+                return nullptr;
+            }
+
+            curr_base_index++;
+        }
+
+        
+        parent_base = *(&game->addrs.dev_menu_base + curr_base_index);
+        if (parent_base == null)
+        {
+            echo("ERROR: Null parent base in ndgame struct at game->addrs.dev_menu_base + %d, aborting", curr_base_index);
+            return nullptr;
+        }
+
+
+        menu = (dmenu_menu_t *) read_ulong(game->pid, (unsigned long *) &parent_base->root_menu);
+        __rerrv(menu == (dmenu_menu_t *) -1, strbufbuild("error reading root menu from menu base #%d", curr_base_index), nullptr);
+        if (menu == 0)
+        {
+            echo("ERROR: Null menu base doesn't even have a root menu! Aborting.");
+            return nullptr;
+        }
+    }
+    else{
+        menu = start_menu;
     }
     
-    
-    dmenu_menu_t menu;
-    ret = read_bytes(game->pid, sizeof(dmenu_menu_t), (byte *) parent_base.root_menu, (byte *) &menu);
-    __rerrv(ret != sizeof(dmenu_menu_t), strbufbuild("ERROR: Failed reading root menu from menu base \"%s\", aborting.", expected_entry_name), nullptr);
+
     
 
-    char parent_name[0xFF];
-    bzero(parent_name, sizeof(parent_name));
     
 
-    ret = read_string(game->pid, menu.menu_name, parent_name);
-    __rerrv(ret == -1, strbufbuild("ERROR: Failed reading name of root menu from menu base \"%s\", aborting.", expected_entry_name), nullptr);
-    
     void * entry_ptr;
-    if((entry_ptr = menu.first_item) == 0)
+
+    entry_ptr = (void *) read_ulong(game->pid, (unsigned long *) &menu->first_item);
+
+#ifdef DEBUG
+    // Read current menu name before checking for an empty menu
+    char parent_name[0xFF];
+    ret = read_string(game->pid, (const char *) read_ulong(game->pid, (unsigned long *) &menu->menu_name), parent_name);
+    __rerrv(ret == -1, strbufbuild("ERROR: Failed reading name of root menu from menu base \"%s\", aborting.", expected_component_name), nullptr);
+    if (entry_ptr == nullptr)
     {
-        echo("menu %s contains no items, aborting", parent_name);
+        echo("%s contains no items, aborting", parent_name);
         return nullptr;
     }
-    
-    echo("Searching %s for %s", parent_name, expected_entry_name);
-    
-    
-    char next_is_menu = 0;
 
-    void * history[0x20]; // surely there's no place with a submenu depth even approaching 32, so this should be more than sufficient in size
-    char entry_name[0xFF];
-    
-    dmenu_stype_t base_type;
-    
+    echo("Searching %s for %s", parent_name, expected_component_name);
+#else
+    if(entry_ptr == 0)
+    {
+        return nullptr;
+    }
+#endif
 
     
     int depth = 0;
+    void * history[0x20]; // surely there's no place with a submenu depth even approaching 32, so this should be more than sufficient in size
+
+    char next_is_menu;
+
+    dmenu_stype_t base_type;
+    char entry_name[0xFF];
     const char * entry_name_ptr;
+    
+    next_is_menu = 0;
     while(entry_ptr != nullptr)
     {
         base_type = get_dmenu_entry_base_type(entry_ptr);
@@ -223,12 +256,12 @@ static void * find_dmenu_component(const char * expected_entry_name, dmenu_stype
         ret = read_string(game->pid, entry_name_ptr, entry_name);
         if (ret == -1)
         {
-            __rerrv(ret != sizeof(dmenu_menu_t), strbufbuild("ERROR: Failed reading name from component at 0x%llX when searching for component \"%s\", aborting.", entry_ptr, expected_entry_name), nullptr);
+            __rerrv(ret != sizeof(dmenu_menu_t), strbufbuild("ERROR: Failed reading name from component at 0x%llX when searching for component \"%s\", aborting.", entry_ptr, expected_component_name), nullptr);
             break;
         }
 
         // Check for matching base type and component name
-        if (expected_base_type == base_type && !strncmp(expected_entry_name, entry_name, strlen(entry_name)))
+        if (expected_component_stype == base_type && !strncmp(expected_component_name, entry_name, strlen(entry_name)))
         {
             return entry_ptr;
         }
@@ -244,8 +277,9 @@ static void * find_dmenu_component(const char * expected_entry_name, dmenu_stype
         }
         // Item
         else {
-            if (base_type == stype_itemsubmenu)
+            if (base_type == stype_itemsubmenu && recurse > 0)
             {
+                // Item Submenu
                 entry_ptr = (void *) read_ulong(game->pid, (unsigned long *) &((dmenu_item_t *) entry_ptr)->return_buffer);
 
                 history[++depth] = (void *) read_ulong(game->pid, (unsigned long *) &((dmenu_item_t *) entry_ptr)->next_item);
@@ -258,7 +292,11 @@ static void * find_dmenu_component(const char * expected_entry_name, dmenu_stype
             }
         }
         
-        
+        if (recurse < 1)
+        {
+            continue;
+        }
+
 
         while (entry_ptr == nullptr && depth >= 0)
         {
@@ -270,7 +308,8 @@ static void * find_dmenu_component(const char * expected_entry_name, dmenu_stype
     }
 
 
-    return nullptr;
+
+    goto _recheck;
 }
 
 
@@ -285,9 +324,9 @@ static void * find_dmenu_component(const char * expected_entry_name, dmenu_stype
 // <=0 == Dev Menu
 // 1 == Quick Menu
 // >=2 == Favorites Menu
-dmenu_item_t * find_item(const char * item_name, dmenu_menu_index_t parent_index)
+dmenu_item_t * find_item(const char * item_name, dmenu_menu_t * start_menu, char recurse)
 {
-    return find_dmenu_component(item_name, stype_item, parent_index);
+    return find_dmenu_component(item_name, start_menu, stype_item, recurse);
 }
 
 
@@ -298,9 +337,9 @@ dmenu_item_t * find_item(const char * item_name, dmenu_menu_index_t parent_index
 // <=0 == Dev Menu
 // 1 == Quick Menu
 // >=2 == Favorites Menu
-dmenu_menu_t * find_menu(const char * menu_name, dmenu_menu_index_t parent_index)
+dmenu_menu_t * find_menu(const char * menu_name, dmenu_menu_t * start_menu, char recurse)
 {
-    return find_dmenu_component(menu_name, stype_menu, parent_index);
+    return find_dmenu_component(menu_name, start_menu, stype_item, recurse);
 }
 
 
@@ -311,9 +350,9 @@ dmenu_menu_t * find_menu(const char * menu_name, dmenu_menu_index_t parent_index
 // <=0 == Dev Menu
 // 1 == Quick Menu
 // >=2 == Favorites Menu
-dmenu_item_t * find_submenu(const char * submenu_name, dmenu_menu_index_t parent_index)
+dmenu_item_t * find_submenu(const char * submenu_name, dmenu_menu_t * start_menu, char recurse)
 {
-    return find_dmenu_component(submenu_name, stype_itemsubmenu, parent_index);
+    return find_dmenu_component(submenu_name, start_menu, stype_item, recurse);
 }
 
 
@@ -334,27 +373,27 @@ dmenu_menu_t * get_root_menu(dmenu_menu_index_t menu_base_index)
 
 
 // Copy the dmenu_menu_base_t pointed to by the dmenu_menu_base_t * at the provided address in the traced process' memory into the provided menu base struct
-int load_menu_base(void * address, dmenu_menu_base_t * menu_base)
+int load_menu_base(const dmenu_menu_base_t * address, dmenu_menu_base_t * menu_base)
 {
-    return read_bytes(game->pid, sizeof(dmenu_menu_base_t), (void *) address, (byte *) menu_base) != sizeof(dmenu_menu_base_t);
+    return read_bytes(game->pid, sizeof(dmenu_menu_base_t), (byte *) address, (byte *) menu_base) != sizeof(dmenu_menu_base_t);
 }
 
 
 
 
 // Copy the dmenu_menu_t at the provided address in the traced process' memory into the provided menu struct
-int load_menu(void * address, dmenu_menu_t * menu)
+int load_menu(const dmenu_menu_t * address, dmenu_menu_t * menu)
 {
-    return read_bytes(game->pid, sizeof(dmenu_menu_t), address, (byte *) menu) != sizeof(dmenu_menu_t);
+    return read_bytes(game->pid, sizeof(dmenu_menu_t), (byte *) address, (byte *) menu) != sizeof(dmenu_menu_t);
 }
 
 
 
 
 // Copy the dmenu_item_t at the provided address in the traced process' memory into the provided item struct
-int load_item(void * address, dmenu_item_t * item)
+int load_item(const dmenu_item_t * address, dmenu_item_t * item)
 {
-    return read_bytes(game->pid, sizeof(dmenu_item_t), address, (byte *) item) != sizeof(dmenu_item_t);
+    return read_bytes(game->pid, sizeof(dmenu_item_t), (byte *) address, (byte *) item) != sizeof(dmenu_item_t);
 }
 
 
@@ -379,6 +418,7 @@ static int try_dump_menu_entry_types()
 
 
 
+//! write me
 static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
 {
     // Null menu base pointer
@@ -412,9 +452,9 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
 
 
 
-    #ifdef DEBUG
+    // #ifdef DEBUG
     // SID known_types[0x15] = {0};
-    #endif
+    // #endif
 
     
     
@@ -537,6 +577,7 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
 
 
 
+//! write me
 void dump_menu_entries()
 {
     echo("\n\nDumping Dev Menu entries.");
@@ -557,33 +598,56 @@ void dump_menu_entries()
 
 
 
-// STILL UNFINISHED!! Treats the item as though it's in the payload's memory, which it isn't
-dmenu_item_t * CreateBaseComponent(/*dmenu_component_t*/ dmenu_item_t * entry, const char * component_name)
-{
-    return nullptr;
 
-    char * __dest;
+
+
+
+
+
+
+//#
+//## Region for custom dmenu component creation functions //! write me a new region name
+//#
+
+
+//! write me
+int CreateBaseComponent(/*dmenu_component_t*/ dmenu_item_t * item, const char * component_name)
+{
+    int ret;
+    char * str_dest;
     int name_length;
 
-    bzero(&entry, sizeof(entry));
+    // Zero item in tracee's memory
+    for (unsigned i = 0; i < sizeof(dmenu_item_t); i++)
+    {
+        ret = write_byte(game->pid, (byte *) item + i, (byte) 0);
+        __rerrv(ret != 0, strbufbuild("Failed writing zero byte to struct in tracee's memory. (wrote %d out of %d bytes)", i, sizeof(dmenu_item_t)), 1);
+    }
 
-    entry->vptr = game->vptrs.base_component;
-    entry->off_state_colour = 0xffc8c8c8;
-    entry->on_state_colour = 0xff00ffff;
-    entry->unknown_int = 0xffb0ffb0;
+    ret = write_ulong(game->pid, (unsigned long *) &item->vptr, (unsigned long) game->vptrs.base_component);
+    
+    ret = write_uint(game->pid, &item->off_state_colour, (unsigned) 0xFFC8C8C8); // White
+    ret = write_uint(game->pid, &item->on_state_colour,  (unsigned) 0xFF00FFFF); // Yellow
+    
+    ret = write_uint(game->pid, &item->unknown_int, (unsigned) 0xB0FFB0FF); // Value it always has, still not sure what this does. My original assumption appears to be wrong, though
+    
+    
+    ret = write_uint(game->pid, (unsigned *) &item->_selection_index, 1);
+    ret = write_uint(game->pid, (unsigned *) &item->_item_count, 1);
+
 
     if (component_name == NULL)
     {
         echo("Unnamed item created");
-        return nullptr;
+        return 0;
     }
 
 
     name_length = strlen(component_name);
     if (name_length < 0x20)
     {
-        __dest = entry->item_text_buffer;
-        strcpy(__dest, component_name);
+        str_dest = (char *) &item->item_text_buffer;
+        ret = write_string(game->pid, str_dest, component_name);
     }
     else {
         if (name_length < 0xFF)
@@ -591,16 +655,17 @@ dmenu_item_t * CreateBaseComponent(/*dmenu_component_t*/ dmenu_item_t * entry, c
             name_length = 0xFF;
         }
 
-        __dest = (char *) proc_malloc(name_length + 1);
-        __rerrv(__dest == NULL, "ERROR: Unable to allocate space for large component name!!!", nullptr);
+        str_dest = (char *) proc_malloc(name_length + 1);
+        __rerrv(str_dest == NULL, "ERROR: Unable to allocate space for large component name!!!", 1);
         
-        write_string(game->pid, __dest, component_name);
-        __dest[name_length] = 0;
+        write_string(game->pid, str_dest, component_name);
+        str_dest[name_length] = 0;
     }
 
-    entry->item_text = __dest;
+    ret = write_ulong(game->pid, (unsigned long *) &item->item_text, (unsigned long) str_dest);
 
     echo("%s created", component_name);
+    return 0;
 }
 
 
@@ -610,7 +675,21 @@ dmenu_item_t * CreateBaseComponent(/*dmenu_component_t*/ dmenu_item_t * entry, c
 
 
 
+//! write me
+int CreateToggleItem(dmenu_item_t * item, const char * item_name)
+{
+    CreateBaseComponent(item, item_name);
+    return 1;
+}
 
+
+
+
+
+
+
+
+//! write me
 int AppendItemToParent(dmenu_menu_t * parent_menu, dmenu_item_t * item)
 {
     dmenu_item_t
@@ -691,12 +770,113 @@ int AppendItemToParent(dmenu_menu_t * parent_menu, dmenu_item_t * item)
 
 
 
-
-
+//! write me
 int PrependItemToParent(dmenu_menu_t * parent_menu, dmenu_item_t * item)
 {
-    echo("Unimplemented function \"%s\" @ line %d in %s called prematurely.", __FUNCTION__, __LINE__, __FILE__);
+    int ret;
+    dmenu_item_t * first_item;
+
+    first_item = (dmenu_item_t *) read_ulong(game->pid, (unsigned long *) &parent_menu->first_item);
+    __rerrv(first_item == (dmenu_item_t *) -1 && errno != 0, "PrependItemToPArent Failed first read", 1);
+
+    // Assign parent menu and set next item
+    if (first_item != NULL)
+    {
+        write_ulong(game->pid, (unsigned long *) &item->next_item, (unsigned long) first_item);
+    }
+    write_ulong(game->pid, (unsigned long *) &parent_menu->first_item, (unsigned long) item);
+    write_ulong(game->pid, (unsigned long *) &item->parent_menu, (unsigned long) parent_menu);
+
+    // Increment parent menu's item count, and set that unknown bool to 1 like the game does (menu updated, maybe? still need to figure out what this boolean is)
+    write_uint(game->pid, (unsigned int *) &parent_menu->item_count, read_uint(game->pid, &parent_menu->item_count) + 1);
+    write_uint(game->pid, (unsigned int *) &parent_menu->unknown_bool, 1);
+    
+
+
+
+    char _menu_is_open;
+    _menu_is_open = (char) read_byte(game->pid, (byte *) &parent_menu->menu_is_open);
+
+    if (_menu_is_open)
+    {
+        echo("updating menu");
+        
+        void * update_menu;
+        update_menu = (void *) read_ulong(game->pid, (unsigned long *) read_ulong(game->pid, (unsigned long *) &item->vptr) + 0x18);
+        if (!update_menu)
+        {
+            echo("Unable to read item's vPtr!!");
+            return 1;
+        }
+        
+
+        struct reg args;
+        ret = proc_set_args(&args, (uintptr_t) item, 0, 0, 0, 0, 0, 0);
+        __rerrv(ret != 0, "ERROR: Unable to set args for call to menu update function.", 1)
+        
+        
+        ret = proc_call(update_menu, nullptr, &args);
+        __rerrv(ret != 0, "ERROR: Failed calling menu update function.", 1)
+    }
+
+    return 0;
+}
+
+
+
+
+
+
+
+
+//! write me
+int InsertItemInParent(dmenu_menu_t * parent_menu, dmenu_item_t * item, const char * target_item_name, char prepend)
+{
     return 1;
+
+    dmenu_item_t * target_item;
+    dmenu_menu_t * menu_buf;
+    dmenu_menu_base_t * base;
+
+    menu_buf = parent_menu;
+    do {
+        base = (dmenu_menu_base_t *) read_ulong(game->pid, (unsigned long *) &menu_buf->menu_base);
+
+        if (base != (dmenu_menu_base_t *) nullptr)
+        {
+            break;
+        }
+
+        menu_buf = (dmenu_menu_t *) read_ulong(game->pid, (unsigned long *) &menu_buf->parent_menu);
+        __rerrv(menu_buf == (dmenu_menu_t *) nullptr, "Failed to find menu base for parent menu when inserting item. (all parent menus have null bases, and we've run out of parents!!)", 1);
+
+    } while (1);
+
+
+
+
+
+    target_item = (dmenu_item_t *) find_dmenu_component(target_item_name, parent_menu, stype_item, false);
+    if (target_item == nullptr)
+    {
+        if (errno)
+        {
+            echo("ERROR: failed finding dmenu component \"%s\". (error: %s)", target_item_name, strerror(errno));
+            return 1;
+        }
+    }
+
+    //! TODO: Write this function
+    if (prepend)
+    {
+        // Read the parent menu of the found item, and get the preceeding item to the target.
+
+        return 0;
+    }
+
+
+    
+    return 0;
 }
 
 
@@ -709,11 +889,19 @@ int PrependItemToParent(dmenu_menu_t * parent_menu, dmenu_item_t * item)
 
 
 
+
+
+
+
+//#
+//## Region for custom menu patch functions //! write me a new region name
+//#
+
+
 //! TODO: Write the base menu item creation function and move the optimization to that. I don't want bzero being optimized out.
-int add_novis_option(dmenu_menu_index_t menu_base)
+int add_novis_option(dmenu_menu_t * menu)
 {
-    dmenu_item_t * check;
-    if ((check = find_item("Disable All Visibility", menu_base)))
+    if (find_item("Disable All Visibility", menu, false) > 0)
     {
         echo("Novis already added to specified menu base");
         return 0;
@@ -722,47 +910,34 @@ int add_novis_option(dmenu_menu_index_t menu_base)
 
 
     // Allocate space for new menu entry
-    void * mem;
-    mem = proc_malloc(align(sizeof(dmenu_item_t)));
-    __rerrv(!mem, "Error allocating space for novis option", 1);
-
-    echo("Allocated mem for new entry");
-    proc_wait(false);
-
-
-
-
-    dmenu_item_t item;
-    bzero(&item, sizeof(dmenu_item_t));
-
-    item.vptr = game->vptrs.toggle_item;
-
-    item.event_handler_type_id = toggle_item; // Bool item
-    item.event_handler = (void *) 0x0114d100; // Bool event handler
-    item.return_buffer = read_byte(game->pid, (byte *) game->addrs.dat.novis);
-
-    item.off_state_colour = 0xF0E0E0E0; // White
-    item.on_state_colour  = 0xEF00FFFF; // Yellow
-    item.unknown_int      = 0xB0FFB0FF; // Value it always has, still not sure what this does. My original assumption appears to be wrong, though
+    dmenu_item_t * item;
+    item = (dmenu_item_t *) proc_malloc(align(sizeof(dmenu_item_t)));
+    __rerrv(!item, "Error allocating space for novis option", 1);
     
-    item._selection_index = 1;
-    item._item_count      = 1;
 
-    
-    strcpy(item.item_text_buffer, "Disable All Visibility");
-
-    item.item_text = (char *) &((dmenu_item_t *) mem)->item_text_buffer;
-
-    item.item_variable = game->addrs.dat.novis;
-
-    
-    echo("Writing local item to allocated memory space");
     int ret;
-    ret = write_bytes(game->pid, sizeof(dmenu_item_t), mem, (byte *) &item);
-    __rerrv(ret != sizeof(dmenu_item_t), "Error writing new menu option to allocated memory, aborting novis option addition.", 1);
+    // Create component base
+    ret = CreateBaseComponent(item, "Disable All Visibility");
+    __rerrv(ret != 0, "Failed creating base component for novis option, aborting.", 1);
+    
+    echo("Base component created, adding other crap");
+    
+    ret = write_ulong(game->pid, (unsigned long *) &item->vptr, (unsigned long) game->vptrs.toggle_item);
+
+    ret = write_uint(game->pid, (unsigned *) &item->event_handler_type_id, (unsigned) toggle_item);
+    
+    ret = write_ulong(game->pid, (unsigned long *) &item->event_handler, (unsigned long) 0x0114d100); // (0x0114d100 == Bool event handler)
 
 
-    echo("Appending item to parent menu");
-    return AppendItemToParent(get_root_menu(menu_base), mem);
+
+    ret = write_ulong(game->pid, (unsigned long *) &item->return_buffer, (unsigned long) 0);
+    ret = write_ulong(game->pid, (unsigned long *) &item->item_variable, (unsigned long) game->addrs.dat.novis);
+    ret = write_byte(game->pid, (byte *) &item->return_buffer, read_byte(game->pid, (byte *) &item->item_variable));
+    
+
+
+    
+    echo("Prepending item to parent menu");
+    return AppendItemToParent(menu, item);
 }
 

@@ -16,6 +16,10 @@ Credits so far:
 #include "inc/dmenu.h"
 #include "inc/addresses.h"
 
+#ifdef DEBUG
+#include "inc/debug.h"
+#endif
+
 
 //# external functions to link
 extern int sceKernelSendNotificationRequest(int, notify_request_t *, size_t, int);
@@ -162,9 +166,9 @@ void log_message(const char * base_string, ...)
         // Write the message to the log file
         int ret;
         ret = write(logfile, message, strlen(message));
-        if (ret != 0)
+        if (ret == -1)
         {
-            klog_printf("Write returned %d", ret);
+            klog_printf("Write returned error? (%s)\n", strerror(errno));
         }
     }
 #endif
@@ -202,7 +206,7 @@ char * strbufbuild(char * format, ...)
 
 
 
-int decode_sid (SID sid)
+int decode_sid(SID sid)
 {
     echo("Not Implemented Exception (%s)", __FUNCTION__);
     kill(getpid(), SIGSEGV);
@@ -255,7 +259,7 @@ unsigned long encode_sid(const char * input)
 
 // Get the length of the longest line in a string with line breaks/newlines
 // Returns the length on success, or -1 if the pointer is null
-int get_longest_line_length(const char * str, size_t str_maxlen)
+size_t get_longest_line_length(const char * str, size_t str_maxlen)
 {
     unsigned biggest = 0,
         current = 0;
@@ -665,8 +669,6 @@ static void debug_misc()
     struct reg _args;
     unsigned long return_check;
 
-    __rerr(1, strbufbuild("ERROR: Failed checking first character of string at 0x%llX before reading full string, aborting %s", "ass"));
-
 
     ret = proc_clear_args(&_args);
     __rerr(ret, "Error clearing args, aborting test call");
@@ -709,7 +711,7 @@ static int start()
 {    
     int ret;
     // Make sure novis is present
-    ret = add_novis_option(menu_index_quick);
+    ret = add_novis_option((dmenu_menu_t *) read_ulong(game->pid, (unsigned long *) &game->addrs.favorites_menu_base->root_menu));
     __err(ret, "Error adding novis option, proceeding processes may also fail.\n");
 
     return ret != 0;
