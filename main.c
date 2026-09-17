@@ -59,6 +59,7 @@ ndgame_t * game;
 
 
 
+
 //#
 //## Common Function Declarations
 //#

@@ -1,6 +1,6 @@
 #include "inc/include.h"
 #include "inc/memory.h"
-// #include "inc/dmenu.h"
+#include "inc/dmenu.h"
 #ifdef DEBUG
 #include "inc/debug.h"
 #endif

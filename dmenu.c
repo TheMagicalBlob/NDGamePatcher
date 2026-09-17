@@ -676,10 +676,41 @@ int CreateBaseComponent(/*dmenu_component_t*/ dmenu_item_t * item, const char * 
 
 
 //! write me
-int CreateToggleItem(dmenu_item_t * item, const char * item_name)
+int CreateToggleItem(dmenu_item_t * item, const char * item_name, void * variable, void * alternate_event_handler)
 {
-    CreateBaseComponent(item, item_name);
-    return 1;
+    int ret;
+    // Create component base
+    ret = CreateBaseComponent(item, "Disable All Visibility");
+    __rerrv(ret != 0, "Failed creating base component for novis option, aborting.", 1);
+    
+    // Default to game's basic toggle item event handler if none is specified
+    if (alternate_event_handler == nullptr)
+    {
+        //! TODO: FINISH THIS- this only works for tlou2's latest patch 
+        alternate_event_handler = (void *) 0x0114d100; // (0x0114d100 == Basic bool event handler for Tlou2 Remastered 02.001.010)
+    }
+
+    echo("Base component created, adding other crap");
+    
+    // Item Class/Type (vTable pointer)
+    ret |= write_ulong(game->pid, (unsigned long *) &item->vptr, (unsigned long) game->vptrs.toggle_item);
+
+
+    // Event Handler type
+    ret |= write_uint(game->pid, (unsigned *) &item->event_handler_type_id, (unsigned) toggle_item);
+    
+    // Event Handler
+    ret |= write_ulong(game->pid, (unsigned long *) &item->event_handler, (unsigned long) alternate_event_handler);
+
+    // Item Variable
+    ret |= write_ulong(game->pid, (unsigned long *) &item->item_variable, (unsigned long) variable);
+
+    // Item return buffer
+    ret |= write_ulong(game->pid, (unsigned long *) &item->return_buffer, (unsigned long) NULL);
+    ret |= write_byte(game->pid, (byte *) &item->return_buffer, read_byte(game->pid, (byte *) &item->item_variable));
+    
+
+    return ret;
 }
 
 
@@ -914,28 +945,7 @@ int add_novis_option(dmenu_menu_t * menu)
     item = (dmenu_item_t *) proc_malloc(align(sizeof(dmenu_item_t)));
     __rerrv(!item, "Error allocating space for novis option", 1);
     
-
-    int ret;
-    // Create component base
-    ret = CreateBaseComponent(item, "Disable All Visibility");
-    __rerrv(ret != 0, "Failed creating base component for novis option, aborting.", 1);
-    
-    echo("Base component created, adding other crap");
-    
-    ret = write_ulong(game->pid, (unsigned long *) &item->vptr, (unsigned long) game->vptrs.toggle_item);
-
-    ret = write_uint(game->pid, (unsigned *) &item->event_handler_type_id, (unsigned) toggle_item);
-    
-    ret = write_ulong(game->pid, (unsigned long *) &item->event_handler, (unsigned long) 0x0114d100); // (0x0114d100 == Bool event handler)
-
-
-
-    ret = write_ulong(game->pid, (unsigned long *) &item->return_buffer, (unsigned long) 0);
-    ret = write_ulong(game->pid, (unsigned long *) &item->item_variable, (unsigned long) game->addrs.dat.novis);
-    ret = write_byte(game->pid, (byte *) &item->return_buffer, read_byte(game->pid, (byte *) &item->item_variable));
-    
-
-
+    CreateToggleItem(item, "Disable All Visibility", game->addrs.dat.novis, nullptr);
     
     echo("Prepending item to parent menu");
     return AppendItemToParent(menu, item);
