@@ -37,52 +37,80 @@ typedef enum dmenu_menu_index_e : char
 
 typedef enum dmenu_item_eh_type_e : unsigned
 {
-    INVALID = __INT_MAX__,
-    item_submenu = 0,
-    float_item,
-    decimal_item,
-    toggle_item,
-    string_list_item,
-    exec_item,
-    user_item,
-    string_item,
-    unknown_item_8,
-    separator_item,
-    unknown_item_10
+    DMenu_HandlerType_INVALID = __INT_MAX__,
+    DMenu_HandlerType_ItemSubmenu = 0,
+    DMenu_HandlerType_FloatItem,
+    DMenu_HandlerType_DecimalItem,
+    DMenu_HandlerType_ToggleItem,
+    DMenu_HandlerType_StringListItem,
+    DMenu_HandlerType_ExecItem,
+    DMenu_HandlerType_UserItem,
+    DMenu_HandlerType_StringItem,
+    DMenu_HandlerType_UnknownItem_8,
+    DMenu_HandlerType_SeparatorItem,
+    DMenu_HandlerType_UnknownItem_10
 
 } dmenu_item_eh_type_t;
 
 
 
 // DMenu component virtual pointers
-typedef struct dmenu_types_s
+typedef struct DMenuTypes_s
 {
-    dmenu_vptr_t menu_base; // The base for each debug menu
-    
-    dmenu_vptr_t menu; // The menus themselves which contain individual items
-    dmenu_vptr_t dyn_menu; // Menus with dynamic contents that're cleared and repopulated every time they're opened
-    dmenu_vptr_t weapon_upgrades_menu;
+    dmenu_vptr_t DMenu_Types_MenuBase; // The base for each debug menu
+    dmenu_vptr_t DMenu_Types_Menu; // The menus themselves which contain individual items
+    dmenu_vptr_t DMenu_Types_DynMenu; // Menus with dynamic contents that're cleared and repopulated every time they're opened
+    dmenu_vptr_t DMenu_Types_WeaponUpgradesMenu;
+    dmenu_vptr_t DMenu_Types_ItemSubmenu;
+    dmenu_vptr_t DMenu_Types_TaskItemSubmenu;
+    dmenu_vptr_t DMenu_Types_SubnodeTaskItemSubmenu;
+    dmenu_vptr_t DMenu_Types_BaseComponent; // 0x??
+    dmenu_vptr_t DMenu_Types_SeparatorItem; // 0xA8
+    dmenu_vptr_t DMenu_Types_ToggleItem; // 0xB8
+    dmenu_vptr_t DMenu_Types_ExecItem; // 0xC0
+    dmenu_vptr_t DMenu_Types_AltExecItem;
+    dmenu_vptr_t DMenu_Types_StringItem;
+    dmenu_vptr_t DMenu_Types_StringListItem;
+    dmenu_vptr_t DMenu_Types_DecimalItem;
+    dmenu_vptr_t DMenu_Types_TaskHistoryItem;
+    dmenu_vptr_t DMenu_Types_TaskItem;
+    dmenu_vptr_t DMenu_Types_UserItem; // Entirely useless, I assume it's meant to be replaced by an actual username
+    dmenu_vptr_t DMenu_Types_TimerItem;
+    dmenu_vptr_t DMenu_Types_CheckpointItem;
+    dmenu_vptr_t DMenu_Types_FloatItem; // 0x158
 
-    dmenu_vptr_t item_submenu;
-    dmenu_vptr_t task_item_submenu;
-    dmenu_vptr_t subnode_task_item_submenu;
+} DMenuTypes_t;
 
-    dmenu_vptr_t base_component; // 0x??
-    dmenu_vptr_t separator_item; // 0xA8
-    dmenu_vptr_t toggle_item; // 0xB8
-    dmenu_vptr_t exec_item; // 0xC0
-    dmenu_vptr_t alt_exec_item;
-    dmenu_vptr_t string_item;
-    dmenu_vptr_t string_list_item;
-    dmenu_vptr_t decimal_item;
-    dmenu_vptr_t task_history_item;
-    dmenu_vptr_t task_item;
-    dmenu_vptr_t user_item; // Entirely useless, I assume it's meant to be replaced by an actual username
-    dmenu_vptr_t timer_item;
-    dmenu_vptr_t checkpoint_item;
-    dmenu_vptr_t float_item; // 0x158
 
-} dmenu_types_t;
+
+typedef struct DMenu_EventHandlers_s
+{
+    void * DMenu_Handlers_MenuBase; // The base for each debug menu
+    void * DMenu_Handlers_Menu; // The menus themselves which contain individual items
+    void * DMenu_Handlers_DynMenu; // Menus with dynamic contents that're cleared and repopulated every time they're opened
+    void * DMenu_Handlers_WeaponUpgradesMenu;
+    void * DMenu_Handlers_ItemSubmenu;
+    void * DMenu_Handlers_TaskItemSubmenu;
+    void * DMenu_Handlers_SubnodeTaskItemSubmenu;
+    void * DMenu_Handlers_BaseComponent;
+    void * DMenu_Handlers_SeparatorItem;
+    void * DMenu_Handlers_ToggleItem;
+    void * DMenu_Handlers_ExecItem;
+    void * DMenu_Handlers_AltExecItem;
+    void * DMenu_Handlers_StringItem;
+    void * DMenu_Handlers_StringListItem;
+    void * DMenu_Handlers_DecimalItem;
+    void * DMenu_Handlers_TaskHistoryItem;
+    void * DMenu_Handlers_TaskItem;
+    void * DMenu_Handlers_UserItem;
+    void * DMenu_Handlers_TimerItem;
+    void * DMenu_Handlers_CheckpointItem;
+    void * DMenu_Handlers_FloatItem;
+
+} DMenu_EventHandlers_t;
+
+
+
 
 
 
@@ -125,7 +153,8 @@ typedef struct ndgame
     char app_ver[0xB]; // String representation
     char title[0x80];
 
-    dmenu_types_t vptrs; // vPtr's for DMenu component class vTables
+    DMenuTypes_t vptrs; // vPtr's for DMenu component class vTables
+    DMenu_EventHandlers_t Handlers;
     dmenu_addresses_t addrs;
 
 } ndgame_t;
@@ -278,4 +307,4 @@ void dump_menu_entries();
 
 int AppendItemToParent(dmenu_menu_t * parent_menu, dmenu_item_t * item);
 
-int add_novis_option(dmenu_menu_t * menu);
+int patch_game();

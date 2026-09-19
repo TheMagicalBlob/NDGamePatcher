@@ -43,7 +43,7 @@
 // #define VERBOSEDEBUG
 #define LOGOUTPUT
 #endif
-// #define TESTS
+#define TESTS
 // #define NOTIFY
 
 #define __ERROR_PRINT(message) {\
@@ -245,6 +245,11 @@ void log_message(const char * base_string, ...);
 void notify(const char * message, ...);
 
 char * strbufbuild(char * format, ...);
+
+
+int decode_sid(SID SID, const char * DecodedSID);
+
+unsigned long encode_sid(const char * input);
 
 size_t get_longest_line_length(const char * str, size_t str_maxlen);
 

@@ -17,33 +17,33 @@ dmenu_stype_t get_dmenu_entry_base_type(void * item)
     void * chk;
     chk = (void *) read_ulong(game->pid, item);
 
-    if (chk == game->vptrs.menu_base)
+    if (chk == game->vptrs.DMenu_Types_MenuBase)
         return stype_menu_base;
-
-    if (chk == game->vptrs.menu ||
-        chk == game->vptrs.dyn_menu ||
-        chk == game->vptrs.weapon_upgrades_menu)
+    
+    if (chk == game->vptrs.DMenu_Types_Menu ||
+        chk == game->vptrs.DMenu_Types_DynMenu ||
+        chk == game->vptrs.DMenu_Types_WeaponUpgradesMenu)
         return stype_menu;
 
-    if (chk == game->vptrs.item_submenu ||
-        chk == game->vptrs.task_item_submenu ||
-        chk == game->vptrs.subnode_task_item_submenu)
+    if (chk == game->vptrs.DMenu_Types_ItemSubmenu ||
+        chk == game->vptrs.DMenu_Types_TaskItemSubmenu ||
+        chk == game->vptrs.DMenu_Types_SubnodeTaskItemSubmenu)
         return stype_itemsubmenu;
 
-    if (chk == game->vptrs.base_component ||
-        chk == game->vptrs.string_list_item ||
-        chk == game->vptrs.toggle_item ||
-        chk == game->vptrs.exec_item ||
-        chk == game->vptrs.alt_exec_item ||
-        chk == game->vptrs.float_item ||
-        chk == game->vptrs.decimal_item ||
-        chk == game->vptrs.separator_item ||
-        chk == game->vptrs.string_item ||
-        chk == game->vptrs.task_history_item ||
-        chk == game->vptrs.task_item ||
-        chk == game->vptrs.timer_item ||
-        chk == game->vptrs.user_item ||
-        chk == game->vptrs.checkpoint_item)
+    if (chk == game->vptrs.DMenu_Types_BaseComponent ||
+        chk == game->vptrs.DMenu_Types_SeparatorItem ||
+        chk == game->vptrs.DMenu_Types_ToggleItem ||
+        chk == game->vptrs.DMenu_Types_ExecItem ||
+        chk == game->vptrs.DMenu_Types_AltExecItem ||
+        chk == game->vptrs.DMenu_Types_StringItem ||
+        chk == game->vptrs.DMenu_Types_StringListItem ||
+        chk == game->vptrs.DMenu_Types_DecimalItem ||
+        chk == game->vptrs.DMenu_Types_TaskHistoryItem ||
+        chk == game->vptrs.DMenu_Types_TaskItem ||
+        chk == game->vptrs.DMenu_Types_UserItem ||
+        chk == game->vptrs.DMenu_Types_TimerItem ||
+        chk == game->vptrs.DMenu_Types_CheckpointItem ||
+        chk == game->vptrs.DMenu_Types_FloatItem)
         return stype_item;
 
 
@@ -69,58 +69,52 @@ const char * get_dmenu_entry_type_as_string(dmenu_vptr_t type)
 
     const char * names[] = 
     {
-        "menu_base",
-
-        "menu",
-        "dyn_menu",
-        "weapon_upgrades_menu",
-        
-        "item_submenu",
-        "task_item_submenu",
-        "subnode_task_item_submenu",
-        
-        "base_component",    
-        "separator_item",
-        "toggle_item",
-        "exec_item",
-        "alt_exec_item",
-        "float_item",
-        "decimal_item",
-        "string_list_item",
-        "task_history_item",
-        "task_item",
-        "user_item",
-        "timer_item",
-        "checkpoint_item",
-        "string_item"
+        "MenuBase",
+        "Menu",
+        "DynMenu",
+        "WeaponUpgradesMenu",
+        "ItemSubmenu",
+        "TaskItemSubmenu",
+        "SubnodeTaskItemSubmenu",
+        "BaseComponent",    
+        "SeparatorItem",
+        "ToggleItem",
+        "ExecItem",
+        "AltExecItem",
+        "StringItem",
+        "StringListItem",
+        "DecimalItem",
+        "TaskHistoryItem",
+        "TaskItem",
+        "UserItem",
+        "TimerItem",
+        "CheckpointItem",
+        "FloatItem"
     };
 
     const dmenu_vptr_t types[] =
     {
-        game->vptrs.menu_base,
-        
-        game->vptrs.menu,
-        game->vptrs.dyn_menu,
-        game->vptrs.weapon_upgrades_menu,
-        
-        game->vptrs.item_submenu,
-        game->vptrs.task_item_submenu,
-        game->vptrs.subnode_task_item_submenu,
-
-        game->vptrs.base_component,
-        game->vptrs.separator_item,
-        game->vptrs.toggle_item,
-        game->vptrs.exec_item,
-        game->vptrs.alt_exec_item,
-        game->vptrs.float_item,
-        game->vptrs.decimal_item,
-        game->vptrs.string_list_item,
-        game->vptrs.task_history_item,
-        game->vptrs.task_item,
-        game->vptrs.user_item,
-        game->vptrs.timer_item,
-        game->vptrs.checkpoint_item,
-        game->vptrs.string_item
+        game->vptrs.DMenu_Types_MenuBase,
+        game->vptrs.DMenu_Types_Menu,
+        game->vptrs.DMenu_Types_DynMenu,
+        game->vptrs.DMenu_Types_WeaponUpgradesMenu,
+        game->vptrs.DMenu_Types_ItemSubmenu,
+        game->vptrs.DMenu_Types_TaskItemSubmenu,
+        game->vptrs.DMenu_Types_SubnodeTaskItemSubmenu,
+        game->vptrs.DMenu_Types_BaseComponent,
+        game->vptrs.DMenu_Types_SeparatorItem,
+        game->vptrs.DMenu_Types_ToggleItem,
+        game->vptrs.DMenu_Types_ExecItem,
+        game->vptrs.DMenu_Types_AltExecItem,
+        game->vptrs.DMenu_Types_StringItem,
+        game->vptrs.DMenu_Types_StringListItem,
+        game->vptrs.DMenu_Types_DecimalItem,
+        game->vptrs.DMenu_Types_TaskHistoryItem,
+        game->vptrs.DMenu_Types_TaskItem,
+        game->vptrs.DMenu_Types_UserItem,
+        game->vptrs.DMenu_Types_TimerItem,
+        game->vptrs.DMenu_Types_CheckpointItem,
+        game->vptrs.DMenu_Types_FloatItem
     };
     
     count = sizeof(types) / 8;
@@ -452,12 +446,7 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
 
 
 
-    // #ifdef DEBUG
-    // SID known_types[0x15] = {0};
-    // #endif
 
-    
-    
     
     int depth = 0;
     dmenu_menu_t * history[0x20]; // surely there's no place with a submenu depth even approaching 32, so this should be more than sufficient in size
@@ -468,6 +457,12 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
     char next_is_menu = 0;
     unsigned short unknown_type_count = 0;
     
+    const SID unknownTypeSID = (SID) 0x9E3E4FA85A926262ul;
+    
+    char newItem = 0;
+    int foundTypes = 0;
+    dmenu_vptr_t known_types[0x16] = {0};
+
     dmenu_vptr_t type;
     dmenu_item_t item;
     const char * dtype;
@@ -478,10 +473,21 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
         dtype = get_dmenu_entry_type_as_string(type);
         
         // Check for unknown dmenu component types
-        if (*(unsigned long long *) dtype == 2336936577129475669) // just the start of the "Unknown value..." string read as an unsigned 64bit integer
+        if (encode_sid(dtype) == unknownTypeSID) // just the start of the "Unknown value..." string read as an unsigned 64bit integer
         {
             unknown_type_count++;
         }
+
+        newItem = (char) 0x1;
+
+        for (unsigned i = 0; i < foundTypes; i++)
+        {
+            if (known_types[i] == type)
+            {
+                newItem = (char) 0x0;
+            }
+        }
+        known_types[foundTypes++] = type;
         
         
 
@@ -493,17 +499,20 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
             
             read_string(game->pid, menu.menu_name, item_name);
             read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &menu.parent_menu->menu_name), parent_name);
+            
+            if (newItem)
+            {
+                echo("0x%llX %s->%s (type: %s)", entry_ptr, parent_name, item_name, dtype);
+                echo("\n"
+                    "vPtr: %llX\n"
+                    "Callback: %llX\n"
+                    "Variable: %llX\n",
 
-            echo("0x%llX %s->%s (type: %s)", entry_ptr, parent_name, item_name, dtype);
-            echo("\n"
-                "vPtr: %llX\n"
-                "Callback: %llX\n"
-                "Variable: %llX\n",
-
-                menu.vptr,
-                menu.callback,
-                menu.menu_variable
-            );
+                    menu.vptr,
+                    menu.callback,
+                    menu.menu_variable
+                );
+            }
             
 
 
@@ -526,20 +535,23 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
 
             read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &item.parent_menu->menu_name), parent_name);
 
-            echo("0x%llX %s->%s (type: %s)", entry_ptr, parent_name, item_name, dtype);
-            echo("\n"
-                "vPtr: %llX\n"
-                "Callback: %llX\n"
-                "Variable: %llX\n"
-                "EventHandler: %llX\n"
-                "ItemType: %llX\n",
+            if (newItem)
+            {
+                echo("0x%llX %s->%s (type: %s)", entry_ptr, parent_name, item_name, dtype);
+                echo("\n"
+                    "vPtr: %llX\n"
+                    "Callback: %llX\n"
+                    "Variable: %llX\n"
+                    "EventHandler: %llX\n"
+                    "ItemType: %llX\n",
 
-                item.vptr,
-                item.callback,
-                item.item_variable,
-                item.event_handler,
-                item.event_handler_type_id
-            );
+                    item.vptr,
+                    item.callback,
+                    item.item_variable,
+                    item.event_handler,
+                    item.event_handler_type_id
+                );
+            }
             
 
             
@@ -624,7 +636,7 @@ int CreateBaseComponent(/*dmenu_component_t*/ dmenu_item_t * item, const char * 
         __rerrv(ret != 0, strbufbuild("Failed writing zero byte to struct in tracee's memory. (wrote %d out of %d bytes)", i, sizeof(dmenu_item_t)), 1);
     }
 
-    ret = write_ulong(game->pid, (unsigned long *) &item->vptr, (unsigned long) game->vptrs.base_component);
+    ret = write_ulong(game->pid, (unsigned long *) &item->vptr, (unsigned long) game->vptrs.DMenu_Types_BaseComponent);
     
     ret = write_uint(game->pid, &item->off_state_colour, (unsigned) 0xFFC8C8C8); // White
     ret = write_uint(game->pid, &item->on_state_colour,  (unsigned) 0xFF00FFFF); // Yellow
@@ -693,11 +705,11 @@ int CreateToggleItem(dmenu_item_t * item, const char * item_name, void * variabl
     echo("Base component created, adding other crap");
     
     // Item Class/Type (vTable pointer)
-    ret |= write_ulong(game->pid, (unsigned long *) &item->vptr, (unsigned long) game->vptrs.toggle_item);
+    ret |= write_ulong(game->pid, (unsigned long *) &item->vptr, (unsigned long) game->vptrs.DMenu_Types_ToggleItem);
 
 
     // Event Handler type
-    ret |= write_uint(game->pid, (unsigned *) &item->event_handler_type_id, (unsigned) toggle_item);
+    ret |= write_uint(game->pid, (unsigned *) &item->event_handler_type_id, (unsigned) DMenu_HandlerType_ToggleItem);
     
     // Event Handler
     ret |= write_ulong(game->pid, (unsigned long *) &item->event_handler, (unsigned long) alternate_event_handler);
@@ -719,6 +731,72 @@ int CreateToggleItem(dmenu_item_t * item, const char * item_name, void * variabl
 
 
 
+
+
+
+
+
+
+
+
+
+//#
+//## Region for dmenu manipulation funcs like appending items or clearing menus //! write me a new region name
+//#
+
+// Shorthand for allocating the memory for, creating, and appending a new dmenu_item_t
+// Sets the outvar pItem to the pointer of the new menu entry, unless proc_malloc fails
+// returns zero on success, and 1 on failure.
+int SH_DMenu_CreateToggleItem(dmenu_menu_t * ParentMenu, dmenu_item_t ** pItem, const char * ItemName, void * ItemVariable, void * CustomEventHandler)
+{
+    int ret;
+    char menu_name[0xFF];
+
+    if (find_item(ItemName, ParentMenu, false) > 0)
+    {
+        echo("Item \"%s\" already added to specified menu base", ItemName);
+        return 0;
+    }
+
+    ret = read_string(game->pid, (const char *) &ParentMenu->menu_name, (char *) menu_name);
+    __rerrv(ret == -1, "Error creating and adding new item; read_string returned error when reading name of parent menu", 1)
+
+    echo("Adding %s to %s", ItemName, menu_name);
+
+
+    // Allocate space for new menu entry
+    dmenu_item_t * item;
+    item = (dmenu_item_t *) proc_malloc(align(sizeof(dmenu_item_t)));
+    __rerrv(!item, "Error allocating space for item", 1);
+
+    *pItem = item;
+    CreateToggleItem(item, ItemName, ItemVariable, CustomEventHandler);
+
+    
+    echo("Prepending item to parent menu");
+    return AppendItemToParent(ParentMenu, item);
+    return 0;
+} 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//#
+//## Region for dmenu manipulation funcs like appending items or clearing menus //! write me a new region name
+//#
 
 //! write me
 int AppendItemToParent(dmenu_menu_t * parent_menu, dmenu_item_t * item)
@@ -924,30 +1002,21 @@ int InsertItemInParent(dmenu_menu_t * parent_menu, dmenu_item_t * item, const ch
 
 
 
+
 //#
 //## Region for custom menu patch functions //! write me a new region name
 //#
 
-
 //! TODO: Write the base menu item creation function and move the optimization to that. I don't want bzero being optimized out.
-int add_novis_option(dmenu_menu_t * menu)
+int patch_game()
 {
-    if (find_item("Disable All Visibility", menu, false) > 0)
-    {
-        echo("Novis already added to specified menu base");
-        return 0;
-    }
-    echo("Adding new novis option");
+    dmenu_item_t * itemBuf;
+    dmenu_menu_t * parentMenu;
 
+    itemBuf = nullptr;
+    parentMenu = (dmenu_menu_t *) read_ulong(game->pid, (unsigned long *) &game->addrs.favorites_menu_base->root_menu);
+    SH_DMenu_CreateToggleItem(parentMenu, &itemBuf, "Disable All Visibility", game->addrs.dat.novis, nullptr);
 
-    // Allocate space for new menu entry
-    dmenu_item_t * item;
-    item = (dmenu_item_t *) proc_malloc(align(sizeof(dmenu_item_t)));
-    __rerrv(!item, "Error allocating space for novis option", 1);
-    
-    CreateToggleItem(item, "Disable All Visibility", game->addrs.dat.novis, nullptr);
-    
-    echo("Prepending item to parent menu");
-    return AppendItemToParent(menu, item);
+    return 0;
 }
 

@@ -41,10 +41,10 @@ extern int sceShellCoreUtilGetAppLaunchedParamString(const uint32_t appid, const
 static int logfile;
 
 static ndgame_t ndgame;
+ndgame_t * game;
 
 static int watchpoint_count = 0;
 
-ndgame_t * game;
 
 
 
@@ -207,7 +207,8 @@ char * strbufbuild(char * format, ...)
 
 
 
-int decode_sid(SID sid)
+
+int decode_sid(SID SID, const char * DecodedSID)
 {
     echo("Not Implemented Exception (%s)", __FUNCTION__);
     kill(getpid(), SIGSEGV);
@@ -250,6 +251,7 @@ unsigned long encode_sid(const char * input)
 
     return hash;
 }
+
 
 
 
@@ -636,13 +638,82 @@ void setup_assertion(const char * function, int line)
 
 
 
-void sighandler(int signal)
+//! TODO: Give this the same output formatting as the error macro's output
+void AssertionHandler(int signal, siginfo_t * info, void * vcontext)
 {
-    int exit_code = signal == SIGSEGV;
+    int exitCode;
+    exitCode = signal == SIGSEGV;
+    
+    ucontext_t * context;
+    context = (ucontext_t *) vcontext;
 
-    if (exit_code)
+    #ifdef VERBOSEDEBUG
+    echo("pre-assertion context:\n# mc_addr: %llX\n# mc_rip: %llX\n# mc_flags: %llX", context->uc_mcontext.mc_addr, context->uc_mcontext.mc_rip, context->uc_mcontext.mc_flags);
+    #endif
+
+    if (exitCode)
     {
-        echo("Segmentation fault received! Process exiting with error.");
+        char assertionMessage[0x200], registersMessage[0x200], bar[0x50];
+        
+        const char * assertionFormatString = "# Segmentation fault received.\n# \n# Reason:\n#";
+
+        if (info->si_code == SEGV_MAPERR)
+        {
+            if (info->si_addr == nullptr)
+            {
+                snprintf(assertionMessage, sizeof(assertionMessage), "%s Null pointer", assertionFormatString);
+            }
+            else{
+                snprintf(assertionMessage, sizeof(assertionMessage), "%s Address 0x%llX was invalid", assertionFormatString, (unsigned long long) info->si_addr);
+            }
+        }
+        else if (info->si_code == SEGV_ACCERR)
+        {
+            snprintf(assertionMessage, sizeof(assertionMessage), "%s Access to 0x%llX is not permitted", assertionFormatString, (unsigned long long) info->si_addr);
+        }
+        else{
+            snprintf(assertionMessage, sizeof(assertionMessage), "%s Unknown Cause %d; Cause address: 0x%llX", assertionFormatString, info->si_code, (unsigned long long) info->si_addr);
+        }
+        
+
+        if (0) // Disabled for now, seems off (like RIP always being 1)
+        snprintf(registersMessage, sizeof(registersMessage),
+            "# Registers:\n"
+            "# rax: %lX\n# rbx: %lX\n"
+            "# rcx: %lX\n# rdx: %lX\n"
+            "# rsi: %lX\n# rdi: %lX\n"
+            "# rbp: %lX\n# rsp: %lX\n"
+            "# r8:  %lX\n# r9:  %lX\n"
+            "# r10: %lX\n# r11: %lX\n"
+            "# r12: %lX\n# r13: %lX\n"
+            "# r14: %lX\n# r15: %lX\n"
+            "# rip: %lX\n# \n# eflags: %ld\n"
+            "# trapno:  %d\n# err: %ld",
+
+            context->uc_mcontext.mc_rax,    context->uc_mcontext.mc_rbx,
+            context->uc_mcontext.mc_rcx,    context->uc_mcontext.mc_rdx,
+            context->uc_mcontext.mc_rsi,    context->uc_mcontext.mc_rdi,
+            context->uc_mcontext.mc_rbp,    context->uc_mcontext.mc_rsp,
+            context->uc_mcontext.mc_r8,     context->uc_mcontext.mc_r9,
+            context->uc_mcontext.mc_r10,    context->uc_mcontext.mc_r11,
+            context->uc_mcontext.mc_r12,    context->uc_mcontext.mc_r13,
+            context->uc_mcontext.mc_r14,    context->uc_mcontext.mc_r15,
+            context->uc_mcontext.mc_rip,    context->uc_mcontext.mc_rflags,
+            context->uc_mcontext.mc_trapno, context->uc_mcontext.mc_err
+        );
+
+        
+
+        // Build enclosing '#' bars
+        size_t len;
+        len = get_longest_line_length(assertionMessage, sizeof(assertionMessage));
+        if (len > 0x50) {
+            len = 0x50;
+        }
+        for (unsigned i = 0; i < sizeof(bar) && i < len + 2; *(bar + i ++) = '#');
+        *(bar + len + 2) = 0;
+
+        echo("\n%s\n%s\n# \n%s\n", bar, assertionMessage, bar);
     }
     else if (signal == SIGTERM)
     {
@@ -652,7 +723,7 @@ void sighandler(int signal)
         echo("Miscellaneous signal recieved, exiting (sig: %d)", signal);
     }
 
-    cleanup(exit_code);
+    cleanup(exitCode);
 }
 
 
@@ -662,6 +733,9 @@ void sighandler(int signal)
 //### Testing shit
 static void debug_misc()
 {
+    dump_menu_entries();
+    return;
+
     //#
     //## Function Call issues
     //#
@@ -712,10 +786,9 @@ static int start()
 {    
     int ret;
     // Make sure novis is present
-    ret = add_novis_option((dmenu_menu_t *) read_ulong(game->pid, (unsigned long *) &game->addrs.favorites_menu_base->root_menu));
-    __err(ret, "Error adding novis option, proceeding processes may also fail.\n");
+    ret = patch_game();
 
-    return ret != 0;
+    return ret == 1;
 }
 
 
@@ -769,7 +842,8 @@ int main()
     struct sigaction handler;
     bzero(&handler, sizeof(struct sigaction));
 
-    handler.__sigaction_u.__sa_handler = sighandler;
+    handler.__sigaction_u.__sa_sigaction = AssertionHandler;
+    handler.sa_flags = SA_SIGINFO;
     sigaction(SIGTERM, &handler, NULL);
     sigaction(SIGSEGV, &handler, NULL);
 

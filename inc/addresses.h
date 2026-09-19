@@ -13,10 +13,11 @@ typedef void * dmenu_vptr_t;
 
 typedef struct address_table_s
 {
-    game_id_t game_id;             // Id of the loaded game (T2R, T1X, UC4, etc.)
-    app_version_sid_t app_ver_sid; // The games app_ver encoded as an SID
-    dmenu_addresses_t addresses;   // Table of function/variable addresses in the game process
-    dmenu_types_t types;           // Table of dmenu vPtr's applicable to the current game's dmenu
+    game_id_t game_id;              // Id of the loaded game (T2R, T1X, UC4, etc.)
+    app_version_sid_t app_ver_sid;  // The games app_ver encoded as an SID
+    dmenu_addresses_t addresses;    // Table of function/variable addresses in the game process
+    DMenuTypes_t types;             // Table of dmenu vPtr's applicable to the current game's dmenu
+    DMenu_EventHandlers_t Handlers; //! write me
 
 } address_table_t;
 
@@ -48,31 +49,55 @@ static const address_table_t fuck[] =
         },
 
         {
-            .menu_base = (dmenu_vptr_t) 0x322E688,
-
-            .menu = (dmenu_vptr_t) 0x322E5B0,
-            .dyn_menu = (dmenu_vptr_t) 0x31B5248,
-            .weapon_upgrades_menu = (dmenu_vptr_t) 0x32280B0,
-            
-            .item_submenu = (dmenu_vptr_t) 0x322E488,
-            .task_item_submenu = (dmenu_vptr_t) 0x3252D58,
-            .subnode_task_item_submenu = (dmenu_vptr_t) 0x3252C30,
-            
-            .base_component = (dmenu_vptr_t) 0x322d5c8,
-            .separator_item = (dmenu_vptr_t) 0x322D6A0,
-            .toggle_item = (dmenu_vptr_t) 0x322DA18,
-            .exec_item = (dmenu_vptr_t) 0x322E238,
-            .alt_exec_item = (dmenu_vptr_t) 0x322E360,
-            .string_item = (dmenu_vptr_t) 0x322DFE8,
-            .string_list_item = (dmenu_vptr_t) 0x322DC68,
-            .decimal_item = (dmenu_vptr_t) 0x322DEB8,
-            .task_history_item = (dmenu_vptr_t) 0x32529E0,
-            .task_item = (dmenu_vptr_t) 0x3252B08,
-            .user_item = (dmenu_vptr_t) 0x3243BF0,
-            .timer_item = (dmenu_vptr_t) 0x3117960,
-            .checkpoint_item = (dmenu_vptr_t) 0x322DB40,
-            .float_item = (dmenu_vptr_t) 0x322E110,
+            .DMenu_Types_MenuBase =           (dmenu_vptr_t) 0x322E688,
+            .DMenu_Types_Menu =               (dmenu_vptr_t) 0x322E5B0,
+            .DMenu_Types_DynMenu =            (dmenu_vptr_t) 0x31B5248,
+            .DMenu_Types_WeaponUpgradesMenu = (dmenu_vptr_t) 0x32280B0,
+            .DMenu_Types_ItemSubmenu =        (dmenu_vptr_t) 0x322E488,
+            .DMenu_Types_TaskItemSubmenu =    (dmenu_vptr_t) 0x3252D58,
+            .DMenu_Types_SubnodeTaskItemSubmenu = (dmenu_vptr_t) 0x3252C30,
+            .DMenu_Types_BaseComponent =      (dmenu_vptr_t) 0x322d5c8,
+            .DMenu_Types_SeparatorItem =      (dmenu_vptr_t) 0x322D6A0,
+            .DMenu_Types_ToggleItem =         (dmenu_vptr_t) 0x322DA18,
+            .DMenu_Types_ExecItem =           (dmenu_vptr_t) 0x322E238,
+            .DMenu_Types_AltExecItem =        (dmenu_vptr_t) 0x322E360,
+            .DMenu_Types_StringItem =         (dmenu_vptr_t) 0x322DFE8,
+            .DMenu_Types_StringListItem =     (dmenu_vptr_t) 0x322DC68,
+            .DMenu_Types_DecimalItem =        (dmenu_vptr_t) 0x322DEB8,
+            .DMenu_Types_TaskHistoryItem =    (dmenu_vptr_t) 0x32529E0,
+            .DMenu_Types_TaskItem =           (dmenu_vptr_t) 0x3252B08,
+            .DMenu_Types_UserItem =           (dmenu_vptr_t) 0x3243BF0,
+            .DMenu_Types_TimerItem =          (dmenu_vptr_t) 0x3117960,
+            .DMenu_Types_CheckpointItem =     (dmenu_vptr_t) 0x322DB40,
+            .DMenu_Types_FloatItem =          (dmenu_vptr_t) 0x322E110,
         },
+
+        {
+            .DMenu_Handlers_MenuBase =           (void *) nullptr,
+
+            .DMenu_Handlers_Menu =               (void *) nullptr,
+            .DMenu_Handlers_DynMenu =            (void *) nullptr,
+            .DMenu_Handlers_WeaponUpgradesMenu = (void *) nullptr,
+            
+            .DMenu_Handlers_ItemSubmenu =        (void *) nullptr,
+            .DMenu_Handlers_TaskItemSubmenu =    (void *) nullptr,
+            .DMenu_Handlers_SubnodeTaskItemSubmenu = (void *) nullptr,
+            
+            .DMenu_Handlers_BaseComponent =      (void *) nullptr,
+            .DMenu_Handlers_SeparatorItem =      (void *) nullptr,
+            .DMenu_Handlers_ToggleItem =         (void *) nullptr,
+            .DMenu_Handlers_ExecItem =           (void *) nullptr,
+            .DMenu_Handlers_AltExecItem =        (void *) nullptr,
+            .DMenu_Handlers_StringItem =         (void *) nullptr,
+            .DMenu_Handlers_StringListItem =     (void *) nullptr,
+            .DMenu_Handlers_DecimalItem =        (void *) nullptr,
+            .DMenu_Handlers_TaskHistoryItem =    (void *) nullptr,
+            .DMenu_Handlers_TaskItem =           (void *) nullptr,
+            .DMenu_Handlers_UserItem =           (void *) nullptr,
+            .DMenu_Handlers_TimerItem =          (void *) nullptr,
+            .DMenu_Handlers_CheckpointItem =     (void *) nullptr,
+            .DMenu_Handlers_FloatItem =          (void *) nullptr
+        }
     },
     //#
     //## T2R 02.001.010 END
@@ -107,30 +132,57 @@ static const address_table_t fuck[] =
         },
 
         {
-            .menu_base = (dmenu_vptr_t) 0x3938C78,
+            .DMenu_Types_MenuBase =           (dmenu_vptr_t) 0x3938C78,
+            
+            .DMenu_Types_Menu =               (dmenu_vptr_t) 0x3938BA8,
+            .DMenu_Types_DynMenu =            (dmenu_vptr_t) 0x38C40B8,
+            .DMenu_Types_WeaponUpgradesMenu = (dmenu_vptr_t) 0x3932BB0,
+            
+            .DMenu_Types_ItemSubmenu =        (dmenu_vptr_t) 0x3938A90,
+            .DMenu_Types_TaskItemSubmenu =    (dmenu_vptr_t) 0x39611F8,
+            .DMenu_Types_SubnodeTaskItemSubmenu = (dmenu_vptr_t) 0x39610E0,
+            
+            .DMenu_Types_BaseComponent =      (dmenu_vptr_t) 0x3937c98,
+            .DMenu_Types_SeparatorItem =      (dmenu_vptr_t) 0x39380B0,
+            .DMenu_Types_ToggleItem =         (dmenu_vptr_t) 0x3938860,
+            .DMenu_Types_ExecItem =           (dmenu_vptr_t) 0x3938978,
+            .DMenu_Types_AltExecItem =        (dmenu_vptr_t) 0x3938630,
+            .DMenu_Types_StringItem =         (dmenu_vptr_t) 0x39382E0,
+            .DMenu_Types_StringListItem =     (dmenu_vptr_t) 0x3938748,
+            .DMenu_Types_DecimalItem =        (dmenu_vptr_t) 0x3938510,
+            .DMenu_Types_TaskHistoryItem =    (dmenu_vptr_t) 0x3937D68,
+            .DMenu_Types_TaskItem =           (dmenu_vptr_t) 0x3960EB0,
+            .DMenu_Types_UserItem =           (dmenu_vptr_t) 0x3960FC8,
+            .DMenu_Types_TimerItem =          (dmenu_vptr_t) 0x39507E8,
+            .DMenu_Types_CheckpointItem =     (dmenu_vptr_t) 0x381C180,
+            .DMenu_Types_FloatItem =          (dmenu_vptr_t) 0x39381C8
+        },
+        
+        {
+            .DMenu_Handlers_MenuBase =           (void *) nullptr,
 
-            .menu = (dmenu_vptr_t) 0x3938BA8,
-            .dyn_menu = (dmenu_vptr_t) 0x38C40B8,
-            .weapon_upgrades_menu = (dmenu_vptr_t) 0x3932BB0,
+            .DMenu_Handlers_Menu =               (void *) nullptr,
+            .DMenu_Handlers_DynMenu =            (void *) nullptr,
+            .DMenu_Handlers_WeaponUpgradesMenu = (void *) nullptr,
             
-            .item_submenu = (dmenu_vptr_t) 0x3938A90,
-            .task_item_submenu = (dmenu_vptr_t) 0x39611F8,
-            .subnode_task_item_submenu = (dmenu_vptr_t) 0x39610E0,
+            .DMenu_Handlers_ItemSubmenu =        (void *) nullptr,
+            .DMenu_Handlers_TaskItemSubmenu =    (void *) nullptr,
+            .DMenu_Handlers_SubnodeTaskItemSubmenu = (void *) nullptr,
             
-            .base_component = (dmenu_vptr_t) 0x3937c98,
-            .separator_item = (dmenu_vptr_t) 0x39380B0,
-            .toggle_item = (dmenu_vptr_t) 0x3938860,
-            .exec_item = (dmenu_vptr_t) 0x3938978,
-            .alt_exec_item = (dmenu_vptr_t) 0x3938630,
-            .string_item = (dmenu_vptr_t) 0x39382E0,
-            .string_list_item = (dmenu_vptr_t) 0x3938748,
-            .decimal_item = (dmenu_vptr_t) 0x3938510,
-            .task_history_item = (dmenu_vptr_t) 0x3937D68,
-            .task_item = (dmenu_vptr_t) 0x3960EB0,
-            .user_item = (dmenu_vptr_t) 0x3960FC8,
-            .timer_item = (dmenu_vptr_t) 0x39507E8,
-            .checkpoint_item = (dmenu_vptr_t) 0x381C180,
-            .float_item = (dmenu_vptr_t) 0x39381C8
+            .DMenu_Handlers_BaseComponent =      (void *) nullptr,
+            .DMenu_Handlers_SeparatorItem =      (void *) nullptr,
+            .DMenu_Handlers_ToggleItem =         (void *) nullptr,
+            .DMenu_Handlers_ExecItem =           (void *) nullptr,
+            .DMenu_Handlers_AltExecItem =        (void *) nullptr,
+            .DMenu_Handlers_StringItem =         (void *) nullptr,
+            .DMenu_Handlers_StringListItem =     (void *) nullptr,
+            .DMenu_Handlers_DecimalItem =        (void *) nullptr,
+            .DMenu_Handlers_TaskHistoryItem =    (void *) nullptr,
+            .DMenu_Handlers_TaskItem =           (void *) nullptr,
+            .DMenu_Handlers_UserItem =           (void *) nullptr,
+            .DMenu_Handlers_TimerItem =          (void *) nullptr,
+            .DMenu_Handlers_CheckpointItem =     (void *) nullptr,
+            .DMenu_Handlers_FloatItem =          (void *) nullptr
         }
     }
     //#
@@ -143,21 +195,7 @@ static const address_table_t fuck[] =
 
 
 
-//############################################
-//## The Last of Us Part II Remastered / T2R #
-//############################################
 
-
-
-
-
-
-
-
-
-//#################################
-//## The Last of Us Remake/Part I #
-//#################################
 
 
 
@@ -177,6 +215,7 @@ int do_load_ndgame(game_id_t game_id, app_version_sid_t app_ver)
         if (game_id == fuck[i].game_id && app_ver == fuck[i].app_ver_sid)
         {
             game->vptrs = fuck[i].types;
+            game->Handlers = fuck[i].Handlers;
             game->addrs = fuck[i].addresses;
 
             // Load the menu base pointers
