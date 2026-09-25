@@ -472,24 +472,30 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
         type = (dmenu_vptr_t) read_ulong(game->pid, entry_ptr);
         dtype = get_dmenu_entry_type_as_string(type);
         
+        newItem = (char) 0x1;
+
         // Check for unknown dmenu component types
         if (encode_sid(dtype) == unknownTypeSID) // just the start of the "Unknown value..." string read as an unsigned 64bit integer
         {
             unknown_type_count++;
         }
-
-        newItem = (char) 0x1;
-
-        for (unsigned i = 0; i < foundTypes; i++)
-        {
-            if (known_types[i] == type)
+        else {
+            int i;
+            for (i = 0; i < foundTypes; i++)
             {
-                newItem = (char) 0x0;
+                if (known_types[i] == type)
+                {
+                    newItem = (char) 0x0;
+                    break;
+                }
+            }
+
+            if (newItem)
+            {
+                known_types[foundTypes++] = type;
             }
         }
-        known_types[foundTypes++] = type;
-        
-        
+
 
         // Menu
         if (next_is_menu)
@@ -497,11 +503,11 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
             bzero(&menu, sizeof(menu));
             load_menu(entry_ptr, &menu);
             
-            read_string(game->pid, menu.menu_name, item_name);
-            read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &menu.parent_menu->menu_name), parent_name);
-            
             if (newItem)
             {
+                read_string(game->pid, menu.menu_name, item_name);
+                read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &menu.parent_menu->menu_name), parent_name);
+
                 echo("0x%llX %s->%s (type: %s)", entry_ptr, parent_name, item_name, dtype);
                 echo("\n"
                     "vPtr: %llX\n"
@@ -525,18 +531,19 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
             bzero(&item, sizeof(item));
             load_item(entry_ptr, &item);
 
-            if (item.item_text)
-            {
-                read_string(game->pid, item.item_text, item_name);
-            }
-            else {
-                strcpy(item_name, "--------------------------------");
-            }
-
-            read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &item.parent_menu->menu_name), parent_name);
-
             if (newItem)
             {
+                if (item.item_text)
+                {
+                    read_string(game->pid, item.item_text, item_name);
+                }
+                else {
+                    strcpy(item_name, "--------------------------------");
+                }
+    
+                read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &item.parent_menu->menu_name), parent_name);
+
+
                 echo("0x%llX %s->%s (type: %s)", entry_ptr, parent_name, item_name, dtype);
                 echo("\n"
                     "vPtr: %llX\n"
@@ -699,7 +706,7 @@ int CreateToggleItem(dmenu_item_t * item, const char * item_name, void * variabl
     if (alternate_event_handler == nullptr)
     {
         //! TODO: FINISH THIS- this only works for tlou2's latest patch 
-        alternate_event_handler = (void *) 0x0114d100; // (0x0114d100 == Basic bool event handler for Tlou2 Remastered 02.001.010)
+        alternate_event_handler = (void *) game->Handlers.DMenu_Handlers_ToggleItem;
     }
 
     echo("Base component created, adding other crap");
@@ -775,7 +782,6 @@ int SH_DMenu_CreateToggleItem(dmenu_menu_t * ParentMenu, dmenu_item_t ** pItem, 
     
     echo("Prepending item to parent menu");
     return AppendItemToParent(ParentMenu, item);
-    return 0;
 } 
 
 

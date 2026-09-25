@@ -19,9 +19,8 @@
 
 
 //#
-//## Global/macro definitiond
+// ## Miscellaneous global definitions
 //#
-
 #define null 0 // C# null
 #define nullptr NULL
 #define nullstr (char *) 0
@@ -32,19 +31,46 @@
 #define FALSE false
 
 #define _SHELLCORE_AUTHID 0x4800000000010003L
-
-
 #define PAYLOAD_NAME "dmenu_payload.bin"
+
+
+
+
+//#
+// ## Compiler preprocessor settings
+//#
 
 // Do some basic extra debugging processes, as well as prints
 #define DEBUG
+
+// If undefined, echo/logging functions stripped.
 #define ECHO
+
+// Extended Echo usage
 #ifdef ECHO
-// #define VERBOSEDEBUG
-#define LOGOUTPUT
+    // Print Verbose I/O Information
+    #define IODEBUG
+
+    // Print Verbose Debugging Messages
+    #define VERBOSEDEBUG
+    // Duplicate all output on the PS5 in a text file at /data/bLog.txt
+
+    #define LOGOUTPUT
 #endif
+
+// Run whatever debug/test code is present, rather than the main payload code
 #define TESTS
+
+// // If undefined, ps5-side notification functions will be stripped
 // #define NOTIFY
+
+
+
+
+
+//#
+//## Macro definitions
+//#
 
 #define __ERROR_PRINT(message) {\
     char output[0x400],\

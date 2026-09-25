@@ -171,7 +171,7 @@ static const address_table_t fuck[] =
             
             .DMenu_Handlers_BaseComponent =      (void *) nullptr,
             .DMenu_Handlers_SeparatorItem =      (void *) nullptr,
-            .DMenu_Handlers_ToggleItem =         (void *) nullptr,
+            .DMenu_Handlers_ToggleItem =         (void *) 0x0114d100,
             .DMenu_Handlers_ExecItem =           (void *) nullptr,
             .DMenu_Handlers_AltExecItem =        (void *) nullptr,
             .DMenu_Handlers_StringItem =         (void *) nullptr,

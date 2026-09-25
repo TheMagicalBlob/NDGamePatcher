@@ -62,7 +62,7 @@ static int proc_read(pid_t pid, size_t len, void * source, void * buffer)
     }
 
 
-    #ifdef VERBOSEDEBUG
+    #ifdef IODEBUG
     echo("Read %d bytes from 0x%llX", iod.piod_len, source);
     #endif
     return iod.piod_len;
@@ -113,7 +113,7 @@ static int proc_write(pid_t pid, size_t len, void * dest, void * value)
     }
 
     
-    #ifdef VERBOSEDEBUG
+    #ifdef IODEBUG
     echo("Wrote %d bytes to 0x%llX", iod.piod_len, dest);
     #endif
     return iod.piod_len;
