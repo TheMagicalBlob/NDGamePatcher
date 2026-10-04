@@ -16,10 +16,6 @@ Credits so far:
 #include "inc/dmenu.h"
 #include "inc/addresses.h"
 
-#ifdef DEBUG
-#include "inc/debug.h"
-#endif
-
 
 //# external functions to link
 extern int sceKernelSendNotificationRequest(int, notify_request_t *, size_t, int);
@@ -44,6 +40,18 @@ static ndgame_t ndgame;
 ndgame_t * game;
 
 static int watchpoint_count = 0;
+
+
+
+
+//#
+//## Assertion-Related Variable definitions
+//#
+
+#define MaxAssertionMessageDepth (unsigned char) 0xA // The maximum depth for buffered assertion messages
+unsigned char AssertionMessageDepth = 0;
+char AssertionMessageBuffer[0x400 * MaxAssertionMessageDepth] = {0};
+
 
 
 
@@ -321,7 +329,7 @@ int * get_watchpoint_count()
 
 
 // Force kill process the proper way, from LM
-void ForceKillProc(int pid)
+void ForceKillProc(pid_t pid)
 {
     if (pid < 0)
     {
@@ -812,7 +820,7 @@ int main()
     
     
     // Kill any previous instances
-    int pid,
+    pid_t pid,
     tries = 0;
     if ((pid = find_pid(PAYLOAD_NAME)) > 0)
     {

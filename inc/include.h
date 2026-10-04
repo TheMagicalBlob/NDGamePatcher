@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <stdarg.h>
 #include <fcntl.h>
+#include <assert.h>
 #include <errno.h>
 
 #include <sys/syscall.h>
@@ -15,6 +16,7 @@
 
 #include <ps5/klog.h>
 #include <ps5/kernel.h>
+#include "assertion.h"
 
 
 
@@ -48,8 +50,8 @@
 
 // Extended Echo usage
 #ifdef ECHO
-    // Print Verbose I/O Information
-    #define IODEBUG
+    // // Print Verbose I/O Information
+    // #define IODEBUG
 
     // Print Verbose Debugging Messages
     #define VERBOSEDEBUG
@@ -67,43 +69,42 @@
 
 
 
+int echo(const char * string, ...);
+size_t get_longest_line_length(const char * str, size_t str_maxlen);
+static void AssertBuildPrint(const char * Cause, const char * File, const char * Function, const unsigned int Line, const char * Message)
+{
+    char output[0x800]  = {0},
+         errnoMsg[0x80] = {0};
 
-//#
-//## Macro definitions
-//#
+    snprintf(output, 0x7ff,
+             "\n"
+             "******************************************************************************\n"
+             "*** ASSERTION: %s%s\n"
+             "***   Message: %s\n"
+             "***\n"
+             "***  Function: %s\n"
+             "***      File: %s\n"
+             "***      Line: ~%d\n"
+             "***     Built: %s\n"
+             "******************************************************************************\n"
+             ,Cause, errnoMsg, Message, Function, File, Line, __DATE__ " @ " __TIME__
+    );
 
-#define __ERROR_PRINT(message) {\
-    char output[0x400],\
-         bars[0x100],\
-         buf[0x600];\
-    \
-    snprintf(output, sizeof(output), "# ERROR:\n# File %s\n# Func %s\n# ~Line %d", __FILE__, __FUNCTION__, __LINE__ - 1);\
-    \
-    if (message != (char *) 0) {\
-        snprintf(output, sizeof(output), "%s\n# Message: %s", output, message);\
-    }\
-    if (errno) {\
-        snprintf(output, sizeof(output), "%s\n# Message (errno): %s", output, strerror(errno));\
-    }\
-    size_t len;\
-    len = get_longest_line_length(output, sizeof(output));\
-    for (unsigned int i = 0; i < sizeof(bars) && i < len + 2; i++) {\
-        *(bars + i) = '#';\
-    }\
-    *(bars + len + 2) = 0;\
-    snprintf(buf, sizeof(buf), "\n%s\n%s\n%s\n", bars, output, bars);\
-    echo("%s", (char *) buf);\
-\
-    errno = 0;\
+    echo("%s", (char *) output);
 }
 
 
 
+
+//#
+//## Assertion-Related Macro definitions
+//#
+
 // Output error details if check evaluates to true. Does not return or break.
 // Additionally check errno and output it's message accordingly
-#define __err(check, message) {\
-    if (check){\
-        __ERROR_PRINT(message)\
+#define __err(condition, message) {\
+    if (condition){\
+        AssertBuildPrint(#condition, __FILE__, __FUNCTION__, __LINE__ - 2, message);\
     }\
 }\
 
@@ -111,9 +112,9 @@
 
 // Return void if check evaluates to true W/ output
 // Additionally check errno and output it's message accordingly
-#define __rerr(check, message) {\
-    if (check){\
-        __ERROR_PRINT(message)\
+#define __rerr(condition, message) {\
+    if (condition){\
+        AssertBuildPrint(#condition, __FILE__, __FUNCTION__, __LINE__ - 2, message);\
         return;\
     }\
 }\
@@ -122,18 +123,16 @@
 
 // Return provided error_code if check evaluates to true W/ output and return value/code
 // Additionally check errno and output it's message accordingly
-#define __rerrv(check, message, error_code) {\
-    if (check){\
-        __ERROR_PRINT(message)\
+#define __rerrv(condition, message, error_code) {\
+    if (condition){\
+        AssertBuildPrint(#condition, __FILE__, __FUNCTION__, __LINE__ - 2, message);\
         return error_code;\
     }\
 }\
 
 
-// Assertion macro
-#define __ASSERTIF {\
-    setup_assertion(__FUNCTION__, __LINE__);\
-}
+
+
 
 
 
@@ -237,6 +236,8 @@ typedef enum app_version_sid : SID
 
 
 
+
+
 typedef struct notify_request
 {
     char unused[45];
@@ -266,7 +267,7 @@ typedef struct app_info
 
 
 
-int echo(const char * message, ...);
+int echo(const char * string, ...);
 void log_message(const char * base_string, ...);
 void notify(const char * message, ...);
 

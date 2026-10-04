@@ -1,5 +1,13 @@
 #include "inc/include.h"
-// #include "inc/memory.h"
+
+typedef struct CallDebugger_s
+{
+    const char * File;   // The File of the initial caller
+    const char * Caller; // Name of the function which called asserting function or handle for the asserting function
+    const char * Handle; // The handle function used by the caller
+    int Line;            // The line in caller from which the handle was called
+    
+} CallDebugger_t;
 
 
 /*
@@ -18,31 +26,27 @@
 // };
 
 
-#ifdef DEBUG
 __always_inline
-static int proc_read(const char * function, int line, pid_t pid, size_t len, void * source, void * buffer)
-#else
-__always_inline
-static int proc_read(pid_t pid, size_t len, void * source, void * buffer)
-#endif
+static int proc_read(pid_t pid, size_t len, void * source, void * buffer, const char * Caller)
 {
     errno = 0;
 
+
     if (!source)
     {
-        echo("ERROR:\n# %s:%d->ptrace PT_IO (read) source address was null (src addr: 0x%llX)", function, line, source);
+        echo("ERROR:\n# %s:%d->ptrace PT_IO (read) source address was null (src addr: 0x%llX)", Caller, -1, source);
         errno = EFAULT;
         return -1;
     }
     if (!buffer)
     {
-        echo("ERROR:\n# %s:%d->ptrace PT_IO (read) destination address was null (buffer addr: 0x%llX)", function, line, buffer);
+        echo("ERROR:\n# %s:%d->ptrace PT_IO (read) destination address was null (buffer addr: 0x%llX)", Caller, -1, buffer);
         errno = EFAULT;
         return -1;
     }
     if (pid == 0 || pid == -1)
     {
-        echo("ERROR:\n# %s:%d->ptrace PT_IO (read) provided process id was invalid (pid: %d)", function, line, pid);
+        echo("ERROR:\n# %s:%d->ptrace PT_IO (read) provided process id was invalid (pid: %d)", Caller, -1, pid);
         errno = EINVAL;
         return -1;
     }
@@ -56,7 +60,7 @@ static int proc_read(pid_t pid, size_t len, void * source, void * buffer)
     ret = ptrace(PT_IO, pid, (caddr_t) &iod, null);
     if (ret != 0)
     {
-        echo("ERROR:\n# %s:%d->ptrace PT_IO (read) failed with code %d (%s)\n\n# Source address: %llX\n# buffer address: %llX\n", function, line, ret, strerror(ret), source, buffer);
+        echo("ERROR:\n# %s:%d->ptrace PT_IO (read) failed with code %d (%s)\n\n# Source address: %llX\n# buffer address: %llX\n", Caller, -1, ret, strerror(ret), source, buffer);
         errno = EIO;
         return -1;
     }
@@ -71,29 +75,34 @@ static int proc_read(pid_t pid, size_t len, void * source, void * buffer)
 
 
 
-#ifdef DEBUG
 __always_inline
-static int proc_write(const char * function, int line, pid_t pid, size_t len, void * dest, void * value)
-#else
-__always_inline
-static int proc_write(pid_t pid, size_t len, void * dest, void * value)
-#endif
+static int proc_write(pid_t pid, size_t len, void * dest, void * value, const char * Caller)
 {
+    #ifndef DEBUG
+    int line;
+    const char * Caller;
+    Caller = "";
+    Line = -1;
+    #endif
+
+    errno = 0;
+
+
     if (!dest)
     {
-        echo("ERROR:\n# %s:%d->ptrace PT_IO (write) destination address was invalid (src addr: 0x%llX)", function, line, dest);
+        echo("ERROR:\n# %s:%d->ptrace PT_IO (write) destination address was invalid (src addr: 0x%llX)", Caller, -1, dest);
         errno = EFAULT;
         return -1;
     }
     if (!value)
     {
-        echo("ERROR:\n# %s:%d->ptrace PT_IO (write) value address was invalid (val addr: 0x%llX)", function, line, value);
+        echo("ERROR:\n# %s:%d->ptrace PT_IO (write) value address was invalid (val addr: 0x%llX)", Caller, -1, value);
         errno = EFAULT;
         return -1;
     }
     if (pid == 0 || pid == -1)
     {
-        echo("ERROR:\n# %s:%d->ptrace PT_IO (write) provided process id was invalid (pid: %d)", function, line, pid);
+        echo("ERROR:\n# %s:%d->ptrace PT_IO (write) provided process id was invalid (pid: %d)", Caller, -1, pid);
         // errno = ESRCH;
         errno = EINVAL;
         return -1;
@@ -107,7 +116,7 @@ static int proc_write(pid_t pid, size_t len, void * dest, void * value)
     ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0);
     if (ret != 0)
     {
-        echo("ERROR:\n# %s:%d->ptrace PT_IO (write) failed with code %d (%s)\n\n# Destination address: %llX\n# Value Pointer: %llX (value as ulong: %llX)\n", function, line, ret, strerror(ret), dest, value, *(unsigned long *) value);
+        echo("ERROR:\n# %s:%d->ptrace PT_IO (write) failed with code %d (%s)\n\n# Destination address: %llX\n# Value Pointer: %llX (value as ulong: %llX)\n", Caller, -1, ret, strerror(ret), dest, value, *(unsigned long *) value);
         errno = EIO;
         return -1;
     }
@@ -119,10 +128,6 @@ static int proc_write(pid_t pid, size_t len, void * dest, void * value)
     return iod.piod_len;
 }
 
-#ifdef DEBUG
-#define proc_write(pid, len, dest, value) proc_write(function, line, pid, len, dest, value)
-#define proc_read(pid, len, source, buffer) proc_read(function, line, pid, len, source, buffer)
-#endif
 
 
 
@@ -131,25 +136,17 @@ static int proc_write(pid_t pid, size_t len, void * dest, void * value)
 
 
 
-#ifdef DEBUG
-int read_bytes(const char * function, int line, pid_t pid, size_t len, byte * source, byte * destination)
-#else
 int read_bytes(pid_t pid, size_t len, byte * source, byte * destination)
-#endif
 {
-    return proc_read(pid, len, source, destination);
+    return proc_read(pid, len, source, destination, __FUNCTION__);
 }
 
 
 
 
-#ifdef DEBUG
-int write_bytes(const char * function, int line, pid_t pid, size_t len, byte * destination, byte * value)
-#else
 int write_bytes(pid_t pid, size_t len, byte * destination, byte * value)
-#endif
 {
-    return proc_write(pid, len, destination, value);
+    return proc_write(pid, len, destination, value, __FUNCTION__);
 }
 
 
@@ -159,15 +156,11 @@ int write_bytes(pid_t pid, size_t len, byte * destination, byte * value)
 
 
 
-#ifdef DEBUG
-byte read_byte(const char * function, int line, pid_t pid, byte * address)
-#else
 byte read_byte(pid_t pid, byte * address)
-#endif
 {
     byte data;
 
-    if (proc_read(pid, sizeof(byte), address, &data) != sizeof(byte))
+    if (proc_read(pid, sizeof(byte), address, &data, __FUNCTION__) != sizeof(byte))
     {
         return -1;
     }
@@ -178,13 +171,9 @@ byte read_byte(pid_t pid, byte * address)
 
 
 
-#ifdef DEBUG
-int write_byte(const char * function, int line, pid_t pid, byte * address, byte data)
-#else
 int write_byte(pid_t pid, byte * address, byte data)
-#endif
 {
-    return proc_write(pid, sizeof(byte), address, &data) != sizeof(byte);
+    return proc_write(pid, sizeof(byte), address, &data, __FUNCTION__) != sizeof(byte);
 }
 
 
@@ -194,15 +183,11 @@ int write_byte(pid_t pid, byte * address, byte data)
 
 
 
-#ifdef DEBUG
-unsigned long read_ulong(const char * function, int line, pid_t pid, unsigned long * address)
-#else
 unsigned long read_ulong(pid_t pid, unsigned long * address)
-#endif
 {
     unsigned long data;
 
-    if (proc_read(pid, sizeof(unsigned long), address, &data) != sizeof(unsigned long))
+    if (proc_read(pid, sizeof(unsigned long), address, &data, __FUNCTION__) != sizeof(unsigned long))
     {
         return -1;
     }
@@ -213,13 +198,9 @@ unsigned long read_ulong(pid_t pid, unsigned long * address)
 
 
 
-#ifdef DEBUG
-int write_ulong(const char * function, int line, pid_t pid, unsigned long * address, unsigned long value)
-#else
 int write_ulong(pid_t pid, unsigned long * address, unsigned long value)
-#endif
 {
-    return proc_write(pid, sizeof(unsigned long), address, &value) != sizeof(unsigned long);
+    return proc_write(pid, sizeof(unsigned long), address, &value, __FUNCTION__) != sizeof(unsigned long);
 }
 
 
@@ -229,15 +210,11 @@ int write_ulong(pid_t pid, unsigned long * address, unsigned long value)
 
 
 
-#ifdef DEBUG
-unsigned read_uint(const char * function, int line, pid_t pid, unsigned * address)
-#else
 unsigned read_uint(pid_t pid, unsigned * address)
-#endif
 {
     unsigned data;
 
-    if (proc_read(pid, sizeof(unsigned), address, &data) != sizeof(unsigned))
+    if (proc_read(pid, sizeof(unsigned), address, &data, __FUNCTION__) != sizeof(unsigned))
     {
         return -1;
     }
@@ -248,13 +225,9 @@ unsigned read_uint(pid_t pid, unsigned * address)
 
 
 
-#ifdef DEBUG
-int write_uint(const char * function, int line, pid_t pid, unsigned * address, unsigned value)
-#else
 int write_uint(pid_t pid, unsigned * address, unsigned value)
-#endif
 {
-    return proc_write(pid, sizeof(unsigned), address, &value) != sizeof(unsigned);
+    return proc_write(pid, sizeof(unsigned), address, &value, __FUNCTION__) != sizeof(unsigned);
 }
 
 
@@ -264,15 +237,11 @@ int write_uint(pid_t pid, unsigned * address, unsigned value)
 
 
 
-#ifdef DEBUG
-double read_double(const char * function, int line, pid_t pid, double * address)
-#else
 double read_double(pid_t pid, double * address)
-#endif
 {
     double data;
 
-    if (proc_read(pid, sizeof(double), address, &data) != sizeof(double))
+    if (proc_read(pid, sizeof(double), address, &data, __FUNCTION__) != sizeof(double))
     {
         return -1;
     }
@@ -283,13 +252,9 @@ double read_double(pid_t pid, double * address)
 
 
 
-#ifdef DEBUG
-int write_double(const char * function, int line, pid_t pid, double * address, double value)
-#else
 int write_double(pid_t pid, double * address, double value)
-#endif
 {
-    return proc_write(pid, sizeof(double), address, &value) != sizeof(double);
+    return proc_write(pid, sizeof(double), address, &value, __FUNCTION__) != sizeof(double);
 }
 
 
@@ -299,15 +264,11 @@ int write_double(pid_t pid, double * address, double value)
 
 
 
-#ifdef DEBUG
-float read_single(const char * function, int line, pid_t pid, float * address)
-#else
 float read_single(pid_t pid, float * address)
-#endif
 {
     float data;
 
-    if (proc_read(pid, sizeof(float), address, &data) != sizeof(float))
+    if (proc_read(pid, sizeof(float), address, &data, __FUNCTION__) != sizeof(float))
     {
         return -1;
     }
@@ -318,13 +279,9 @@ float read_single(pid_t pid, float * address)
 
 
 
-#ifdef DEBUG
-int write_single(const char * function, int line, pid_t pid, float * address, float value)
-#else
 int write_single(pid_t pid, float * address, float value)
-#endif
 {
-    return proc_write(pid, sizeof(float), address, &value) != sizeof(float);
+    return proc_write(pid, sizeof(float), address, &value, __FUNCTION__) != sizeof(float);
 }
 
 
@@ -336,13 +293,9 @@ int write_single(pid_t pid, float * address, float value)
 
 // Read a null-terminated string of characters from the traced process' memory from the provided address.
 // Returns the amount of characters written, or 0 if there were any errors such as a null string or buffer pointer, or an I/O issue
-#ifdef DEBUG
-int read_string(const char * function, int line, pid_t pid, const char * address, char * buffer)
-#else
-int read_string(pid_t pid, const char * address, char * buffer)
-#endif
+int read_string(pid_t pid, const char * source, char * buffer)
 {
-    if (address == 0)
+    if (source == 0)
     {
         echo("null string pointer provided.");
         strncpy("(null)", buffer, 7);
@@ -351,20 +304,20 @@ int read_string(pid_t pid, const char * address, char * buffer)
     int ret;
     unsigned len;
 
-    ret = proc_read(pid, 1, (void *) address, buffer);
-    __rerrv(ret != 1, strbufbuild("ERROR: Failed checking first character of string at 0x%llX before reading full string, aborting %s", address, __FUNCTION__), -1);
+    ret = proc_read(pid, 1, (void *) source, buffer, __FUNCTION__);
+    __rerrv(ret != 1, strbufbuild("ERROR: Failed checking first character of string at 0x%llX before reading full string, aborting %s", source, __FUNCTION__), -1);
 
     if (buffer == 0) 
     {
-        echo("Empty string at address 0x%llX.", (unsigned long) address);
+        echo("Empty string at address 0x%llX.", (unsigned long) source);
         return 0;
     }
     
     
     len = 0;
     do {
-        ret = proc_read(pid, 1, (void *) address + len, buffer + len);
-        __rerrv(ret != 1, strbufbuild("ERROR: Failed reading character #%d at 0x%llX when reading string, %s aborting.", len + 1, address, __FUNCTION__), -1);
+        ret = proc_read(pid, 1, (void *) source + len, buffer + len, __FUNCTION__);
+        __rerrv(ret != 1, strbufbuild("ERROR: Failed reading character #%d at 0x%llX when reading string, %s aborting.", len + 1, source, __FUNCTION__), -1);
     }
     while(*(char *) (buffer + (++len - 1)));
 
@@ -375,13 +328,9 @@ int read_string(pid_t pid, const char * address, char * buffer)
 
 // Write a null-terminated string of characters to the traced process' memory.
 // Returns the amount of characters written, or -1 if a null pointer was provided for either the source or the destination
-#ifdef DEBUG
-int write_string(const char * function, int line, pid_t pid, void * address, const char * str)
-#else
-int write_string(pid_t pid, void * address, const char * str)
-#endif
+int write_string(pid_t pid, void * dest, const char * str)
 {
-    if (!address) {
+    if (!dest) {
         echo("null destination string pointer provided.");
         return -1;
     }
@@ -393,7 +342,7 @@ int write_string(pid_t pid, void * address, const char * str)
 
     if (!*str) 
     {
-        echo("Empty string at address 0x%llX.", (unsigned long long) address);
+        echo("Empty string at address 0x%llX.", (unsigned long long) dest);
         return -1;
     }
     
@@ -404,8 +353,8 @@ int write_string(pid_t pid, void * address, const char * str)
     
     // Write string to child process' memory
     int ret;
-    ret = proc_write(pid, len, (void *) address, (void *) str);
-    __rerrv(ret != len, strbufbuild("ERROR: Failed writing string %s to 0x%llX, %s aborting.", len, address, __FUNCTION__), -1);
+    ret = proc_write(pid, len, (void *) dest, (void *) str, __FUNCTION__);
+    __rerrv(ret != len, strbufbuild("ERROR: Failed writing string %s to 0x%llX, %s aborting.", len, dest, __FUNCTION__), -1);
 
     return len;
 }
@@ -426,7 +375,7 @@ unsigned long align(unsigned long value)
 
     if (buf < value)
     {
-        buf += 16ul;
+        buf += 0x10ul;
     }
 
     return buf;

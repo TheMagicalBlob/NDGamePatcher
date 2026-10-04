@@ -2,10 +2,6 @@
 #include "inc/dmenu.h"
 #include "inc/memory.h"
 #include "inc/proc.h"
-#ifdef DEBUG
-#include "inc/debug.h"
-#endif
-
 
 extern ndgame_t * game;
 

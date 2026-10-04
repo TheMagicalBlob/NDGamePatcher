@@ -219,15 +219,9 @@ int do_load_ndgame(game_id_t game_id, app_version_sid_t app_ver)
             game->addrs = fuck[i].addresses;
 
             // Load the menu base pointers
-            #ifdef DEBUG
-            game->addrs.dev_menu_base       = (dmenu_menu_base_t *) read_ulong(__FUNCTION__, __LINE__, pid, (unsigned long *) game->addrs.dev_menu_base);
-            game->addrs.quick_menu_base     = (dmenu_menu_base_t *) read_ulong(__FUNCTION__, __LINE__, pid, (unsigned long *) game->addrs.quick_menu_base);
-            game->addrs.favorites_menu_base = (dmenu_menu_base_t *) read_ulong(__FUNCTION__, __LINE__, pid, (unsigned long *) game->addrs.favorites_menu_base);
-            #else
             game->addrs.dev_menu_base       = (dmenu_menu_base_t *) read_ulong(pid, (unsigned long *) game->addrs.dev_menu_base);
             game->addrs.quick_menu_base     = (dmenu_menu_base_t *) read_ulong(pid, (unsigned long *) game->addrs.quick_menu_base);
             game->addrs.favorites_menu_base = (dmenu_menu_base_t *) read_ulong(pid, (unsigned long *) game->addrs.favorites_menu_base);
-            #endif
             return 0;
         }
     }
