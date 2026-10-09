@@ -31,22 +31,24 @@ static int proc_read(pid_t pid, size_t len, void * source, void * buffer, const 
 {
     errno = 0;
 
-
     if (!source)
     {
-        echo("ERROR:\n# %s:%d->ptrace PT_IO (read) source address was null (src addr: 0x%llX)", Caller, -1, source);
+        AssertPushBufferedMsg("%s->proc_read: source address \"0x%llX\" was null", Caller, source);
+        __err(!source, NULL);
         errno = EFAULT;
         return -1;
     }
     if (!buffer)
     {
-        echo("ERROR:\n# %s:%d->ptrace PT_IO (read) destination address was null (buffer addr: 0x%llX)", Caller, -1, buffer);
+        AssertPushBufferedMsg("%s->proc_read: destination address \"0x%llX\" was null", Caller, buffer);
+        __err(!buffer, NULL);
         errno = EFAULT;
         return -1;
     }
     if (pid == 0 || pid == -1)
     {
-        echo("ERROR:\n# %s:%d->ptrace PT_IO (read) provided process id was invalid (pid: %d)", Caller, -1, pid);
+        AssertPushBufferedMsg("%s->proc_read: provided process id (%d) was invalid", Caller, pid);
+        __err(pid == 0 || pid == -1, NULL);
         errno = EINVAL;
         return -1;
     }
@@ -60,7 +62,8 @@ static int proc_read(pid_t pid, size_t len, void * source, void * buffer, const 
     ret = ptrace(PT_IO, pid, (caddr_t) &iod, null);
     if (ret != 0)
     {
-        echo("ERROR:\n# %s:%d->ptrace PT_IO (read) failed with code %d (%s)\n\n# Source address: %llX\n# buffer address: %llX\n", Caller, -1, ret, strerror(ret), source, buffer);
+        AssertPushBufferedMsg("%s->proc_read failed (%s)\n***     Source Address: 0x%llX\n***     Buffer Address: 0x%llX\n***", Caller, strerror(ret), source, buffer);
+        __err(ret != 0, NULL);
         errno = EIO;
         return -1;
     }
@@ -90,19 +93,22 @@ static int proc_write(pid_t pid, size_t len, void * dest, void * value, const ch
 
     if (!dest)
     {
-        echo("ERROR:\n# %s:%d->ptrace PT_IO (write) destination address was invalid (src addr: 0x%llX)", Caller, -1, dest);
+        AssertPushBufferedMsg("ERROR:\n# %s->proc_write: destination address was invalid (src addr: 0x%llX)", Caller, -1, dest);
+        __err(!dest, NULL);
         errno = EFAULT;
         return -1;
     }
     if (!value)
     {
-        echo("ERROR:\n# %s:%d->ptrace PT_IO (write) value address was invalid (val addr: 0x%llX)", Caller, -1, value);
+        AssertPushBufferedMsg("ERROR:\n# %s->proc_write: value address was invalid (val addr: 0x%llX)", Caller, -1, value);
+        __err(!value, NULL);
         errno = EFAULT;
         return -1;
     }
     if (pid == 0 || pid == -1)
     {
-        echo("ERROR:\n# %s:%d->ptrace PT_IO (write) provided process id was invalid (pid: %d)", Caller, -1, pid);
+        AssertPushBufferedMsg("ERROR:\n# %s->proc_write: provided process id was invalid (pid: %d)", Caller, -1, pid);
+        __err(pid == 0 || pid == -1, NULL);
         // errno = ESRCH;
         errno = EINVAL;
         return -1;
@@ -116,7 +122,8 @@ static int proc_write(pid_t pid, size_t len, void * dest, void * value, const ch
     ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0);
     if (ret != 0)
     {
-        echo("ERROR:\n# %s:%d->ptrace PT_IO (write) failed with code %d (%s)\n\n# Destination address: %llX\n# Value Pointer: %llX (value as ulong: %llX)\n", Caller, -1, ret, strerror(ret), dest, value, *(unsigned long *) value);
+        AssertPushBufferedMsg("ERROR:\n# %s:%d->ptrace PT_IO (write) failed with code %d (%s)\n\n# Destination address: %llX\n# Value Pointer: %llX (value as ulong: %llX)\n", Caller, -1, ret, strerror(ret), dest, value, *(unsigned long *) value);
+        __err(ret != 0, NULL);
         errno = EIO;
         return -1;
     }

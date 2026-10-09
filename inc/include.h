@@ -16,6 +16,7 @@
 
 #include <ps5/klog.h>
 #include <ps5/kernel.h>
+
 #include "assertion.h"
 
 
@@ -65,73 +66,6 @@
 
 // // If undefined, ps5-side notification functions will be stripped
 // #define NOTIFY
-
-
-
-
-int echo(const char * string, ...);
-size_t get_longest_line_length(const char * str, size_t str_maxlen);
-static void AssertBuildPrint(const char * Cause, const char * File, const char * Function, const unsigned int Line, const char * Message)
-{
-    char output[0x800]  = {0},
-         errnoMsg[0x80] = {0};
-
-    snprintf(output, 0x7ff,
-             "\n"
-             "******************************************************************************\n"
-             "*** ASSERTION: %s%s\n"
-             "***   Message: %s\n"
-             "***\n"
-             "***  Function: %s\n"
-             "***      File: %s\n"
-             "***      Line: ~%d\n"
-             "***     Built: %s\n"
-             "******************************************************************************\n"
-             ,Cause, errnoMsg, Message, Function, File, Line, __DATE__ " @ " __TIME__
-    );
-
-    echo("%s", (char *) output);
-}
-
-
-
-
-//#
-//## Assertion-Related Macro definitions
-//#
-
-// Output error details if check evaluates to true. Does not return or break.
-// Additionally check errno and output it's message accordingly
-#define __err(condition, message) {\
-    if (condition){\
-        AssertBuildPrint(#condition, __FILE__, __FUNCTION__, __LINE__ - 2, message);\
-    }\
-}\
-
-
-
-// Return void if check evaluates to true W/ output
-// Additionally check errno and output it's message accordingly
-#define __rerr(condition, message) {\
-    if (condition){\
-        AssertBuildPrint(#condition, __FILE__, __FUNCTION__, __LINE__ - 2, message);\
-        return;\
-    }\
-}\
-
-
-
-// Return provided error_code if check evaluates to true W/ output and return value/code
-// Additionally check errno and output it's message accordingly
-#define __rerrv(condition, message, error_code) {\
-    if (condition){\
-        AssertBuildPrint(#condition, __FILE__, __FUNCTION__, __LINE__ - 2, message);\
-        return error_code;\
-    }\
-}\
-
-
-
 
 
 

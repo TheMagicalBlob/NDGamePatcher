@@ -16,11 +16,11 @@ all: $(ELF)
 asm: $(DBG)
 
 
-$(DBG): main.c memory.c dmenu.c proc.c
+$(DBG): main.c assertion.c memory.c proc.c dmenu.c
 	$(info Outputting compiled source only)
 	$(CC) -S $@ $^
 
-$(ELF): main.c memory.c dmenu.c proc.c
+$(ELF): main.c assertion.c memory.c proc.c dmenu.c
 	$(info Removing and rebuilding payload)
 	rm -f $(ELF)
 	$(CC) $(CFLAGS) -o $@ $^

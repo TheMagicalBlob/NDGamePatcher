@@ -466,12 +466,17 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
     while(entry_ptr != null)
     {
         type = (dmenu_vptr_t) read_ulong(game->pid, entry_ptr);
+        if ((long) type == -1) // no need to check errno, as it shouldn't be reading -1 either
+        {
+            __err((long) type == -1, "Failed to read item's vptr, or it was actually negative."); //! Finish handling this
+        }
+
         dtype = get_dmenu_entry_type_as_string(type);
         
         newItem = (char) 0x1;
 
         // Check for unknown dmenu component types
-        if (encode_sid(dtype) == unknownTypeSID) // just the start of the "Unknown value..." string read as an unsigned 64bit integer
+        if (encode_sid(dtype) == unknownTypeSID)
         {
             unknown_type_count++;
         }
@@ -498,7 +503,7 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
         {
             bzero(&menu, sizeof(menu));
             load_menu(entry_ptr, &menu);
-            
+
             if (newItem)
             {
                 read_string(game->pid, menu.menu_name, item_name);
@@ -516,6 +521,7 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
                 );
             }
             
+            echo("Entry at 0x%llX is a Menu. Loading entry_ptr from 0x%llX + 0x%lX", entry_ptr, &menu, __offsetof(dmenu_menu_t, first_item));
 
 
             // Read next item pointer
@@ -529,17 +535,22 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
 
             if (newItem)
             {
+                echo("New Item @ 0x%llX", entry_ptr);
                 if (item.item_text)
                 {
+                    echo("reading item name");
                     read_string(game->pid, item.item_text, item_name);
                 }
                 else {
+                    echo("separator line");
                     strcpy(item_name, "--------------------------------");
                 }
     
+                echo("reading parent name");
                 read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &item.parent_menu->menu_name), parent_name);
 
 
+                echo("pre-print");
                 echo("0x%llX %s->%s (type: %s)", entry_ptr, parent_name, item_name, dtype);
                 echo("\n"
                     "vPtr: %llX\n"
@@ -557,23 +568,22 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
             }
             
 
-            
-
             // Handle ItemSubmenu components
             if (get_dmenu_entry_base_type(entry_ptr) == stype_itemsubmenu)
             {
+                echo("Entry at 0x%llX is a submenuItem. Loading entry_ptr from 0x%llX + 0x%lX", entry_ptr, &item, __offsetof(dmenu_item_t, return_buffer));
                 entry_ptr = (dmenu_item_t *) item.return_buffer;
 
                 history[++depth] = (dmenu_menu_t *) item.next_item;
                 
                 next_is_menu = 1;
             }
-            else{
+            else {
+                echo("Entry at 0x%llX is a normal item (%s). Loading entry_ptr from 0x%llX + 0x%lX", entry_ptr, get_dmenu_entry_type_as_string(item.vptr), &item, __offsetof(dmenu_item_t, return_buffer));
                 entry_ptr = item.next_item;
                 next_is_menu = 0;
-            } 
+            }
         }
-        
         
 
         // Return from submenus
@@ -581,9 +591,12 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
         {
             entry_ptr = history[depth];
             history[depth--] = nullptr;
+            echo("returning to parent");
         
             next_is_menu = 0;
         }
+
+        echo("Next item: 0x%llX\n", entry_ptr);
     }
 
     echo("\n# Scan finished. Unknown item types: %d", unknown_type_count);

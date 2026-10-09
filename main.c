@@ -44,14 +44,6 @@ static int watchpoint_count = 0;
 
 
 
-//#
-//## Assertion-Related Variable definitions
-//#
-
-#define MaxAssertionMessageDepth (unsigned char) 0xA // The maximum depth for buffered assertion messages
-unsigned char AssertionMessageDepth = 0;
-char AssertionMessageBuffer[0x400 * MaxAssertionMessageDepth] = {0};
-
 
 
 
@@ -137,8 +129,6 @@ void notify(const char * message, ...)
     echo("[Notification]: %s\n", request.message);
 #endif
 }
-
-
 
 
 

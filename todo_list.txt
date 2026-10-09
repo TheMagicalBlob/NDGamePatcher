@@ -1,14 +1,14 @@
-1. Figure out sighandler stuff enough to have a basic assertion macro we can use per-function. Current error handling is vauge. It may as well say "something happened somewhere"
+1. Finish standardizing variable and function names
 
-2. Implement the various dmenu item creation functions from the exectuable (I may take liberties)
+2. Figure out sighandler stuff enough to have a basic assertion macro we can use per-function. Current error handling is vauge. It may as well say "something happened somewhere"
 
-3. Update dmenu item struct to reflect the fact that there's clearly multiple of differing sizes
+3. Implement the various dmenu item creation functions from the exectuable (I may take liberties)
 
-4. Find an easy of way adding custom functions needed for new menu options to the game's memory
+4. Update dmenu item struct to reflect the fact that there's clearly multiple of differing sizes
+
+5. Find an easy of way adding custom functions needed for new menu options to the game's memory
 
 
-
-?. Clean up code for consistency reasons. We still have a few instances of standardized code being neglected in place of old implementations
 
 ?. Re-implement invoke function in-payload to avoid needing prepatched executables
 
