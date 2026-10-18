@@ -27,50 +27,55 @@ typedef struct CallDebugger_s
 
 
 __always_inline
-static int proc_read(pid_t pid, size_t len, void * source, void * buffer, const char * Caller)
+static int proc_read(pid_t pid, size_t Length, void * Source, void * Destination, const char * Caller)
 {
     errno = 0;
+    const char * errMsg;
+    errMsg = "%s->proc_read failed (%s)\n***   PID:     %d\n***   Length:  %d\n***   Source Address: 0x%llX\n***   Destination Address: 0x%llX\n***";
 
-    if (!source)
+    if (!Source)
     {
-        AssertPushBufferedMsg("%s->proc_read: source address \"0x%llX\" was null", Caller, source);
-        __err(!source, NULL);
         errno = EFAULT;
+
+        AssertPushBufferedMsg(errMsg, Caller, "source address was null", pid, Length, Source, Destination);
+        __err(!Source, NULL);
         return -1;
     }
-    if (!buffer)
+    if (!Destination)
     {
-        AssertPushBufferedMsg("%s->proc_read: destination address \"0x%llX\" was null", Caller, buffer);
-        __err(!buffer, NULL);
         errno = EFAULT;
+
+        AssertPushBufferedMsg(errMsg, Caller, "destination address was null", pid, Length, Source, Destination);
+        __err(!Destination, NULL);
         return -1;
     }
     if (pid == 0 || pid == -1)
     {
-        AssertPushBufferedMsg("%s->proc_read: provided process id (%d) was invalid", Caller, pid);
-        __err(pid == 0 || pid == -1, NULL);
         errno = EINVAL;
+
+        AssertPushBufferedMsg(errMsg, Caller, "provided process id was invalid", pid, Length, Source, Destination);
+        __err(pid == 0 || pid == -1, NULL);
         return -1;
     }
 
 
     
     int ret;
-    struct ptrace_io_desc iod = { PIOD_READ_D, source, buffer, len };
+    struct ptrace_io_desc iod = { PIOD_READ_D, Source, Destination, Length };
 
 
     ret = ptrace(PT_IO, pid, (caddr_t) &iod, null);
     if (ret != 0)
     {
-        AssertPushBufferedMsg("%s->proc_read failed (%s)\n***     Source Address: 0x%llX\n***     Buffer Address: 0x%llX\n***", Caller, strerror(ret), source, buffer);
-        __err(ret != 0, NULL);
         errno = EIO;
+        AssertPushBufferedMsg(errMsg, Caller, strerror(ret), pid, Length, Source, Destination);
+        __err(ret != 0, NULL);
         return -1;
     }
 
 
     #ifdef IODEBUG
-    echo("Read %d bytes from 0x%llX", iod.piod_len, source);
+    echo("Read %d bytes from 0x%llX", iod.piod_len, Source);
     #endif
     return iod.piod_len;
 }
@@ -79,50 +84,50 @@ static int proc_read(pid_t pid, size_t len, void * source, void * buffer, const 
 
 
 __always_inline
-static int proc_write(pid_t pid, size_t len, void * dest, void * value, const char * Caller)
+static int proc_write(pid_t pid, size_t Length, void * Destination, void * Source, const char * Caller)
 {
-    #ifndef DEBUG
-    int line;
-    const char * Caller;
-    Caller = "";
-    Line = -1;
-    #endif
+    const char * errMsg;
+    errMsg = "%s->proc_write failed (%s)\n***   PID:     %d\n***   Length:  %d\n***   Source Address: 0x%llX\n***   Destination Address: 0x%llX\n***";
 
     errno = 0;
 
 
-    if (!dest)
+    if (!Source)
     {
-        AssertPushBufferedMsg("ERROR:\n# %s->proc_write: destination address was invalid (src addr: 0x%llX)", Caller, -1, dest);
-        __err(!dest, NULL);
         errno = EFAULT;
+
+        AssertPushBufferedMsg(errMsg, Caller, "source address was null", pid, Length, Source, Destination);
+        __err(!Source, NULL);
         return -1;
     }
-    if (!value)
+    if (!Destination)
     {
-        AssertPushBufferedMsg("ERROR:\n# %s->proc_write: value address was invalid (val addr: 0x%llX)", Caller, -1, value);
-        __err(!value, NULL);
         errno = EFAULT;
+
+        AssertPushBufferedMsg(errMsg, Caller, "destination address was null", pid, Length, Source, Destination);
+        __err(!Destination, NULL);
         return -1;
     }
     if (pid == 0 || pid == -1)
     {
-        AssertPushBufferedMsg("ERROR:\n# %s->proc_write: provided process id was invalid (pid: %d)", Caller, -1, pid);
-        __err(pid == 0 || pid == -1, NULL);
-        // errno = ESRCH;
+        //! TODO: Implement a check for nonexistent process id's specifically
+        // ^ errno = ESRCH;
         errno = EINVAL;
+
+        AssertPushBufferedMsg(errMsg, Caller, "provided process id was invalid", pid, Length, Source, Destination);
+        __err(pid == 0 || pid == -1, NULL);
         return -1;
     }
 
 
     
     int ret;
-    struct ptrace_io_desc iod = { PIOD_WRITE_D, dest, value, len };
+    struct ptrace_io_desc iod = { PIOD_WRITE_D, Destination, Source, Length };
 
     ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0);
     if (ret != 0)
     {
-        AssertPushBufferedMsg("ERROR:\n# %s:%d->ptrace PT_IO (write) failed with code %d (%s)\n\n# Destination address: %llX\n# Value Pointer: %llX (value as ulong: %llX)\n", Caller, -1, ret, strerror(ret), dest, value, *(unsigned long *) value);
+        AssertPushBufferedMsg(errMsg, Caller, strerror(ret), pid, Length, Source, Destination);
         __err(ret != 0, NULL);
         errno = EIO;
         return -1;
@@ -130,7 +135,7 @@ static int proc_write(pid_t pid, size_t len, void * dest, void * value, const ch
 
     
     #ifdef IODEBUG
-    echo("Wrote %d bytes to 0x%llX", iod.piod_len, dest);
+    echo("Wrote %d bytes to 0x%llX", iod.piod_len, Destination);
     #endif
     return iod.piod_len;
 }

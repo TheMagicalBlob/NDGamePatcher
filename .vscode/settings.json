@@ -1,4 +1,4 @@
 {
     "editor.fontFamily": "Cascadia, monospace",
-    "C_Cpp.default.compilerPath": "../../sdk/ps5-payload-sdk-0.38/bin/clang"
+    "C_Cpp.default.compilerPath": "/usr/bin/clang"
 }

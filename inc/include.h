@@ -46,23 +46,30 @@
 // Do some basic extra debugging processes, as well as prints
 #define DEBUG
 
+// Run whatever debug/test code is present, rather than the main payload code
+#define TESTS
+
+
 // If undefined, echo/logging functions stripped.
 #define ECHO
-
 // Extended Echo usage
 #ifdef ECHO
+    //! NOT FULLY IMPLEMENTED
+    // 0: Disabled
+    // 1: Basic
+    // 2: Detailed
+    // 3: Excessive
+    #define VERBOSITY 1
+
     // // Print Verbose I/O Information
     // #define IODEBUG
 
     // Print Verbose Debugging Messages
     #define VERBOSEDEBUG
+    
     // Duplicate all output on the PS5 in a text file at /data/bLog.txt
-
-    #define LOGOUTPUT
+    #define LOGFILE
 #endif
-
-// Run whatever debug/test code is present, rather than the main payload code
-#define TESTS
 
 // // If undefined, ps5-side notification functions will be stripped
 // #define NOTIFY

@@ -11,8 +11,8 @@ SENDER := ./ps.exe
 
 CFLAGS := -Wall -Wno-unused-function -g -lSceSystemService
 
-all: $(ELF)
 
+all: $(ELF)
 asm: $(DBG)
 
 
@@ -20,7 +20,8 @@ $(DBG): main.c assertion.c memory.c proc.c dmenu.c
 	$(info Outputting compiled source only)
 	$(CC) -S $@ $^
 
+
 $(ELF): main.c assertion.c memory.c proc.c dmenu.c
-	$(info Removing and rebuilding payload)
+	$(info Removing and rebuilding $@)
 	rm -f $(ELF)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $(realpath $^)

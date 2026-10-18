@@ -407,8 +407,7 @@ static int try_dump_menu_entry_types()
 
 
 
-
-//! write me
+//! Unoptimized menu entry info dumper. May fail if partially-stripped menus are added, like the SpawnAvObjects menu in T2R 02.001.010 with it's "next_entry" pointer being for some reason set to an address pointing to unrelated volatile memory 
 static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
 {
     // Null menu base pointer
@@ -468,12 +467,17 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
         type = (dmenu_vptr_t) read_ulong(game->pid, entry_ptr);
         if ((long) type == -1) // no need to check errno, as it shouldn't be reading -1 either
         {
-            __err((long) type == -1, "Failed to read item's vptr, or it was actually negative."); //! Finish handling this
+            AssertPushBufferedMsg("Failed to read item's vptr, or it was actually negative. Skipping item at 0x%llX, and returning from it's containing menu", entry_ptr);
+            __err((long) type == -1, NULL);
+
+            entry_ptr = nullptr;
+            
+            goto _cont;
         }
 
         dtype = get_dmenu_entry_type_as_string(type);
-        
         newItem = (char) 0x1;
+
 
         // Check for unknown dmenu component types
         if (encode_sid(dtype) == unknownTypeSID)
@@ -521,7 +525,6 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
                 );
             }
             
-            echo("Entry at 0x%llX is a Menu. Loading entry_ptr from 0x%llX + 0x%lX", entry_ptr, &menu, __offsetof(dmenu_menu_t, first_item));
 
 
             // Read next item pointer
@@ -535,22 +538,17 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
 
             if (newItem)
             {
-                echo("New Item @ 0x%llX", entry_ptr);
                 if (item.item_text)
                 {
-                    echo("reading item name");
                     read_string(game->pid, item.item_text, item_name);
                 }
                 else {
-                    echo("separator line");
                     strcpy(item_name, "--------------------------------");
                 }
     
-                echo("reading parent name");
                 read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &item.parent_menu->menu_name), parent_name);
 
 
-                echo("pre-print");
                 echo("0x%llX %s->%s (type: %s)", entry_ptr, parent_name, item_name, dtype);
                 echo("\n"
                     "vPtr: %llX\n"
@@ -571,7 +569,6 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
             // Handle ItemSubmenu components
             if (get_dmenu_entry_base_type(entry_ptr) == stype_itemsubmenu)
             {
-                echo("Entry at 0x%llX is a submenuItem. Loading entry_ptr from 0x%llX + 0x%lX", entry_ptr, &item, __offsetof(dmenu_item_t, return_buffer));
                 entry_ptr = (dmenu_item_t *) item.return_buffer;
 
                 history[++depth] = (dmenu_menu_t *) item.next_item;
@@ -579,7 +576,6 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
                 next_is_menu = 1;
             }
             else {
-                echo("Entry at 0x%llX is a normal item (%s). Loading entry_ptr from 0x%llX + 0x%lX", entry_ptr, get_dmenu_entry_type_as_string(item.vptr), &item, __offsetof(dmenu_item_t, return_buffer));
                 entry_ptr = item.next_item;
                 next_is_menu = 0;
             }
@@ -587,16 +583,14 @@ static void do_dump_menu_entries(dmenu_menu_base_t * parent_base)
         
 
         // Return from submenus
+    _cont:
         while (entry_ptr == nullptr && depth >= 0)
         {
             entry_ptr = history[depth];
             history[depth--] = nullptr;
-            echo("returning to parent");
         
             next_is_menu = 0;
         }
-
-        echo("Next item: 0x%llX\n", entry_ptr);
     }
 
     echo("\n# Scan finished. Unknown item types: %d", unknown_type_count);
@@ -873,8 +867,8 @@ int AppendItemToParent(dmenu_menu_t * parent_menu, dmenu_item_t * item)
             echo("Unable to read item's vPtr!!");
             return 1;
         }
-        
 
+        
         struct reg args;
         ret = proc_set_args(&args, (uintptr_t) item, 0, 0, 0, 0, 0, 0);
         __rerrv(ret != 0, "ERROR: Unable to set args for call to menu update function.", 1)

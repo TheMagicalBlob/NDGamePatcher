@@ -641,23 +641,15 @@ int proc_clear_args(struct reg * regs)
 
 int proc_set_args(struct reg * regs, uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rcx, uintptr_t rbx, uintptr_t r8, uintptr_t r9)
 {
-    if (!regs)
-    {
-        echo("ERROR: %s->Null regs pointer provided.", __FUNCTION__);
-        return 1;
-    }
-
+    __rerrv(regs == 0, "Null regs pointer provided.", 1);
+    int ret;
+    
 
     // Get the current register values to ensure critical registers like RSP are still filled
-    int ret;
-    ret = proc_get_regs(regs);
-    if (ret)
-    {
-        echo("ERROR: %s->proc_get_regs failed, unable to get register values when clearing args. clearing main registers anyway, but returning error", __FUNCTION__);
-    }
+    __err((ret = proc_get_regs(regs)), "proc_get_regs failed, unable to get register values when clearing args. Clearing general data registers anyway, but returning error.")
 
 
-
+    // Apply register values
     regs->r_rdi = rdi;
     regs->r_rsi = rsi;
     regs->r_rdx = rdx;
@@ -686,24 +678,16 @@ int proc_call(void * function_address, unsigned long * return_val_ptr, struct re
     }
 
     
-    // Construct reused error message
-    char errmsg[0x200];
-    strncpy(errmsg, (const char *) strbufbuild("Unable to complete function call to 0x%llX", function_address), sizeof(errmsg));
-
-    
-    
     //! I guess we can't actually read from that address? Can we only read after the header?
     // int ret;
     // ret = read_byte(game->pid, (void *) 0x400000);
     // __rerrv(ret != 0xCC, errmsg, 1);
     
 
-    
     // Back the regisers up
     int ret;
     struct reg og_registers;
-    ret = proc_get_regs(&og_registers);
-    __rerrv(ret, errmsg, 1);
+    __rerrv(proc_get_regs(&og_registers), "Failed getting original register values before function call in tracee.", 1);
 
     
     
@@ -719,36 +703,44 @@ int proc_call(void * function_address, unsigned long * return_val_ptr, struct re
 
     // Set return address
     ret = write_ulong(game->pid, (void *) (arg_regs->r_rsp -= 8), (unsigned long) 0x400000);
-    __rerrv(ret != 0, "ERROR: Failed setting return address, aborting function call", 1);
+    __rerrv(ret != 0, "Failed setting return address, aborting function call", 1);
     
     // Set next instruction address
     arg_regs->r_rip = (critical_t) function_address;
     
-    ret = proc_set_regs(arg_regs);
-    __rerrv(ret, errmsg, 1);
+    __rerrv(proc_set_regs(arg_regs), "Failed setting new register values with ", 1);
 
     
     
     
     // Resume execution until the function returns, hitting the breakpoint present at the start of every ps5 elf
     struct reg return_regs;
-    ret = proc_continue();   // Resume process
-    __rerrv(ret, errmsg, 1);
+    __errg(proc_continue(), "proc_continue returned failure status, subsequent errors likely.", _return);
 
-    ret = proc_wait(true);   // Wait for stop
-    __rerrv(!ret, errmsg, 1);
+    __errg(proc_wait(true) == -1, "proc_wait returned error status when wiating for setup function call to return, subsequent errors likely.", _return);
 
-    ret = proc_get_regs(&return_regs);
-    __rerrv(ret, errmsg, 1);
+    __errg(proc_get_regs(&return_regs), "Failed to read new register values after function returned/stopped", _return);
 
     if (return_regs.r_rip != 0x400001)
     {
-        echo("WARNING: Process stopped before returning from call to 0x%llX. (Next instruction when stopped: 0x%llX)", function_address, return_regs.r_rip);
-        goto _return; // Repeat if it's stopped for an unrelated reason (//! handle that)
+        //! TODO: Get additional information about the stop (at least the signal that caused it)
+        echo("# Registers (READ):");
+        echo("# rax: %llX  rbx: %llX", return_regs.r_rax, return_regs.r_rbx);
+        echo("# rcx: %llX  rdx: %llX", return_regs.r_rcx, return_regs.r_rdx);
+        echo("# rsi: %llX  rdi: %llX", return_regs.r_rsi, return_regs.r_rdi);
+        echo("# rbp: %llX  rsp: %llX", return_regs.r_rbp, return_regs.r_rsp);
+        echo("# r8:  %llX  r9:  %llX", return_regs.r_r8,  return_regs.r_r9);
+        echo("# r10: %llX  r11: %llX", return_regs.r_r10, return_regs.r_r11);
+        echo("# r12: %llX  r13: %llX", return_regs.r_r12, return_regs.r_r13);
+        echo("# r14: %llX  r15: %llX", return_regs.r_r14, return_regs.r_r15);
+        echo("# rip: %llX  eflags: %llX", return_regs.r_rip, return_regs.r_rflags);
+        echo("# trapno:  %llX  err: %d", return_regs.r_trapno, return_regs.r_err);
+        echo("");
+        AssertPushBufferedMsg("Process stopped before returning from call to 0x%llX. (Next instruction when stopped: 0x%llX)", function_address, return_regs.r_rip);
+        
+        __errg(return_regs.r_rip != 0x400001, nullptr, _return);
     }
 
-    
-    
     if (return_val_ptr > 0)
     {
         // Read return value
@@ -766,7 +758,7 @@ int proc_call(void * function_address, unsigned long * return_val_ptr, struct re
 _return:
     // Restore the initial register values
     ret = proc_set_regs(&og_registers);
-    __rerrv(ret, errmsg, 1);
+    __rerrv(ret, "Failed to restore original register values after function call, subsequent errors likely", 1);
     
     return 0;
 }
@@ -804,17 +796,13 @@ void * proc_malloc(size_t amount)
 
 int proc_free(void * allocated_mem)
 {
-    int ret;         // Return status for function calls
     struct reg regs; // Register struct for call args
 
-
     // set free arguments
-    ret = proc_set_args(&regs, (uintptr_t) allocated_mem, 0, 0, 0, 0, 0, 0);
-    __rerrv(ret, "ERROR: free proc_set_args call failed!", 1);
+    __rerrv(proc_set_args(&regs, (uintptr_t) allocated_mem, 0, 0, 0, 0, 0, 0), "Failed to set args for proceeding function call to tracee's free function.", 1);
 
     // Call free
-    ret = proc_call((void *) game->addrs.func.free, NULL, &regs);
-    __rerrv(ret, "ERROR: Call to tracee's \"free\" failed", 1);
+    __rerrv(proc_call((void *) game->addrs.func.free, NULL, &regs), "Call to tracee's free function failed", 1);
     
     return 0;
 }

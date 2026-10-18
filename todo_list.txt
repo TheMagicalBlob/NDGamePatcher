@@ -1,17 +1,24 @@
-1. Finish standardizing variable and function names
-
-2. Figure out sighandler stuff enough to have a basic assertion macro we can use per-function. Current error handling is vauge. It may as well say "something happened somewhere"
-
-3. Implement the various dmenu item creation functions from the exectuable (I may take liberties)
-
-4. Update dmenu item struct to reflect the fact that there's clearly multiple of differing sizes
-
-5. Find an easy of way adding custom functions needed for new menu options to the game's memory
+X. Finish standardizing variable and function names
 
 
+X. Relpace all the old error handling messages with the macros for consistency, and make sure to strip any redundant "ERROR: " prefixes remaining in the messages
 
-?. Re-implement invoke function in-payload to avoid needing prepatched executables
 
-?. Figure out what's up with that crash we get when sending sigstop after proc_call
+X. Figure out sighandler stuff enough to improve basic per-function assertion handling. Current handling does not list reason for stops.
+
+
+X. Implement the various dmenu item creation functions from the exectuable (I may take liberties)
+
+
+X. Update dmenu item struct to reflect the fact that there's clearly multiple of differing sizes
+
+
+X. Find an easy of way adding custom functions needed for new menu options to the game's memory
+
+
+X. Re-implement invoke function in-payload to avoid needing prepatched executables
+
+
+X. Figure out what's up with that crash we get when sending sigstop after proc_call
 
 

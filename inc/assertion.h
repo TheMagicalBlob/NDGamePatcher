@@ -26,6 +26,15 @@ void AssertPrint(const char * Cause, const char * File, const char * Function, c
     }\
 }\
 
+// Output error details if check evaluates to true, then jump to the specified label
+// Additionally check errno and output it's message accordingly
+#define __errg(condition, message, label) {\
+    if (condition){\
+        AssertPrint(#condition, __FILE__, __FUNCTION__, __LINE__ - 2, message);\
+        goto label;\
+    }\
+}\
+
 
 
 // Return void if check evaluates to true W/ output

@@ -2,6 +2,8 @@
 //## DMenu-related .elf Addresses, as well as some miscellaneous functions
 //# (assumes a base address of 0x400000)
 
+// typedef struct ndgame ndgame_t;
+
 extern ndgame_t * game;
 
 struct dmenu_types_t;

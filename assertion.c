@@ -10,7 +10,7 @@
 
 const char * AssertionMaxRecursionMsg = "MAX RECURSION EXCEEDED";
 
-unsigned char AssertionMessageCurrentDepth = 0;
+unsigned char AssertionCurrMsgDepth = 0;
 char AssertionMessageBuffer[AssertionMaxMessageSize * AssertionMaxRecursionCount] = {0};
 
 
@@ -21,20 +21,21 @@ char AssertionMessageBuffer[AssertionMaxMessageSize * AssertionMaxRecursionCount
 
 
 __always_inline
-const char * AssertPushBufferedMsg(const char * FormatString, ...)
+const char * AssertPushBufferedMsg(const char * FormatString, ...) // Increment the current assertion message depth, and print the provided message to the current spot (assuming one's available)
 {
     va_list list;
     va_start(list, FormatString);
     
-    if (AssertionMessageCurrentDepth > AssertionMaxRecursionCount)
+    if (AssertionCurrMsgDepth > AssertionMaxRecursionCount)
     {
         return AssertionMaxRecursionMsg;
     }
 
     char * newMessageOffset;
-    newMessageOffset = AssertionMessageBuffer + (AssertionMessageCurrentDepth * AssertionMaxMessageSize);
-    ++AssertionMessageCurrentDepth;
+    newMessageOffset = AssertionMessageBuffer + (AssertionCurrMsgDepth * AssertionMaxMessageSize);
+    ++AssertionCurrMsgDepth;
 
+    memset(newMessageOffset, 0, AssertionMaxMessageSize);
     vsnprintf(newMessageOffset, AssertionMaxMessageSize - 1, FormatString, list);
 
     va_end(list);
@@ -43,14 +44,14 @@ const char * AssertPushBufferedMsg(const char * FormatString, ...)
 
 
 __always_inline
-const char * AssertPopBufferedMsg()
+static const char * AssertPopBufferedMsg()
 {
     const char * offset;
-    --AssertionMessageCurrentDepth;
+    --AssertionCurrMsgDepth;
 
-    if (AssertionMessageCurrentDepth <= AssertionMaxRecursionCount)
+    if (AssertionCurrMsgDepth <= AssertionMaxRecursionCount)
     {
-        offset = (const char *) AssertionMessageBuffer + (AssertionMessageCurrentDepth * AssertionMaxMessageSize);
+        offset = (const char *) AssertionMessageBuffer + (AssertionCurrMsgDepth * AssertionMaxMessageSize);
     }
     else {
         offset = AssertionMaxRecursionMsg;

@@ -138,7 +138,7 @@ void notify(const char * message, ...)
 // Log (and optionally format) a message to an active log file on the ps5 at /data/bLog.txt
 void log_message(const char * base_string, ...)
 {
-#ifdef LOGOUTPUT
+#ifdef LOGFILE
     errno = 0;
     va_list args;
     char message[4000];
@@ -731,44 +731,32 @@ void AssertionHandler(int signal, siginfo_t * info, void * vcontext)
 //### Testing shit
 static void debug_misc()
 {
-    dump_menu_entries();
-    return;
+    struct reg args;
+    uintptr_t buf;
 
-    //#
-    //## Function Call issues
-    //#
-    int ret;
-    void * addr;
-    struct reg _args;
-    unsigned long return_check;
+    // Allocate arg data space in game process
+    buf = (uintptr_t) proc_malloc(0x200);
+    echo("Buffer allocated to 0x%llX", buf);
+
+    // Write args
+    write_uint(game->pid, (unsigned *) buf, 0x5D);
+    write_string(game->pid, (void *) buf + 0x10, __FILE__);
+    write_string(game->pid, (void *) buf + strnlen(__FILE__, 0x200 - 0x40), __FUNCTION__);
 
 
-    ret = proc_clear_args(&_args);
-    __rerr(ret, "Error clearing args, aborting test call");
+    // Push stack allocator
+    proc_set_args(&args, buf, buf + 0x10, (uintptr_t) __LINE__, buf + 0x50, 0, 0, 0);
+    proc_call((void *) 0x4fa710, nullptr, &args);
 
-    echo("call 1 pre");
-    addr = (void *) 0x16cc670; // Toggle menu's open state
+    // Create Small SpawnAvActor menu
+    proc_set_args(&args, 0, (uintptr_t) read_ulong(game->pid, (unsigned long *) &game->addrs.favorites_menu_base->root_menu), 0, 0, 0, 0, 0);
+    proc_call((void *) 0x27ad490, nullptr, &args);
 
-    ret = proc_call(addr, &return_check, &_args);
-    __rerr(ret, strbufbuild("Error calling test function 0x%llX", addr));
-    echo("call 1 post");
+    // Pop stack allocator
+    proc_clear_args(&args);
+    proc_call((void *) 0x5eebd0, nullptr, &args);
 
-    
-    
-    // Detonate all enemies
-    if (game->game_id != T2R)
-    {
-        return;
-    }
-    ret = proc_clear_args(&_args);
-    __rerr(ret, "Error clearing args, aborting test call");
-
-    echo("call 2 pre");
-    addr = (void *) 0x16cc530;
-
-    ret = proc_call(addr, &return_check, &_args);
-    __rerr(ret, strbufbuild("Error calling test function 0x%llX", addr));
-    echo("call 2 post");
+    // dump_menu_entries();
 }
 #endif
 
