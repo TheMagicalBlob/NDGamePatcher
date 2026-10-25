@@ -14,7 +14,7 @@ Credits so far:
 #include "inc/proc.h"
 #include "inc/memory.h"
 #include "inc/dmenu.h"
-#include "inc/addresses.h"
+#include "inc/support_tables.h"
 
 
 //# external functions to link
@@ -36,12 +36,10 @@ extern int sceShellCoreUtilGetAppLaunchedParamString(const uint32_t appid, const
 // File handle for open logfile being saved in console's /data folder
 static int logfile;
 
-static ndgame_t ndgame;
-ndgame_t * game;
+static NdGame_t ndgame;
+NdGame_t * game;
 
 static int watchpoint_count = 0;
-
-
 
 
 
@@ -520,7 +518,7 @@ static game_id_t find_and_trace_game()
 {
     pid_t pid;
     game_id_t err;
-    bzero(game, sizeof(ndgame_t));
+    bzero(game, sizeof(NdGame_t));
 
 
     // Wait for a new bigapp process launch
@@ -672,6 +670,7 @@ void AssertionHandler(int signal, siginfo_t * info, void * vcontext)
         else{
             snprintf(assertionMessage, sizeof(assertionMessage), "%s Unknown Cause %d; Cause address: 0x%llX", assertionFormatString, info->si_code, (unsigned long long) info->si_addr);
         }
+
         
 
         if (0) // Disabled for now, seems off (like RIP always being 1)
@@ -731,6 +730,9 @@ void AssertionHandler(int signal, siginfo_t * info, void * vcontext)
 //### Testing shit
 static void debug_misc()
 {
+    dump_menu_entries();
+return;
+
     struct reg args;
     uintptr_t buf;
 
@@ -749,14 +751,13 @@ static void debug_misc()
     proc_call((void *) 0x4fa710, nullptr, &args);
 
     // Create Small SpawnAvActor menu
-    proc_set_args(&args, 0, (uintptr_t) read_ulong(game->pid, (unsigned long *) &game->addrs.favorites_menu_base->root_menu), 0, 0, 0, 0, 0);
+    proc_set_args(&args, 0, (uintptr_t) read_ulong(game->pid, (unsigned long *) &game->Addrs.favorites_menu_group->root_menu), 0, 0, 0, 0, 0);
     proc_call((void *) 0x27ad490, nullptr, &args);
 
     // Pop stack allocator
     proc_clear_args(&args);
     proc_call((void *) 0x5eebd0, nullptr, &args);
 
-    // dump_menu_entries();
 }
 #endif
 

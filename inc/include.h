@@ -92,7 +92,7 @@ typedef unsigned char byte;
 
 typedef unsigned long SID;
 
-typedef void * dmenu_vptr_t;
+typedef void * DMENU_vptr_t;
 
 
 

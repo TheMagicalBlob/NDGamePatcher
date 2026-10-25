@@ -2,7 +2,7 @@
 #include "inc/memory.h"
 #include "inc/dmenu.h"
 
-extern ndgame_t * game;
+extern NdGame_t * game;
 
 
 
@@ -88,7 +88,7 @@ int detach(const char * from)
     
     ret = proc_wait(false);
     __err(ret != 0, "Error waiting for process, but we're exiting anyway");
-    bzero(game, sizeof(ndgame_t));
+    bzero(game, sizeof(NdGame_t));
 
 
     ret = ptrace(PT_DETACH, pid, 0, 0);
@@ -780,12 +780,11 @@ void * proc_malloc(size_t amount)
     // set malloc arguments
     ret = proc_set_args(&regs, amount, 0, 0, 0, 0, 0, 0);
     __rerrv(ret, nullstr, nullptr);
-
     
-    echo("Calling 0x%llX", game->addrs.func.malloc);
+    
     // call malloc
-    ret = proc_call(game->addrs.func.malloc, (unsigned long *) &mem, &regs);
-    echo("call done");
+    echo("Allocating %lx bytes in tracee", amount);
+    ret = proc_call(game->Addrs.f_Malloc, (unsigned long *) &mem, &regs);
     __rerrv(ret, nullstr, nullptr);
 
     return mem;
@@ -802,7 +801,8 @@ int proc_free(void * allocated_mem)
     __rerrv(proc_set_args(&regs, (uintptr_t) allocated_mem, 0, 0, 0, 0, 0, 0), "Failed to set args for proceeding function call to tracee's free function.", 1);
 
     // Call free
-    __rerrv(proc_call((void *) game->addrs.func.free, NULL, &regs), "Call to tracee's free function failed", 1);
+    echo("Freeing allocated memory in tracee at 0x%llX", allocated_mem);
+    __rerrv(proc_call((void *) game->Addrs.f_Free, NULL, &regs), "Call to tracee's free function failed", 1);
     
     return 0;
 }

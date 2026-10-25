@@ -1,4 +1,4 @@
-X. Finish standardizing variable and function names
+X. Finish standardizing variable and function names (stop with the snake_case, use PascalCase)
 
 
 X. Relpace all the old error handling messages with the macros for consistency, and make sure to strip any redundant "ERROR: " prefixes remaining in the messages
