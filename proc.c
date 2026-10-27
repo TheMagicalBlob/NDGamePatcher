@@ -128,14 +128,14 @@ pid_t proc_wait(int wait)
     errno = 0;
     pid_t returned_pid;
     returned_pid = waitpid(game->pid, &game->status, options); // WTRAPPED and WEXITED are set implicitly for waitpid, but meh
-    __rerrv(returned_pid == -1, "", -1);
+    __rerrv(returned_pid == -1, -1, "waipid returned error: %s", strerror(errno));
     
     
 
 
     if (returned_pid == 0)
     {
-        __rerrv(wait != 0, "ERROR: NOHANG was not specified, but waitpid returned 0 anyway.", -1);
+        __rerrv(wait != 0, -1, "ERROR: NOHANG was not specified, but waitpid returned 0 anyway.");
 
         echo("No processes wishing to report status.");
         return returned_pid;
@@ -178,7 +178,7 @@ pid_t proc_wait(int wait)
     errno = 0;
     struct ptrace_lwpinfo thread_info;
     ret = ptrace(PT_LWPINFO, game->pid, (caddr_t) &thread_info, sizeof(struct ptrace_lwpinfo));
-    __rerrv(ret != 0, strbufbuild("ERROR: unable to get lwp info for stopped process in pid %d", game->pid), -1);
+    __rerrv(ret != 0, -1, "ERROR: unable to get lwp info for stopped process in pid %d", game->pid);
 
     echo("Thread that stopped / terminated: %s (%d:%d)", thread_info.pl_tdname, returned_pid, thread_info.pl_child_pid);
     return returned_pid;
@@ -206,8 +206,8 @@ static int proc_resume_threads()
     // Get number of threads1
     errno = 0;
     thread_count = ptrace(PT_GETNUMLWPS, pid, 0, 0);
-    __rerrv(thread_count < 0, "Error getting thread id list. PT_GETNUMLWPS returned a negative value.", 1);
-    __rerrv(thread_count == 0, "Error getting thread id list. Process contains no threads??", 1);
+    __rerrv(thread_count <  0, 1, "Error getting thread id list. PT_GETNUMLWPS returned a negative value.");
+    __rerrv(thread_count == 0, 1, "Error getting thread id list. Process contains no threads??");
 
 
 
@@ -215,17 +215,18 @@ static int proc_resume_threads()
 
     // Allocate space for the thread ids
     threads = (lwpid_t *) malloc(sizeof(lwpid_t) * thread_count);
+    __err(threads == 0, "Unable to allocate the %d bytes needed for getting thread ids.", (sizeof(lwpid_t) * thread_count));
     if (!threads)
     {
-        echo("ERROR: unable to allocate %d bytes to get thread ids.");
+        echo("ERROR: ");
     }
 
 
     // Get threads themselves
     errno = 0;
     ret = ptrace(PT_GETLWPLIST, pid, (caddr_t) threads, thread_count);
-    __rerrv(ret != thread_count, strbufbuild("Error getting thread id list. Only read %d out of %d threads.", ret, thread_count), 1);
-    __rerrv(!ret, "Error getting thread id list. (PT_GETLWPLIST returned error)", 1);
+    __rerrv(ret != thread_count, 1, "Error getting thread id list. Only read %d out of %d threads.", ret, thread_count);
+    __rerrv(!ret, 1, "Error getting thread id list. (PT_GETLWPLIST returned error)");
 
 
 
@@ -234,7 +235,7 @@ static int proc_resume_threads()
     for(int i = 0; i < thread_count; i++)
     {
         ret = ptrace(PT_RESUME, threads[i], 0, 0);
-        __rerrv(ret, strbufbuild("Error resuming thread #%d out of %d", i, thread_count), 1);
+        __rerrv(ret, 1, "Error resuming thread #%d out of %d", i, thread_count);
     }
 
 
@@ -259,8 +260,8 @@ static int proc_suspend_threads()
 
     // Get number of threads
     thread_count = ptrace(PT_GETNUMLWPS, pid, 0, 0);
-    __rerrv(thread_count < 0, "Error getting thread id list. PT_GETNUMLWPS returned a negative value.", 1);
-    __rerrv(thread_count == 0, "Error getting thread id list. Process contains no threads??", 1);
+    __rerrv(thread_count < 0, 1, "Error getting thread id list. PT_GETNUMLWPS returned a negative value.");
+    __rerrv(thread_count == 0, 1, "Error getting thread id list. Process contains no threads??");
 
 
     // Allocate space for the thread ids
@@ -273,8 +274,8 @@ static int proc_suspend_threads()
 
     // Get threads themselves
     ret = ptrace(PT_GETLWPLIST, pid, (caddr_t) threads, thread_count);
-    __rerrv(ret != thread_count, strbufbuild("Error getting thread id list. Only read %d out of %d threads.", ret, thread_count), 1);
-    __rerrv(!ret, "Error getting thread id list. (PT_GETLWPLIST returned error)", 1);
+    __rerrv(ret != thread_count, 1, "Error getting thread id list. Only read %d out of %d threads.", ret, thread_count);
+    __rerrv(!ret, 1, "Error getting thread id list. (PT_GETLWPLIST returned error)");
 
 
     
@@ -334,7 +335,7 @@ int proc_stop()
 
     int ret;
     ret = kill(game->pid, SIGSTOP);
-    __err(ret != 0, strbufbuild("kill(%d, SIGSTOP) failed", game->pid));
+    __err(ret != 0, "kill(%d, SIGSTOP) failed", game->pid);
 
     // ret = proc_suspend_threads(game->pid);
     // __err(ret != 0, strbufbuild("proc_suspend_threads failed", game->pid));
@@ -352,7 +353,7 @@ int proc_get_regs(struct reg * regs)
     int ret;
     ret = ptrace(PT_GETREGS, game->pid, (caddr_t) regs, 0);
 
-    __rerrv(ret != 0, strbufbuild("ERROR:\n# PT_GETREGS failed with code %d (%s)\n", ret, strerror(ret)), 1);
+    __rerrv(ret != 0, 1, "PT_GETREGS failed with code %d (%s)", ret, strerror(ret));
 
     #ifdef IODEBUG
     echo("");
@@ -641,7 +642,7 @@ int proc_clear_args(struct reg * regs)
 
 int proc_set_args(struct reg * regs, uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rcx, uintptr_t rbx, uintptr_t r8, uintptr_t r9)
 {
-    __rerrv(regs == 0, "Null regs pointer provided.", 1);
+    __rerrv(regs == 0, 1, "Null regs pointer provided.");
     int ret;
     
 
@@ -687,7 +688,7 @@ int proc_call(void * function_address, unsigned long * return_val_ptr, struct re
     // Back the regisers up
     int ret;
     struct reg og_registers;
-    __rerrv(proc_get_regs(&og_registers), "Failed getting original register values before function call in tracee.", 1);
+    __rerrv(proc_get_regs(&og_registers), 1, "Failed getting original register values before function call in tracee.");
 
     
     
@@ -703,23 +704,23 @@ int proc_call(void * function_address, unsigned long * return_val_ptr, struct re
 
     // Set return address
     ret = write_ulong(game->pid, (void *) (arg_regs->r_rsp -= 8), (unsigned long) 0x400000);
-    __rerrv(ret != 0, "Failed setting return address, aborting function call", 1);
+    __rerrv(ret != 0, 1, "Failed setting return address, aborting function call");
     
     // Set next instruction address
     arg_regs->r_rip = (critical_t) function_address;
     
-    __rerrv(proc_set_regs(arg_regs), "Failed setting new register values with ", 1);
+    __rerrv(proc_set_regs(arg_regs), 1, "Failed setting new register values, aborting function call.");
 
     
     
     
     // Resume execution until the function returns, hitting the breakpoint present at the start of every ps5 elf
     struct reg return_regs;
-    __errg(proc_continue(), "proc_continue returned failure status, subsequent errors likely.", _return);
+    __errg(proc_continue(), _return, "proc_continue returned failure status, subsequent errors likely.");
 
-    __errg(proc_wait(true) == -1, "proc_wait returned error status when wiating for setup function call to return, subsequent errors likely.", _return);
+    __errg(proc_wait(true) == -1, _return, "proc_wait returned error status when wiating for setup function call to return, subsequent errors likely.");
 
-    __errg(proc_get_regs(&return_regs), "Failed to read new register values after function returned/stopped", _return);
+    __errg(proc_get_regs(&return_regs), _return, "Failed to read new register values after function returned/stopped");
 
     if (return_regs.r_rip != 0x400001)
     {
@@ -736,9 +737,9 @@ int proc_call(void * function_address, unsigned long * return_val_ptr, struct re
         echo("# rip: %llX  eflags: %llX", return_regs.r_rip, return_regs.r_rflags);
         echo("# trapno:  %llX  err: %d", return_regs.r_trapno, return_regs.r_err);
         echo("");
-        AssertPushBufferedMsg("Process stopped before returning from call to 0x%llX. (Next instruction when stopped: 0x%llX)", function_address, return_regs.r_rip);
         
-        __errg(return_regs.r_rip != 0x400001, nullptr, _return);
+        AssertPushBufferedMsg("Process stopped before returning from call to 0x%llX. (Next instruction when stopped: 0x%llX)", function_address, return_regs.r_rip);
+        __errg(return_regs.r_rip != 0x400001, _return, nullptr);
     }
 
     if (return_val_ptr > 0)
@@ -758,7 +759,7 @@ int proc_call(void * function_address, unsigned long * return_val_ptr, struct re
 _return:
     // Restore the initial register values
     ret = proc_set_regs(&og_registers);
-    __rerrv(ret, "Failed to restore original register values after function call, subsequent errors likely", 1);
+    __rerrv(ret, 1, "Failed to restore original register values after function call, subsequent errors likely");
     
     return 0;
 }
@@ -798,11 +799,11 @@ int proc_free(void * allocated_mem)
     struct reg regs; // Register struct for call args
 
     // set free arguments
-    __rerrv(proc_set_args(&regs, (uintptr_t) allocated_mem, 0, 0, 0, 0, 0, 0), "Failed to set args for proceeding function call to tracee's free function.", 1);
+    __rerrv(proc_set_args(&regs, (uintptr_t) allocated_mem, 0, 0, 0, 0, 0, 0), 1, "Failed to set args for proceeding function call to tracee's free function.");
 
     // Call free
     echo("Freeing allocated memory in tracee at 0x%llX", allocated_mem);
-    __rerrv(proc_call((void *) game->Addrs.f_Free, NULL, &regs), "Call to tracee's free function failed", 1);
+    __rerrv(proc_call((void *) game->Addrs.f_Free, NULL, &regs), 1, "Call to tracee's free function failed");
     
     return 0;
 }
@@ -815,14 +816,14 @@ int proc_free(void * allocated_mem)
 
 int patch_process(size_t patch_count, byte * patch_addresses[], const byte * patch_data[], size_t patch_sizes[])
 {
-    __rerrv(1, "Unfinished function called prematurely.", 1);
+    __rerrv(1, 1, "Unfinished function %s called prematurely.", __FUNCTION__);
     ((void * (*)()) NULL)();
-    echo("We still fucking goin");
+    echo("We're still fuckin' goin'?!");
     exit(1);
 
-    __rerrv(!game, "Invalid game pointer provided.", 1);
-    __rerrv(!patch_count, "WARNING: Patch count was zero.", 0);
-    __rerrv(!(byte *) patch_data, "Invalid patch data array pointer provided.", 1);
+    __rerrv(!game, 1, "Invalid game pointer provided.");
+    __rerrv(!patch_count, 0, "WARNING: Patch count was zero.");
+    __rerrv(!(byte *) patch_data, 1, "Invalid patch data array pointer provided.");
 
     proc_wait(false);
 
@@ -847,7 +848,7 @@ int patch_process(size_t patch_count, byte * patch_addresses[], const byte * pat
         while (j < patch_sizes[i])
         {
             chk = read_byte(game->pid, patch_addresses[i] + j);
-            __rerrv(errno, strbufbuild("Error reading expected byte @0x%X from 0x%llX", *(patch_data[i] + j), patch_addresses[i] + j), 1);
+            __rerrv(errno != 0, 1, "Error reading expected byte @0x%X from 0x%llX (%s)", *(patch_data[i] + j), patch_addresses[i] + j, strerror(errno));
 
             if (chk != *(patch_data[i] + j))
             {

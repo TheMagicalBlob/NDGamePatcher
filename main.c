@@ -448,21 +448,21 @@ static int load_ndgame(game_id_t game_id, pid_t pid, app_info_t * app_info)
 
     int ret;
     ret = sceKernelGetAppInfo(pid, app_info);
-    __rerrv(ret, "Error getting app info, aborting", 1);
+    __rerrv(ret, 1, "Error getting app info, aborting")
     
     game->pid = pid;
     strncpy(game->title_id, app_info->title_id, sizeof(app_info->title_id));
 
     ret = sceShellCoreUtilGetAppLaunchedParamString(app_info->app_id, "TITLE", game->title, sizeof(game->title));
-    __rerrv(ret != 0, "TITLE Err", 1);
+    __rerrv(ret != 0, 1, "TITLE Err")
 
     ret = sceShellCoreUtilGetAppLaunchedParamString(app_info->app_id, "CONTENT_VERSION", game->app_ver, sizeof(game->app_ver));
-    __rerrv(ret != 0, "CONTENT_VERSION Err", 1);
+    __rerrv(ret != 0, 1, "CONTENT_VERSION Err")
     
     if (!*(char *) game->app_ver) // Read legacy app parameter name (for PS4 applications)
     {
         ret = sceShellCoreUtilGetAppLaunchedParamString(app_info->app_id, "APP_VER", game->app_ver, sizeof(game->app_ver));
-        __rerrv(ret != 0, "APP_VER Err", 1);
+        __rerrv(ret != 0,  1, "APP_VER Err")
     }
 
 
@@ -524,14 +524,15 @@ static game_id_t find_and_trace_game()
     // Wait for a new bigapp process launch
     err = (game_id_t) -1;
     pid = wait_for_game_launch();
-    __rerrv(pid < 1, strbufbuild("ERROR: Invalid process id returned from launched game (%d), aborting until new app launch", pid), err)
+
+    __rerrv(pid < 1, err, "ERROR: Invalid process id returned from launched game (%d), aborting until new app launch", pid);
 
 
     // Read and check Title ID
     int ret;
     app_info_t app_info;
     ret = sceKernelGetAppInfo(pid, &app_info);
-    __rerrv(ret != 0, "ERROR: sceKernelGetAppInfo Failed!!! Aborting payload.", err);
+    __rerrv(ret != 0, err, "ERROR: sceKernelGetAppInfo Failed!!! Aborting payload.");
     
     game_id_t game_id;
     game_id = get_game_id(encode_sid(app_info.title_id));
@@ -545,11 +546,11 @@ static game_id_t find_and_trace_game()
 
     // Attach to new game process
     ret = attach(pid);
-    __rerrv(ret, "ERROR: Unable to attach to process, aborting.", err);
+    __rerrv(ret, err, "ERROR: Unable to attach to process, aborting.");
 
     // Wait for the process to stop
     ret = proc_wait(true);
-    __rerrv(ret == -1, "ERROR: proc_wait returned error when waiting after initial attachment, aborting", err)
+    __rerrv(ret == -1, err, "ERROR: proc_wait returned error when waiting after initial attachment, aborting")
 
 
     // Save id of process only once attached
@@ -557,7 +558,7 @@ static game_id_t find_and_trace_game()
 
     // Read application metadata (app version and title)
     ret = load_ndgame(game_id, pid, &app_info);
-    __rerrv(ret, "ERROR: Failed loading ndgame, aborting.", err);
+    __rerrv(ret, err, "ERROR: Failed loading ndgame, aborting.");
 
 
 
@@ -843,7 +844,7 @@ int main()
     // Find game process to trace
     echo("Proceeding with new %s instance (%d) - Waiting/Searching for game process.", PAYLOAD_NAME, getpid());
     ret = find_and_trace_game();
-    __rerrv(ret != 0, "Unhandled error finding game process, payload aborting with error.", 1);
+    __rerrv(ret != 0, 1, "Unhandled error finding game process, payload aborting with error.");
 
 
 

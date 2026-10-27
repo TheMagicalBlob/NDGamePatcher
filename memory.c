@@ -317,7 +317,7 @@ int read_string(pid_t pid, const char * source, char * buffer)
     unsigned len;
 
     ret = proc_read(pid, 1, (void *) source, buffer, __FUNCTION__);
-    __rerrv(ret != 1, strbufbuild("ERROR: Failed checking first character of string at 0x%llX before reading full string, aborting %s", source, __FUNCTION__), -1);
+    __rerrv(ret != 1, -1, "ERROR: Failed checking first character of string at 0x%llX before reading full string, aborting %s", source, __FUNCTION__);
 
     if (buffer == 0) 
     {
@@ -329,7 +329,7 @@ int read_string(pid_t pid, const char * source, char * buffer)
     len = 0;
     do {
         ret = proc_read(pid, 1, (void *) source + len, buffer + len, __FUNCTION__);
-        __rerrv(ret != 1, strbufbuild("ERROR: Failed reading character #%d at 0x%llX when reading string, %s aborting.", len + 1, source, __FUNCTION__), -1);
+        __rerrv(ret != 1, -1, "ERROR: Failed reading character #%d at 0x%llX when reading string, %s aborting.", len + 1, source, __FUNCTION__);
     }
     while(*(char *) (buffer + (++len - 1)));
 
@@ -366,7 +366,7 @@ int write_string(pid_t pid, void * dest, const char * str)
     // Write string to child process' memory
     int ret;
     ret = proc_write(pid, len, (void *) dest, (void *) str, __FUNCTION__);
-    __rerrv(ret != len, strbufbuild("ERROR: Failed writing string %s to 0x%llX, %s aborting.", len, dest, __FUNCTION__), -1);
+    __rerrv(ret != len, -1, "ERROR: Failed writing string %s to 0x%llX, %s aborting.", len, dest, __FUNCTION__);
 
     return len;
 }

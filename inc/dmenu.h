@@ -284,7 +284,7 @@ typedef struct DMENU_menu_group_s // x >= 0x328
 
 
 DMENU_stype_t get_DMENU_entry_base_type(void * item);
-const char * get_DMENU_entry_type_as_string(DMENU_vptr_t type);
+const char * DMENU_GetTypeAsString(DMENU_vptr_t type);
 
 
 DMENU_item_t * find_item(const char * item_name, DMENU_menu_t * start_menu, char recurse);

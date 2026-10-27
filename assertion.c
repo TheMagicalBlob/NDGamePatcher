@@ -20,7 +20,6 @@ char AssertionMessageBuffer[AssertionMaxMessageSize * AssertionMaxRecursionCount
 
 
 
-__always_inline
 const char * AssertPushBufferedMsg(const char * FormatString, ...) // Increment the current assertion message depth, and print the provided message to the current spot (assuming one's available)
 {
     va_list list;
@@ -43,8 +42,7 @@ const char * AssertPushBufferedMsg(const char * FormatString, ...) // Increment 
 }
 
 
-__always_inline
-static const char * AssertPopBufferedMsg()
+static const char * AssertClearBufferedMsg()
 {
     const char * offset;
     --AssertionCurrMsgDepth;
@@ -64,7 +62,7 @@ static const char * AssertPopBufferedMsg()
 
 
 int echo(const char * string, ...);
-void AssertPrint(const char * Cause, const char * File, const char * Function, const unsigned int Line, const char * Message)
+void AssertPrint(const char * Cause, const char * File, const char * Function, const unsigned int Line, const char * Message, ...)
 {
     char output[0x800] = {0};
     char errMsg[0x80] = {0};
@@ -73,7 +71,7 @@ void AssertPrint(const char * Cause, const char * File, const char * Function, c
       
     // Get buffered message
     if (Message == 0) {
-        Message = AssertPopBufferedMsg();
+        Message = AssertPushBufferedMsg("");
     }
 
     if (errno)
