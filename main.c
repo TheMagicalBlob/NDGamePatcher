@@ -794,6 +794,18 @@ int main()
     
     // Set process name
     syscall(SYS_thr_set_name, -1, PAYLOAD_NAME);
+
+    echo("\n"
+        "###################################\n"
+        "# %s Entry.\n"
+        "# Built: %s W/ C %ld\n"
+        "# From: %s\n"
+        "###################################\n",
+        
+        PAYLOAD_NAME,
+        __DATE__, __STDC_VERSION__,
+        __FILE__
+    );
     
     // Set handler to print exit message
     atexit(print_exit_message);

@@ -195,16 +195,16 @@ static void * DMENU_FindComponent(const char * expected_component_name, DMENU_me
 
     
 
-    void * entry_ptr;
+    void * pItem;
 
-    entry_ptr = (void *) read_ulong(game->pid, (unsigned long *) &menu->first_item);
+    pItem = (void *) read_ulong(game->pid, (unsigned long *) &menu->first_item);
 
 #ifdef DEBUG
     // Read current menu name before checking for an empty menu
     char parent_name[0xFF];
     ret = read_string(game->pid, (const char *) read_ulong(game->pid, (unsigned long *) &menu->menu_name), parent_name);
     __rerrv(ret == -1, nullptr, "ERROR: Failed reading name of root menu from menu base \"%s\", aborting.", expected_component_name)
-    if (entry_ptr == nullptr)
+    if (pItem == nullptr)
     {
         echo("%s contains no items, aborting", parent_name);
         return nullptr;
@@ -212,7 +212,7 @@ static void * DMENU_FindComponent(const char * expected_component_name, DMENU_me
 
     echo("Searching %s for %s", parent_name, expected_component_name);
 #else
-    if(entry_ptr == 0)
+    if(pItem == 0)
     {
         return nullptr;
     }
@@ -229,11 +229,11 @@ static void * DMENU_FindComponent(const char * expected_component_name, DMENU_me
     const char * entry_name_ptr;
     
     next_is_menu = 0;
-    while(entry_ptr != nullptr)
+    while(pItem != nullptr)
     {
-        base_type = get_DMENU_entry_base_type(entry_ptr);
+        base_type = get_DMENU_entry_base_type(pItem);
         
-        entry_name_ptr = (const char *) read_ulong(game->pid, (unsigned long *) &((DMENU_item_t *) entry_ptr)->item_text);
+        entry_name_ptr = (const char *) read_ulong(game->pid, (unsigned long *) &((DMENU_item_t *) pItem)->item_text);
         if ((void *) entry_name_ptr == nullptr)
         {
             goto _no_name;
@@ -243,14 +243,14 @@ static void * DMENU_FindComponent(const char * expected_component_name, DMENU_me
         ret = read_string(game->pid, entry_name_ptr, entry_name);
         if (ret == -1)
         {
-            __rerrv(ret != sizeof(DMENU_menu_t), nullptr, "ERROR: Failed reading name from component at 0x%llX when searching for component \"%s\", aborting.", entry_ptr, expected_component_name)
+            __rerrv(ret != sizeof(DMENU_menu_t), nullptr, "ERROR: Failed reading name from component at 0x%llX when searching for component \"%s\", aborting.", pItem, expected_component_name)
             break;
         }
 
         // Check for matching base type and component name
         if (expected_component_stype == base_type && !strncmp(expected_component_name, entry_name, strlen(entry_name)))
         {
-            return entry_ptr;
+            return pItem;
         }
 
         
@@ -259,7 +259,7 @@ static void * DMENU_FindComponent(const char * expected_component_name, DMENU_me
         if (next_is_menu)
         {
             // Read next item pointer
-            entry_ptr = (void *) read_ulong(game->pid, (unsigned long *) &((DMENU_menu_t *) entry_ptr)->first_item);
+            pItem = (void *) read_ulong(game->pid, (unsigned long *) &((DMENU_menu_t *) pItem)->first_item);
             next_is_menu = 0;
         }
         // Item
@@ -267,14 +267,14 @@ static void * DMENU_FindComponent(const char * expected_component_name, DMENU_me
             if (base_type == stype_itemsubmenu && recurse > 0)
             {
                 // Item Submenu
-                entry_ptr = (void *) read_ulong(game->pid, (unsigned long *) &((DMENU_item_t *) entry_ptr)->return_buffer);
+                pItem = (void *) read_ulong(game->pid, (unsigned long *) &((DMENU_item_t *) pItem)->return_buffer);
 
-                history[++depth] = (void *) read_ulong(game->pid, (unsigned long *) &((DMENU_item_t *) entry_ptr)->next_item);
+                history[++depth] = (void *) read_ulong(game->pid, (unsigned long *) &((DMENU_item_t *) pItem)->next_item);
 
                 next_is_menu = 1;
             }
             else{
-                entry_ptr = (void *) read_ulong(game->pid, (unsigned long *) &((DMENU_item_t *) entry_ptr)->next_item);
+                pItem = (void *) read_ulong(game->pid, (unsigned long *) &((DMENU_item_t *) pItem)->next_item);
                 next_is_menu = 0;
             }
         }
@@ -285,9 +285,9 @@ static void * DMENU_FindComponent(const char * expected_component_name, DMENU_me
         }
 
 
-        while (entry_ptr == nullptr && depth >= 0)
+        while (pItem == nullptr && depth >= 0)
         {
-            entry_ptr = history[depth];
+            pItem = history[depth];
             history[depth--] = nullptr;
         
             next_is_menu = 0;
@@ -388,23 +388,46 @@ int load_item(const DMENU_item_t * address, DMENU_item_t * item)
 
 
 
-// Try and scan the current game process for all known dmenu types after getting the dev and quick menu base pointer addresses
-// Returns: non-zero on failure- otherwise, zero 
-static int try_dump_menu_entry_types()
+
+
+// do_dump_menu_entries-specific struct
+typedef struct {
+    char Name[0xFF];       // Component name
+    char ParentName[0xFF]; // Component's parent name
+    DMENU_vptr_t Type;     // Component "type" (class vPtr)
+    char dType[0x40];      // Component Type as String 
+    DMENU_item_t * pItem;  // Pointer to item itself in the tracee's memory
+
+    unsigned long Buffers[0xF]; // Just make a temporary enum for whatever test we're doing
+    
+} DMENU_scanner_t;
+
+// do_dump_menu_entries-specific function
+static void PrintScannerContents(DMENU_scanner_t Scanner[], size_t ScannerCount, const char * MenuGroupName)
 {
-    return 1;
-    //! TODO:
-    // 1 cycle through menu types, printing details on first instance of each type
-    // 2 Take these entries (combed to avoid obvious game-specific options) and create this option to do the following
+    unsigned long written = 1;
+    char outputBuffer[0x800] = {"\n\0"};
 
-    // 3 Search for each item string, saving the type of each one found.
-    // 3a at the end, if any exist- print all found unknown types and all unknown item names for manual assignment (also print the item name of the items these unknown types were found in this run)
+    if (MenuGroupName == nullptr)
+    {
+        MenuGroupName = "<unnamed>";
+    }
+
+
+    for (unsigned i = 0; i < ScannerCount; i++)
+    {
+        written += (unsigned) snprintf
+        (
+            (char *) (((unsigned long) outputBuffer) + written),
+            sizeof(outputBuffer) - written,
+
+            "# /%s/%s/%s:\n# 0x%llX - type: 0x%llX (%s)\n\n",
+
+            MenuGroupName, Scanner[i].ParentName, Scanner[i].Name, (unsigned long long) Scanner[i].pItem, (unsigned long long) Scanner[i].Type, Scanner[i].dType
+        );
+    }
+    echo("%s\n", outputBuffer);
 }
-
-
-
-static DMENU_vptr_t known_types[0x16] = {0};
-static int foundTypes = 0;
 
 //! Unoptimized menu entry info dumper. May fail if partially-stripped menus are added, like the SpawnAvObjects menu in T2R 02.001.010 with it's "next_entry" pointer being for some reason set to an address pointing to unrelated volatile memory 
 static void do_dump_menu_entries(DMENU_menu_group_t * parent_base)
@@ -427,15 +450,19 @@ static void do_dump_menu_entries(DMENU_menu_group_t * parent_base)
         return;
     }
 
+    char parentName[0x40] = {"Error"};
+    __rerr(read_string(game->pid, (const char *) parent_base->name, parentName) == -1, "Failed to read menu group name before dumping menu entries, aborting. (pMenuGroup: 0x%llX)", parent_base);
+    echo("Dumping %s contents.", parentName);
+
 
     
     DMENU_menu_t menu;
     read_bytes(game->pid, sizeof(DMENU_menu_t), (byte *) parent_base->root_menu, (byte *) &menu);
     
-    void * entry_ptr;
-    if((entry_ptr = menu.first_item) == 0)
+    void * pItem;
+    if((pItem = menu.first_item) == 0)
     {
-        echo("ERROR:\n# %s %s has no entries (%d).\n# Aborting.", DMENU_GetTypeAsString(menu.vptr), menu.menu_name, entry_ptr);
+        echo("ERROR:\n# %s %s has no entries (%d).\n# Aborting.", DMENU_GetTypeAsString(menu.vptr), menu.menu_name, pItem);
         return;
     }
 
@@ -443,157 +470,213 @@ static void do_dump_menu_entries(DMENU_menu_group_t * parent_base)
 
 
     
+    //## General variables
     int depth = 0;
     DMENU_menu_t * history[0x20]; // surely there's no place with a submenu depth even approaching 32, so this should be more than sufficient in size
     
-    char item_name[0x80];
-    char parent_name[0x80];
-    
-    char next_is_menu = 0;
-    unsigned short unknown_type_count = 0;
-    
-    const SID unknownTypeSID = (SID) 0x9E3E4FA85A926262ul;
-    
+    char nextIsMenu = 0;
     char newItem = 0;
-
+    
     DMENU_vptr_t type;
     DMENU_item_t item;
     const char * dtype;
+    
+    const SID unknownTypeSID = (SID) 0x9E3E4FA85A926262ul; // unknown_type
+    
 
-    while(entry_ptr != null)
+
+
+    //## Scanner Variables
+    #define maxComponentCount 0x40
+    DMENU_scanner_t * pCurrComponent;
+
+    // Reversing checks
+    unsigned foundTestMenuCount = 0;
+    DMENU_scanner_t foundTestMenus[maxComponentCount] = {0};
+    
+    unsigned foundTestItemCount = 0;
+    DMENU_scanner_t foundTestItems[maxComponentCount] = {0};
+
+    // Basic type checks
+    unsigned knownTypeCount = 0;
+    DMENU_scanner_t knownComponents[maxComponentCount] = {0};
+    
+    unsigned unknownTypeCount = 0;
+    DMENU_scanner_t unknownComponents[maxComponentCount] = {0};
+
+
+    // Main loop
+    while(pItem != null)
     {
-        type = (DMENU_vptr_t) read_ulong(game->pid, entry_ptr);
+        type = (DMENU_vptr_t) read_ulong(game->pid, pItem);
+
         if ((long) type == -1) // no need to check errno, as it shouldn't be reading -1 either
         {
-            entry_ptr = nullptr;
+            pItem = nullptr;
             
-            AssertPushBufferedMsg("Failed to read item's vptr, or it was actually negative. Skipping item at 0x%llX, and returning from it's containing menu", entry_ptr);
-            __errg((long) type == -1, _cont, NULL);
+            __errg((long) type == -1, _cont, "Failed to read item's vptr, or it was actually negative. Skipping item at 0x%llX, and returning from it's containing menu", pItem);
         }
 
+
+        // Get component vptr at string
         dtype = DMENU_GetTypeAsString(type);
-        newItem = (char) 0x1;
+        
 
 
-        // Check for unknown dmenu component types
+        newItem = (char) 1;
+        pCurrComponent = nullptr;
+
+        //#
+        //## Check current type, saving it if it's not already been found
+        //#
         if (encode_sid(dtype) == unknownTypeSID)
-        {
-            unknown_type_count++;
-            newItem = (char) 0x0;
-        }
-        else {
-            int i;
-            for (i = 0; i < foundTypes; i++)
+        {   
+            for (int i = 0; i < unknownTypeCount; i++)
             {
-                if (known_types[i] == type)
+                if (unknownComponents[i].Type == type)
                 {
                     newItem = (char) 0x0;
-                    break;
+                    goto _nextItem;
                 }
             }
 
-            if (newItem)
-            {
-                known_types[foundTypes++] = type;
-            }
+            pCurrComponent = &unknownComponents[unknownTypeCount++];
         }
+        else {
+            for (int i = 0; i < knownTypeCount; i++)
+            {
+                if (knownComponents[i].Type == type)
+                {
+                    newItem = (char) 0x0;
+                    goto _nextItem;
+                }
+            }
+
+            pCurrComponent = &knownComponents[knownTypeCount++];
+        }
+
+        // Zero current struct
+        memset(pCurrComponent, 0, sizeof(DMENU_scanner_t));
+
+        // Save general component info
+        pCurrComponent->Type = type;
+        strncpy(pCurrComponent->dType, dtype, sizeof(pCurrComponent->dType));
+        pCurrComponent->pItem = pItem;
+
+
 
 
         // Menu
-        if (next_is_menu)
+    _nextItem:
+        if (nextIsMenu)
         {
             bzero(&menu, sizeof(menu));
-            load_menu(entry_ptr, &menu);
+            load_menu(pItem, &menu);
 
             if (newItem)
             {
-                read_string(game->pid, menu.menu_name, item_name);
-                read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &menu.parent_menu->menu_name), parent_name);
-
-                echo("\n"
-                    "0x%llX %s->%s (type: %s)\n"
-                    
-                    "vPtr: %llX\n"
-                    "Callback: %llX\n",
-
-
-                    entry_ptr, parent_name, item_name, dtype,
-
-                    menu.vptr,
-                    menu.callback
-                );
+                read_string(game->pid, menu.menu_name, pCurrComponent->Name);
+                read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &menu.parent_menu->menu_name), pCurrComponent->ParentName);
             }
             
 
 
             // Read next item pointer
-            entry_ptr = menu.first_item;
-            next_is_menu = 0;
+            pItem = menu.first_item;
+            nextIsMenu = 0;
         }
         // Item
         else {
             bzero(&item, sizeof(item));
-            load_item(entry_ptr, &item);
+            load_item(pItem, &item);
 
             if (newItem)
             {
                 if (item.item_text)
                 {
-                    read_string(game->pid, item.item_text, item_name);
+                    read_string(game->pid, item.item_text, pCurrComponent->Name);
                 }
                 else {
-                    strcpy(item_name, "--------------------------------");
+                    strcpy(pCurrComponent->Name, "--------------------------------");
                 }
     
-                read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &item.parent_menu->menu_name), parent_name);
-
-
-                echo("\n"
-                    "0x%llX %s->%s (type: %s)\n"
-
-                    "vPtr: %llX\n"
-                    "Callback: %llX\n"
-                    "EventType: %llX\n"
-                    "EventHandler: %llX\n",
-                    
-                    entry_ptr, parent_name, item_name, dtype,
-
-                    item.vptr,
-                    item.callback,
-                    item.event_handler_type_id,
-                    item.event_handler
-                );
+                read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &item.parent_menu->menu_name), pCurrComponent->ParentName);
             }
             
 
             // Handle ItemSubmenu components
-            if (get_DMENU_entry_base_type(entry_ptr) == stype_itemsubmenu)
+            if (get_DMENU_entry_base_type(pItem) == stype_itemsubmenu)
             {
-                entry_ptr = (DMENU_item_t *) item.return_buffer;
+                pItem = (DMENU_item_t *) item.return_buffer;
 
                 history[++depth] = (DMENU_menu_t *) item.next_item;
                 
-                next_is_menu = 1;
+                nextIsMenu = 1;
             }
             else {
-                entry_ptr = item.next_item;
-                next_is_menu = 0;
+                pItem = item.next_item;
+                nextIsMenu = 0;
             }
         }
         
 
         // Return from submenus
     _cont:
-        while (entry_ptr == nullptr && depth >= 0)
+        while (pItem == nullptr && depth >= 0)
         {
-            entry_ptr = history[depth];
+            pItem = history[depth];
             history[depth--] = nullptr;
         
-            next_is_menu = 0;
+            nextIsMenu = 0;
         }
     }
+    #undef maxComponentCount
 
-    echo("\n# Scan finished. Unknown item types: %d", unknown_type_count);
+
+
+
+    //#
+    //## Print scanned contents
+    //#
+
+    if (knownTypeCount == 0 && unknownTypeCount == 0 && foundTestMenuCount == 0 && foundTestItemCount == 0)
+    {
+        echo("\n# Scan finished; nothing found to print, somehow.");
+        return;
+    }
+    echo("\n# Scan finished. Printing scanned contents.", unknownTypeCount);
+
+    
+    
+    //## Print known types
+    if (knownTypeCount > 0)
+    {
+        echo("Printing %d known types...", knownTypeCount);
+        PrintScannerContents(knownComponents, knownTypeCount, parentName);
+    }
+    //## Print unknown types, if there are any
+    if (unknownTypeCount > 0)
+    {
+        echo("Printing %d unknown types...", unknownTypeCount);
+        PrintScannerContents(unknownComponents, unknownTypeCount, parentName);
+    }
+
+
+    //## Print discovered test menus
+    if (foundTestMenuCount > 0)
+    {
+        echo("Printing %d test menus...", foundTestMenuCount);
+        PrintScannerContents(foundTestMenus, foundTestMenuCount, parentName);
+    }
+    //## Print discovered test items
+    if (foundTestItemCount > 0)
+    {
+        echo("Printing %d test items...", foundTestItemCount);
+        PrintScannerContents(foundTestItems, foundTestItemCount, parentName);
+    }
+
+    
+    echo("Finished printing scanned contents");
 }
 
 
@@ -602,16 +685,25 @@ static void do_dump_menu_entries(DMENU_menu_group_t * parent_base)
 //! write me
 void dump_menu_entries()
 {
-    echo("\n\nDumping Dev Menu entries.");
     DMENU_menu_group_t base;
     load_menu_group(game->Addrs.dev_menu_group, &base);
+    
     do_dump_menu_entries(&base);
-    echo("Finished dumping Dev Menu entries\n\n\n");
 
-    echo("Dumping Quick Menu entries.");
-    load_menu_group(game->Addrs.quick_menu_group, &base);
-    do_dump_menu_entries(&base);
-    echo("Finished dumping Quick Menu entries\n\n");
+
+    if (0)
+    {
+        load_menu_group(game->Addrs.quick_menu_group, &base);
+        do_dump_menu_entries(&base);
+    }
+
+    if (0)
+    {
+        load_menu_group(game->Addrs.favorites_menu_group, &base);
+        do_dump_menu_entries(&base);
+    }
+        
+    echo("\nFinished dumping menu group contents\n");
 }
 
 

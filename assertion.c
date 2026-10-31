@@ -42,7 +42,7 @@ const char * AssertPushBufferedMsg(const char * FormatString, ...) // Increment 
 }
 
 
-static const char * AssertClearBufferedMsg()
+static const char * AssertPullBufferedMsg()
 {
     const char * offset;
     --AssertionCurrMsgDepth;

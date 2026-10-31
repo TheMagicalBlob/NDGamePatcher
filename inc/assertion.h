@@ -5,7 +5,7 @@
 //#
 
 int AssertPushBufferedMsg(const char * FormatString, ...);
-const char * AssertClearBufferedMsg();
+const char * AssertPullBufferedMsg();
 
 void AssertPrint(const char * Cause, const char * File, const char * Function, const unsigned int Line, const char * Message, ...);
 
