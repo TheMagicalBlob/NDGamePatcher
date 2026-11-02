@@ -96,6 +96,14 @@ int echo(const char * string, ...)
 
     log_message("%s\n", msg);
     va_end(list);
+
+    
+
+    if (len >= 0x1FA)
+    {
+        klog_printf("\nWARNING: constructed output string for proceeding message is too long (0x%x >= 0x%x)\n", len, 0x1FA);
+    }
+
     return len;
 #else
     return 0;
@@ -806,7 +814,8 @@ int main()
         __DATE__, __STDC_VERSION__,
         __FILE__
     );
-    
+
+
     // Set handler to print exit message
     atexit(print_exit_message);
     

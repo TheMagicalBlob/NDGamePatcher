@@ -7,8 +7,8 @@
 extern NdGame_t * game;
 
 struct DMENU_types_t;
-struct DMENU_menu_group_t;
-typedef void * DMENU_vptr_t;
+struct dmenu_menu_group_t;
+typedef void * dmenu_vptr_t;
 
 
 
@@ -39,9 +39,9 @@ static const address_table_t TitleSupportTable[] =
         V02001010,
 
         {
-            .dev_menu_group       = (DMENU_menu_group_t *) 0x6b63998, // (is actually a DMENU_menu_group_t **, but is read and replaced on ndgame struct init)
-            .quick_menu_group     = (DMENU_menu_group_t *) 0x6b64670,
-            .favorites_menu_group = (DMENU_menu_group_t *) 0x6b639a0,
+            .dev_menu_group       = (dmenu_menu_group_t *) 0x6b63998, // (is actually a dmenu_menu_group_t **, but is read and replaced on ndgame struct init)
+            .quick_menu_group     = (dmenu_menu_group_t *) 0x6b64670,
+            .favorites_menu_group = (dmenu_menu_group_t *) 0x6b639a0,
 
             .f_Free          = (void *) 0x02a8f680,
             .f_Malloc        = (void *) 0x02a8f690,
@@ -51,27 +51,27 @@ static const address_table_t TitleSupportTable[] =
         },
 
         {
-            .DMENU_Types_MenuGroup =           (DMENU_vptr_t) 0x322E688,
-            .DMENU_Types_Menu =               (DMENU_vptr_t) 0x322E5B0,
-            .DMENU_Types_DynMenu =            (DMENU_vptr_t) 0x31B5248,
-            .DMENU_Types_WeaponUpgradesMenu = (DMENU_vptr_t) 0x32280B0,
-            .DMENU_Types_ItemSubmenu =        (DMENU_vptr_t) 0x322E488,
-            .DMENU_Types_TaskItemSubmenu =    (DMENU_vptr_t) 0x3252D58,
-            .DMENU_Types_SubnodeTaskItemSubmenu = (DMENU_vptr_t) 0x3252C30,
-            .DMENU_Types_BaseComponent =      (DMENU_vptr_t) 0x322d5c8,
-            .DMENU_Types_SeparatorItem =      (DMENU_vptr_t) 0x322D6A0,
-            .DMENU_Types_ToggleItem =         (DMENU_vptr_t) 0x322DA18,
-            .DMENU_Types_ExecItem =           (DMENU_vptr_t) 0x322E238,
-            .DMENU_Types_AltExecItem =        (DMENU_vptr_t) 0x322E360,
-            .DMENU_Types_StringItem =         (DMENU_vptr_t) 0x322DFE8,
-            .DMENU_Types_StringListItem =     (DMENU_vptr_t) 0x322DC68,
-            .DMENU_Types_DecimalItem =        (DMENU_vptr_t) 0x322DEB8,
-            .DMENU_Types_TaskHistoryItem =    (DMENU_vptr_t) 0x32529E0,
-            .DMENU_Types_TaskItem =           (DMENU_vptr_t) 0x3252B08,
-            .DMENU_Types_UserItem =           (DMENU_vptr_t) 0x3243BF0,
-            .DMENU_Types_TimerItem =          (DMENU_vptr_t) 0x3117960,
-            .DMENU_Types_CheckpointItem =     (DMENU_vptr_t) 0x322DB40,
-            .DMENU_Types_FloatItem =          (DMENU_vptr_t) 0x322E110,
+            .DMENU_Types_MenuGroup =           (dmenu_vptr_t) 0x322E688,
+            .DMENU_Types_Menu =               (dmenu_vptr_t) 0x322E5B0,
+            .DMENU_Types_DynMenu =            (dmenu_vptr_t) 0x31B5248,
+            .DMENU_Types_WeaponUpgradesMenu = (dmenu_vptr_t) 0x32280B0,
+            .DMENU_Types_ItemSubmenu =        (dmenu_vptr_t) 0x322E488,
+            .DMENU_Types_TaskItemSubmenu =    (dmenu_vptr_t) 0x3252D58,
+            .DMENU_Types_SubnodeTaskItemSubmenu = (dmenu_vptr_t) 0x3252C30,
+            .DMENU_Types_BaseComponent =      (dmenu_vptr_t) 0x322d5c8,
+            .DMENU_Types_SeparatorItem =      (dmenu_vptr_t) 0x322D6A0,
+            .DMENU_Types_ToggleItem =         (dmenu_vptr_t) 0x322DA18,
+            .DMENU_Types_ExecItem =           (dmenu_vptr_t) 0x322E238,
+            .DMENU_Types_AltExecItem =        (dmenu_vptr_t) 0x322E360,
+            .DMENU_Types_StringItem =         (dmenu_vptr_t) 0x322DFE8,
+            .DMENU_Types_StringListItem =     (dmenu_vptr_t) 0x322DC68,
+            .DMENU_Types_DecimalItem =        (dmenu_vptr_t) 0x322DEB8,
+            .DMENU_Types_TaskHistoryItem =    (dmenu_vptr_t) 0x32529E0,
+            .DMENU_Types_TaskItem =           (dmenu_vptr_t) 0x3252B08,
+            .DMENU_Types_UserItem =           (dmenu_vptr_t) 0x3243BF0,
+            .DMENU_Types_TimerItem =          (dmenu_vptr_t) 0x3117960,
+            .DMENU_Types_CheckpointItem =     (dmenu_vptr_t) 0x322DB40,
+            .DMENU_Types_FloatItem =          (dmenu_vptr_t) 0x322E110,
         },
 
         {
@@ -118,9 +118,9 @@ static const address_table_t TitleSupportTable[] =
         V02002000,
 
         {
-            .dev_menu_group       = (DMENU_menu_group_t *) 0x6a34a68, // (is actually a DMENU_menu_group_t **, but is read and replaced on ndgame struct init)
-            .quick_menu_group     = (DMENU_menu_group_t *) 0x6a35720,
-            .favorites_menu_group = (DMENU_menu_group_t *) 0x6a34a70,
+            .dev_menu_group       = (dmenu_menu_group_t *) 0x6a34a68, // (is actually a dmenu_menu_group_t **, but is read and replaced on ndgame struct init)
+            .quick_menu_group     = (dmenu_menu_group_t *) 0x6a35720,
+            .favorites_menu_group = (dmenu_menu_group_t *) 0x6a34a70,
 
             .f_Free          = (void *) 0x30ed250,
             .f_Malloc        = (void *) 0x30ed260,
@@ -131,30 +131,30 @@ static const address_table_t TitleSupportTable[] =
         },
 
         {
-            .DMENU_Types_MenuGroup =          (DMENU_vptr_t) 0x3938C78,
+            .DMENU_Types_MenuGroup =          (dmenu_vptr_t) 0x3938C78,
             
-            .DMENU_Types_Menu =               (DMENU_vptr_t) 0x3938BA8,
-            .DMENU_Types_DynMenu =            (DMENU_vptr_t) 0x38C40B8,
-            .DMENU_Types_WeaponUpgradesMenu = (DMENU_vptr_t) 0x3932BB0,
+            .DMENU_Types_Menu =               (dmenu_vptr_t) 0x3938BA8,
+            .DMENU_Types_DynMenu =            (dmenu_vptr_t) 0x38C40B8,
+            .DMENU_Types_WeaponUpgradesMenu = (dmenu_vptr_t) 0x3932BB0,
             
-            .DMENU_Types_ItemSubmenu =        (DMENU_vptr_t) 0x3938A90,
-            .DMENU_Types_TaskItemSubmenu =    (DMENU_vptr_t) 0x39611F8,
-            .DMENU_Types_SubnodeTaskItemSubmenu = (DMENU_vptr_t) 0x39610E0,
+            .DMENU_Types_ItemSubmenu =        (dmenu_vptr_t) 0x3938A90,
+            .DMENU_Types_TaskItemSubmenu =    (dmenu_vptr_t) 0x39611F8,
+            .DMENU_Types_SubnodeTaskItemSubmenu = (dmenu_vptr_t) 0x39610E0,
             
-            .DMENU_Types_BaseComponent =      (DMENU_vptr_t) 0x3937c98,
-            .DMENU_Types_SeparatorItem =      (DMENU_vptr_t) 0x39380B0,
-            .DMENU_Types_ToggleItem =         (DMENU_vptr_t) 0x3938860,
-            .DMENU_Types_ExecItem =           (DMENU_vptr_t) 0x3938978,
-            .DMENU_Types_AltExecItem =        (DMENU_vptr_t) 0x3938630,
-            .DMENU_Types_StringItem =         (DMENU_vptr_t) 0x39382E0,
-            .DMENU_Types_StringListItem =     (DMENU_vptr_t) 0x3938748,
-            .DMENU_Types_DecimalItem =        (DMENU_vptr_t) 0x3938510,
-            .DMENU_Types_TaskHistoryItem =    (DMENU_vptr_t) 0x3937D68,
-            .DMENU_Types_TaskItem =           (DMENU_vptr_t) 0x3960EB0,
-            .DMENU_Types_UserItem =           (DMENU_vptr_t) 0x3960FC8,
-            .DMENU_Types_TimerItem =          (DMENU_vptr_t) 0x39507E8,
-            .DMENU_Types_CheckpointItem =     (DMENU_vptr_t) 0x381C180,
-            .DMENU_Types_FloatItem =          (DMENU_vptr_t) 0x39381C8
+            .DMENU_Types_BaseComponent =      (dmenu_vptr_t) 0x3937c98,
+            .DMENU_Types_SeparatorItem =      (dmenu_vptr_t) 0x39380B0,
+            .DMENU_Types_ToggleItem =         (dmenu_vptr_t) 0x3938860,
+            .DMENU_Types_ExecItem =           (dmenu_vptr_t) 0x3938978,
+            .DMENU_Types_AltExecItem =        (dmenu_vptr_t) 0x3938630,
+            .DMENU_Types_StringItem =         (dmenu_vptr_t) 0x39382E0,
+            .DMENU_Types_StringListItem =     (dmenu_vptr_t) 0x3938748,
+            .DMENU_Types_DecimalItem =        (dmenu_vptr_t) 0x3938510,
+            .DMENU_Types_TaskHistoryItem =    (dmenu_vptr_t) 0x3937D68,
+            .DMENU_Types_TaskItem =           (dmenu_vptr_t) 0x3960EB0,
+            .DMENU_Types_UserItem =           (dmenu_vptr_t) 0x3960FC8,
+            .DMENU_Types_TimerItem =          (dmenu_vptr_t) 0x39507E8,
+            .DMENU_Types_CheckpointItem =     (dmenu_vptr_t) 0x381C180,
+            .DMENU_Types_FloatItem =          (dmenu_vptr_t) 0x39381C8
         },
         
         {
@@ -222,9 +222,9 @@ int do_load_ndgame(game_id_t game_id, app_version_sid_t app_ver)
             game->Addrs = table.Addrs;
 
             // Load the menu base pointers
-            game->Addrs.dev_menu_group       = (DMENU_menu_group_t *) read_ulong(pid, (unsigned long *) game->Addrs.dev_menu_group);
-            game->Addrs.quick_menu_group     = (DMENU_menu_group_t *) read_ulong(pid, (unsigned long *) game->Addrs.quick_menu_group);
-            game->Addrs.favorites_menu_group = (DMENU_menu_group_t *) read_ulong(pid, (unsigned long *) game->Addrs.favorites_menu_group);
+            game->Addrs.dev_menu_group       = (dmenu_menu_group_t *) read_ulong(pid, (unsigned long *) game->Addrs.dev_menu_group);
+            game->Addrs.quick_menu_group     = (dmenu_menu_group_t *) read_ulong(pid, (unsigned long *) game->Addrs.quick_menu_group);
+            game->Addrs.favorites_menu_group = (dmenu_menu_group_t *) read_ulong(pid, (unsigned long *) game->Addrs.favorites_menu_group);
             return 0;
         }
     }
