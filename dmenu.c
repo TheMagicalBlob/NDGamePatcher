@@ -400,8 +400,9 @@ typedef struct {
     void * ReturnBuffer;   // Item event handler return value storage //!
 
 
-    unsigned char Offsets[0xF]; // Offsets of the things being checked in the menu/item struct
-    unsigned long Buffers[0xF]; // Just make a temporary enum for whatever test we're doing
+    size_t CheckCount;            // The amount of items to be checking
+    unsigned long * CheckOffsets; // Offsets of the things being checked in the menu/item struct
+    unsigned long * CheckBuffers; // Just make a temporary enum for whatever test we're doing
     
 } DMENU_scanner_t;
 
@@ -496,20 +497,48 @@ static void do_dump_menu_entries(dmenu_menu_group_t * parent_base)
     #define maxComponentCount 0x40
     DMENU_scanner_t * pCurrComponent;
 
-    // Reversing checks
-    unsigned foundTestMenuCount = 0;
-    DMENU_scanner_t foundTestMenus[maxComponentCount] = {0};
-    
-    unsigned foundTestItemCount = 0;
-    DMENU_scanner_t foundTestItems[maxComponentCount] = {0};
-
-    // Basic type checks
+    //## Basic type checks
     unsigned knownTypeCount = 0;
     DMENU_scanner_t knownComponents[maxComponentCount] = {0};
     
     unsigned unknownTypeCount = 0;
     DMENU_scanner_t unknownComponents[maxComponentCount] = {0};
 
+
+    //## Reversing checks
+    unsigned foundTestMenuCount = 0;
+    DMENU_scanner_t foundTestMenus[maxComponentCount] = {0};
+    
+    unsigned foundTestItemCount = 0;
+    DMENU_scanner_t foundTestItems[maxComponentCount] = {0};
+    
+    
+    
+
+
+    //#
+    //## Setup detailed scanner current config
+    //#
+    
+    unsigned long CheckOffsets[] = {
+        __offsetof(dmenu_item_t, item_variable)
+    };
+    size_t CheckCount = sizeof(CheckOffsets);
+
+    
+    
+    DMENU_scanner_t * scnInitArr[0x2] = { foundTestMenus, foundTestItems }; // Scanner initialization array
+    for (int i = 0; i < maxComponentCount; i++)
+    {
+        for (int j = 0; j < 2; j++)
+        {
+            scnInitArr[j][i].CheckCount = CheckCount;
+            scnInitArr[j][i].CheckOffsets = CheckOffsets;
+            scnInitArr[j][i].CheckBuffers = (unsigned long *) malloc(CheckCount * sizeof(unsigned long));
+
+            memset((void *) scnInitArr[j][i].CheckBuffers, 0, CheckCount * sizeof(unsigned long));
+        }
+    }
 
 
 
@@ -612,6 +641,18 @@ static void do_dump_menu_entries(dmenu_menu_group_t * parent_base)
                 }
     
                 read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &item.parent_menu->menu_name), pCurrComponent->ParentName);
+            }
+
+
+            unsigned long chk;
+            for (int i = 0; i < pCurrComponent->CheckCount; i++)
+            {
+                echo("%d", i);
+                if ((chk = read_ulong(game->pid, ((unsigned long *) (((char *) &item) + pCurrComponent->CheckOffsets[i])))) != 0)
+                {
+                    echo("value non-null (%llX)", ((unsigned long *) (((char *) &item) + pCurrComponent->CheckOffsets[i])));
+                    pCurrComponent->CheckBuffers[i] = chk;
+                }
             }
             
 
