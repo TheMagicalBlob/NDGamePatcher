@@ -738,8 +738,7 @@ int proc_call(void * function_address, unsigned long * return_val_ptr, struct re
         echo("# trapno:  %llX  err: %d", return_regs.r_trapno, return_regs.r_err);
         echo("");
         
-        AssertPushBufferedMsg("Process stopped before returning from call to 0x%llX. (Next instruction when stopped: 0x%llX)", function_address, return_regs.r_rip);
-        __errg(return_regs.r_rip != 0x400001, _return, nullptr);
+        __errg(return_regs.r_rip != 0x400001, _return, "Process stopped before returning from call to 0x%llX. (Next instruction when stopped: 0x%llX)", function_address, return_regs.r_rip);
     }
 
     if (return_val_ptr > 0)

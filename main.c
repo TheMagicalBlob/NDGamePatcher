@@ -145,7 +145,6 @@ void notify(const char * message, ...)
 void log_message(const char * base_string, ...)
 {
 #ifdef LOGFILE
-    errno = 0;
     va_list args;
     char message[4000];
 
@@ -329,7 +328,7 @@ void ForceKillProc(pid_t pid)
 {
     if (pid < 0)
     {
-        klog_printf("Invalid PID: %d\n", pid);
+        echo("Invalid PID: %d\n", pid);
         return;
     }
 
@@ -347,10 +346,10 @@ void ForceKillProc(pid_t pid)
     ret = syscall(0x28C, pid);
     if (ret != 0)
     {
-        klog_printf("Failed to terminate process with PID: %d. ret: %d, error: %s\n", pid, ret, strerror(errno));
+        echo("Failed to terminate process with PID: %d. ret: %d, error: %s\n", pid, ret, strerror(errno));
     }
     else {
-        klog_printf("Successfully terminated pid: %d\n", pid);
+        echo("Successfully terminated pid: %d\n", pid);
     }
 
     #undef DECID_AUTH_ID
@@ -606,7 +605,7 @@ void cleanup(int exit_code)
     echo("\n==================================\n| DMenu Payload Exiting... (%d) |\n==================================", getpid());
     
 
-    if (game && game->pid)
+    if (game != 0 && game->pid)
     {
         if (proc_stop())
         {
@@ -622,6 +621,7 @@ void cleanup(int exit_code)
 
         detach(__FUNCTION__);
     }
+    echo("game (0x%llX) || game->pid == 0");
 
 
     if (logfile) {
@@ -821,25 +821,32 @@ int main()
     
     
     // Kill any previous instances
-    pid_t pid,
-    tries = 0;
+    pid_t pid;
+    const int waitTime = 4;
     if ((pid = find_pid(PAYLOAD_NAME)) > 0)
     {
-        do {
-            echo("Killing old %s instance (pid: %d)...\n", PAYLOAD_NAME, pid);
-            
-            tries ++;
-            ForceKillProc(pid);
+        echo("Terminating old %s instance (pid: %d)...\n", PAYLOAD_NAME, pid);
+        
+        kill(pid, SIGTERM);
 
-            notify("Sent termination signal to previous %s instance %d", PAYLOAD_NAME, pid);
-            sleep(2);
-        }
-        while ((pid = find_pid(PAYLOAD_NAME)) > 0 && tries < 8);
+        echo("\n# Sent termination signal to previous %s instance %d\n# Waiting %d seconds before force-killing process if it's still active", PAYLOAD_NAME, pid, waitTime);
+        sleep(waitTime);
 
-        if (pid)
+        if (find_pid(PAYLOAD_NAME) == pid)
         {
-            echo("WARNING: Previous %s instance(s) still running (%d)\n\n", PAYLOAD_NAME, pid);
+            echo("\n# Process %d still running %d seconds after SIGTERM; force-killing process.", pid, waitTime);
+            ForceKillProc(pid);
+            sleep(waitTime);
+
+            if (find_pid(PAYLOAD_NAME) == pid)
+            {
+                echo("\n# WARNING: Previous %s instance(s) still running (%d)\n", PAYLOAD_NAME, pid);
+            }
         }
+        else {
+            echo("Process %d terminated without issue", pid);
+        }
+
 
         exit(0);
         return 0;

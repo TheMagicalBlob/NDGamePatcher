@@ -400,6 +400,7 @@ typedef struct {
     void * ReturnBuffer;   // Item event handler return value storage //!
 
 
+    // Detailed-Scanner reserved
     size_t CheckCount;            // The amount of items to be checking
     unsigned long * CheckOffsets; // Offsets of the things being checked in the menu/item struct
     unsigned long * CheckBuffers; // Just make a temporary enum for whatever test we're doing
@@ -414,14 +415,35 @@ static void PrintScannerContents(DMENU_scanner_t Scanner[], size_t ScannerCount,
         MenuGroupName = "<unnamed>";
     }
 
+
+    echo("");
     for (unsigned i = 0; i < ScannerCount; i++)
     {
         echo(
-            "\n# /%s/%s/%s\n# {\n#     0x%llX\n#     Type: 0x%llX (%s)\n#     Return Buffer: 0x%llX\n# }\n",
+            "\n# /%s/%s/%s\n# {\n#     0x%llX\n#     Type: 0x%llX (%s)\n#     Return Buffer: 0x%llX\n# }",
 
             MenuGroupName, Scanner[i].ParentName, Scanner[i].Name, (unsigned long long) Scanner[i].pItem, (unsigned long long) Scanner[i].Type, Scanner[i].dType, Scanner[i].ReturnBuffer
         );
+
+        if (Scanner[i].CheckCount > 0)
+        {
+            echo("# DR Scanner:");
+            for (unsigned j = 0; j < Scanner[i].CheckCount; j++)
+            {
+                if (Scanner[i].CheckBuffers[j] != 0)
+                {
+                    echo("\n# 0x%llX: 0x%llX", Scanner[i].CheckOffsets[j], Scanner[i].CheckBuffers[j]);
+                }
+            }
+            echo("");
+        }
+
+        echo("");
     }
+    echo("");
+
+
+
 }
 
 //! Unoptimized menu entry info dumper. May fail if partially-stripped menus are added, like the SpawnAvObjects menu in T2R 02.001.010 with it's "next_entry" pointer being for some reason set to an address pointing to unrelated volatile memory 
@@ -495,7 +517,7 @@ static void do_dump_menu_entries(dmenu_menu_group_t * parent_base)
     //## Component Scanner Variables
     //#
     #define maxComponentCount 0x40
-    DMENU_scanner_t * pCurrComponent;
+    DMENU_scanner_t * pCurrComponent; // Scanner ref to avoid having a bunch of if/else statements checking for unknown values.
 
     //## Basic type checks
     unsigned knownTypeCount = 0;
@@ -512,17 +534,17 @@ static void do_dump_menu_entries(dmenu_menu_group_t * parent_base)
     unsigned foundTestItemCount = 0;
     DMENU_scanner_t foundTestItems[maxComponentCount] = {0};
     
-    
-    
+
 
 
     //#
-    //## Setup detailed scanner current config
+    //## Setup detailed scanner's current config
     //#
     
     unsigned long CheckOffsets[] = {
-        __offsetof(dmenu_item_t, item_variable)
+        __offsetof(dmenu_item_t, item_variable),
     };
+    // size_t CheckCount = sizeof(CheckOffsets) / sizeof(unsigned long);
     size_t CheckCount = sizeof(CheckOffsets);
 
     
@@ -543,6 +565,7 @@ static void do_dump_menu_entries(dmenu_menu_group_t * parent_base)
 
 
 
+
     //#
     //## Main Scanner Loop
     //#
@@ -554,7 +577,7 @@ static void do_dump_menu_entries(dmenu_menu_group_t * parent_base)
         {
             pItem = nullptr;
             
-            __errg((long) type == -1, _cont, "Failed to read item's vptr, or it was actually negative. Skipping item at 0x%llX, and returning from it's containing menu", pItem);
+            __errg((long) type == -1, _contScannerLoop, "Failed to read item's vptr, or it was actually negative. Skipping item at 0x%llX, and returning from it's containing menu", pItem);
         }
 
 
@@ -645,16 +668,42 @@ static void do_dump_menu_entries(dmenu_menu_group_t * parent_base)
 
 
             unsigned long chk;
-            for (int i = 0; i < pCurrComponent->CheckCount; i++)
+            if (foundTestItems[foundTestItemCount].CheckCount > 0)
             {
-                echo("%d", i);
-                if ((chk = read_ulong(game->pid, ((unsigned long *) (((char *) &item) + pCurrComponent->CheckOffsets[i])))) != 0)
-                {
-                    echo("value non-null (%llX)", ((unsigned long *) (((char *) &item) + pCurrComponent->CheckOffsets[i])));
-                    pCurrComponent->CheckBuffers[i] = chk;
+                echo("Running %d checks", foundTestItems[foundTestItemCount].CheckCount);
+            
+                for (int i = 0; i < foundTestItems[foundTestItemCount].CheckCount; i++)
+                {                
+                    // echo("Running item check on [%d][%d]", foundTestItemCount, i);
+                    if ((chk = read_ulong(game->pid, ((unsigned long *) (((char *) &item) + foundTestItems[foundTestItemCount].CheckOffsets[foundTestItemCount])))) != 0)
+                    {
+                        // Skip loop if read_ulong has failed this time, but keep going afterwards
+                        __errg(chk == -1 && errno != 0, _nextCheck, "failed to read from tracee when running scanner on check #%d, at 0x%llX + 0x%llX", i, pItem, foundTestItems[foundTestItemCount].CheckOffsets[i])
+
+                        echo("\n# Check value non-null for item at 0x%llX\n# Check Offset: 0x%llX\n# Check Value: 0x%llX ffs %d\n", pItem, foundTestItems[foundTestItemCount].CheckOffsets[i], chk, errno);
+
+                        foundTestItems[foundTestItemCount].CheckBuffers[i] = chk;
+
+                        echo("parent string");
+                        read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &item.parent_menu->menu_name), foundTestItems[foundTestItemCount].ParentName);
+                        
+                        if (item.item_text)
+                        {
+                        echo("item string");
+                            read_string(game->pid, item.item_text, foundTestItems[foundTestItemCount].Name);
+                        }
+                        else {
+                            strcpy(foundTestItems[foundTestItemCount].Name, "--------------------------------");
+                        }
+
+                        ++foundTestItemCount;
+                    }
+
+                    _nextCheck:{}
                 }
             }
             
+
 
             // Handle ItemSubmenu components
             if (DMENU_GetBaseType(pItem) == stype_itemsubmenu)
@@ -673,7 +722,7 @@ static void do_dump_menu_entries(dmenu_menu_group_t * parent_base)
         
 
         // Return from submenus
-    _cont:
+    _contScannerLoop:
         while (pItem == nullptr && depth >= 0)
         {
             pItem = history[depth];
@@ -715,13 +764,13 @@ static void do_dump_menu_entries(dmenu_menu_group_t * parent_base)
 
 
     //## Print discovered test menus
-    if (foundTestMenuCount > 0)
+    if (foundTestMenuCount > (unsigned) 0)
     {
         echo("Printing %d test menus...", foundTestMenuCount);
         PrintScannerContents(foundTestMenus, foundTestMenuCount, parentName);
     }
     //## Print discovered test items
-    if (foundTestItemCount > 0)
+    if (foundTestItemCount > (unsigned) 0)
     {
         echo("Printing %d test items...", foundTestItemCount);
         PrintScannerContents(foundTestItems, foundTestItemCount, parentName);
@@ -788,8 +837,8 @@ static int CreateBaseComponent(dmenu_item_t * item, const char * component_name)
     for (unsigned i = 0; i < sizeof(dmenu_item_t); i++)
     {
         ret |= write_byte(game->pid, (byte *) item + i, (byte) 0);
-        AssertPushBufferedMsg("Failed writing zero byte to struct in tracee's memory. (wrote %d out of %d bytes)", i, sizeof(dmenu_item_t));
-        __errg(ret != 0, __break, nullptr);
+
+        __errg(ret != 0, __break, "Failed writing zero byte to struct in tracee's memory. (wrote %d out of %d bytes)", i, sizeof(dmenu_item_t));
     }
 
 
@@ -885,8 +934,7 @@ static int CreateNonBaseComponent(dmenu_item_t * pComponent, const char * ItemNa
     
     
     // Check for and report the number of failed processes
-    AssertPushBufferedMsg("%d write processes failed when creating %s \"%s\".", DMENU_GetTypeAsString(ItemType), ItemName);
-    __err(ret != 0, nullptr);
+    __err(ret != 0, "%d write processes failed when creating %s \"%s\".", DMENU_GetTypeAsString(ItemType), ItemName);
 
     return ret;
 }

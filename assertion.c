@@ -18,9 +18,8 @@ char AssertionMessageBuffer[AssertionMaxMessageSize * AssertionMaxRecursionCount
 
 
 
-
-
-const char * AssertPushBufferedMsg(const char * FormatString, ...) // Increment the current assertion message depth, and print the provided message to the current spot (assuming one's available)
+// Increment the current assertion message depth, and print the provided message to the current spot (assuming one's available)
+const char * AssertPushBufferedMsg(const char * FormatString, ...)
 {
     va_list list;
     va_start(list, FormatString);
@@ -64,38 +63,38 @@ static const char * AssertPullBufferedMsg()
 int echo(const char * string, ...);
 void AssertPrint(const char * Cause, const char * File, const char * Function, const unsigned int Line, const char * Message, ...)
 {
-    char output[0x800] = {0};
+    char message[0x300] = {"<none>"};
+    char output[0x800] = {""};
     char errMsg[0x80] = {0};
-    const char * pErrMsg;
-    pErrMsg = NULL;
-      
-    // Get buffered message
-    if (Message == 0) {
-        Message = AssertPushBufferedMsg("");
+
+    va_list list;
+    va_start(list, Message);
+
+
+    // Set default message value
+    if (Message != NULL) {
+        vsnprintf(message, sizeof(message), Message, list);
     }
 
     if (errno)
     {
+        // Append message for current errno value to initial assertion cause 
         snprintf(errMsg, sizeof(errMsg), "\n***   ERRNO:   %d->%s", errno, strerror(errno));
-        pErrMsg = (const char *) errMsg;
     }
 
-    if (pErrMsg == 0) {
-        pErrMsg = "";
-    }
 
     snprintf(output, 0x800,
         "\n"
-        "******************************************************************************\n"
+        "*************************************************************************\n"
         "*** ASSERTION: %s%s\n"
         "***   Message: %s\n"
         "***\n"
         "***  Function: %s\n"
-        "***      File: %s\n"
         "***      Line: %d\n"
+        "***      File: %s\n"
         "***     Built: %s\n"
-        "******************************************************************************\n",
-        Cause, pErrMsg, Message, Function, File, Line, __DATE__ " @ " __TIME__
+        "*************************************************************************\n",
+        Cause, (char *) errMsg, message, Function, Line, File, __DATE__ " @ " __TIME__
     );
 
     echo("%s", (char *) output);

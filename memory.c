@@ -30,31 +30,27 @@ __always_inline
 static int proc_read(pid_t pid, size_t Length, void * Source, void * Destination, const char * Caller)
 {
     errno = 0;
-    const char * errMsg;
-    errMsg = "%s->proc_read failed (%s)\n***   PID:     %d\n***   Length:  %d\n***   Source Address: 0x%llX\n***   Destination Address: 0x%llX\n***";
+    const char * errMsg = "%s->proc_read failed (%s)\n***   PID:     %d\n***   Length:  %d\n***   Source Address: 0x%llX\n***   Destination Address: 0x%llX\n***";
 
     if (!Source)
     {
         errno = EFAULT;
 
-        AssertPushBufferedMsg(errMsg, Caller, "source address was null", pid, Length, Source, Destination);
-        __err(!Source, NULL);
+        __err(!Source, errMsg, Caller, "source address was null", pid, Length, Source, Destination);
         return -1;
     }
     if (!Destination)
     {
         errno = EFAULT;
 
-        AssertPushBufferedMsg(errMsg, Caller, "destination address was null", pid, Length, Source, Destination);
-        __err(!Destination, NULL);
+        __err(!Destination, errMsg, Caller, "destination address was null", pid, Length, Source, Destination);
         return -1;
     }
     if (pid == 0 || pid == -1)
     {
         errno = EINVAL;
 
-        AssertPushBufferedMsg(errMsg, Caller, "provided process id was invalid", pid, Length, Source, Destination);
-        __err(pid == 0 || pid == -1, NULL);
+        __err(pid == 0 || pid == -1, errMsg, Caller, "provided process id was invalid", pid, Length, Source, Destination);
         return -1;
     }
 
@@ -68,8 +64,8 @@ static int proc_read(pid_t pid, size_t Length, void * Source, void * Destination
     if (ret != 0)
     {
         errno = EIO;
-        AssertPushBufferedMsg(errMsg, Caller, strerror(ret), pid, Length, Source, Destination);
-        __err(ret != 0, NULL);
+        __err(ret != 0, errMsg, Caller, strerror(ret), pid, Length, Source, Destination);
+        errno = EIO;
         return -1;
     }
 
@@ -86,26 +82,23 @@ static int proc_read(pid_t pid, size_t Length, void * Source, void * Destination
 __always_inline
 static int proc_write(pid_t pid, size_t Length, void * Destination, void * Source, const char * Caller)
 {
-    const char * errMsg;
-    errMsg = "%s->proc_write failed (%s)\n***   PID:     %d\n***   Length:  %d\n***   Source Address: 0x%llX\n***   Destination Address: 0x%llX\n***";
-
     errno = 0;
+    const char * errMsg = "%s->proc_write failed (%s)\n***   PID:     %d\n***   Length:  %d\n***   Source Address: 0x%llX\n***   Destination Address: 0x%llX\n***";
+
 
 
     if (!Source)
     {
         errno = EFAULT;
 
-        AssertPushBufferedMsg(errMsg, Caller, "source address was null", pid, Length, Source, Destination);
-        __err(!Source, NULL);
+        __err(!Source, errMsg, Caller, "source address was null", pid, Length, Source, Destination);
         return -1;
     }
     if (!Destination)
     {
         errno = EFAULT;
 
-        AssertPushBufferedMsg(errMsg, Caller, "destination address was null", pid, Length, Source, Destination);
-        __err(!Destination, NULL);
+        __err(!Destination, errMsg, Caller, "destination address was null", pid, Length, Source, Destination);
         return -1;
     }
     if (pid == 0 || pid == -1)
@@ -114,8 +107,7 @@ static int proc_write(pid_t pid, size_t Length, void * Destination, void * Sourc
         // ^ errno = ESRCH;
         errno = EINVAL;
 
-        AssertPushBufferedMsg(errMsg, Caller, "provided process id was invalid", pid, Length, Source, Destination);
-        __err(pid == 0 || pid == -1, NULL);
+        __err(pid == 0 || pid == -1, errMsg, Caller, "provided process id was invalid", pid, Length, Source, Destination);
         return -1;
     }
 
@@ -127,8 +119,7 @@ static int proc_write(pid_t pid, size_t Length, void * Destination, void * Sourc
     ret = ptrace(PT_IO, pid, (caddr_t) &iod, 0);
     if (ret != 0)
     {
-        AssertPushBufferedMsg(errMsg, Caller, strerror(ret), pid, Length, Source, Destination);
-        __err(ret != 0, NULL);
+        __err(ret != 0, errMsg, Caller, strerror(ret), pid, Length, Source, Destination);
         errno = EIO;
         return -1;
     }
