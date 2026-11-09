@@ -782,42 +782,82 @@ static void do_dump_menu_entries(dmenu_menu_group_t * parent_group)
     //## Print scanned contents
     //#
 
+    // Lazy bool to toggle whether we show checks that are all null
     const char showNullChecks = 0;
 
-    if (knownTypeCount == 0 && unknownTypeCount == 0 && foundTestMenuCount == 0 && foundTestItemCount == 0)
+    //## Make sure there's anything to print in the first place
+    if ((knownTypeCount | unknownTypeCount | foundTestMenuCount | foundTestItemCount) == (unsigned) 0)
     {
         echo("\n# Scan finished; nothing found to print, somehow.");
         return;
     }
     echo("\n# Scan finished. Printing scanned contents.", unknownTypeCount);
 
-    
-    
-    //## Print known types
-    if (knownTypeCount > 0)
+
+    //## Print known and/or unknown types
+    if (knownTypeCount + unknownTypeCount > (unsigned) 0)
     {
-        echo("Printing %d known types...", knownTypeCount);
-        PrintScannerContents(knownComponents, knownTypeCount, parentName, showNullChecks);
+        echo(
+            "\n\n"
+            "============================================\n"
+            "#\n"
+            "## Printing %d Known &/or Unknown Types\n"
+            "#\n"
+            "============================================\n",
+
+            
+            knownTypeCount + unknownTypeCount
+        );
+
+        if (knownTypeCount > (unsigned) 0)
+        {
+            echo("Printing %d known types...", knownTypeCount);
+            PrintScannerContents(knownComponents, knownTypeCount, parentName, showNullChecks);
+        }
+        //## Print unknown types, if there are any
+        if (unknownTypeCount > (unsigned) 0)
+        {
+            echo("Printing %d unknown types...", unknownTypeCount);
+            PrintScannerContents(unknownComponents, unknownTypeCount, parentName, showNullChecks);
+        }
     }
-    //## Print unknown types, if there are any
-    if (unknownTypeCount > 0)
-    {
-        echo("Printing %d unknown types...", unknownTypeCount);
-        PrintScannerContents(unknownComponents, unknownTypeCount, parentName, showNullChecks);
+    else {
+
+        echo(
+            "\n#\n"            
+            "## No types to print!!! (How did this happen?)\n"
+            "#\n"            
+        );
     }
 
 
-    //## Print discovered test menus
-    if (foundTestMenuCount > (unsigned) 0)
+
+    //## Print discovered test menus & items
+    
+    if (foundTestMenuCount + foundTestItemCount > (unsigned) 0)
     {
-        echo("Printing %d test menus...", foundTestMenuCount);
-        PrintScannerContents(foundTestMenus, foundTestMenuCount, parentName, showNullChecks);
-    }
-    //## Print discovered test items
-    if (foundTestItemCount > (unsigned) 0)
-    {
-        echo("Printing %d test items...", foundTestItemCount);
-        PrintScannerContents(foundTestItems, foundTestItemCount, parentName, showNullChecks);
+        echo(
+            "\n\n"
+            "============================================\n"
+            "#\n"
+            "## Printing %d Scanner Check Values\n"
+            "#\n"
+            "============================================\n",
+            
+            foundTestMenuCount + foundTestItemCount
+        );
+
+        if (foundTestMenuCount > (unsigned) 0)
+        {
+            echo("Printing %d test menus...", foundTestMenuCount);
+            PrintScannerContents(foundTestMenus, foundTestMenuCount, parentName, showNullChecks);
+        }
+        
+        if (foundTestItemCount > (unsigned) 0)
+        {
+            echo("Printing %d test items...", foundTestItemCount);
+            PrintScannerContents(foundTestItems, foundTestItemCount, parentName, showNullChecks);
+        }
     }
 
 
