@@ -167,33 +167,34 @@ typedef struct dmenu_item_s dmenu_item_t;
 
 typedef struct dmenu_item_s 
 {
-    dmenu_vptr_t vptr; // Item class vPtr/Virtual Table Pointer
-    void * unknown_function_ptr; // 0x08 // Always zero
-    char item_text_buffer[0x20]; // 32-byte buffer for the item text. If the string is too long, additional space is allocated instead and this is left unused. (it's also left null for separator lines) // 0x10
-    char * item_text; // Item text pointer. Usually points to the item_text_buffer, but is redirected if the string is too long (or left null for separator lines) // 0x30
-    dmenu_menu_t * parent_menu; // The dmenu_menu_t that contains this item
-    dmenu_item_t * next_item; // The proceeding item in the same submenu
-    const unsigned short horizontal_padding; 
-    const unsigned short vertical_padding; 
-    const unsigned short width; 
-    const unsigned short height; 
-    char unmapped0[0x8];
-    unsigned long unknown_item_index;
-    void * item_variable;
-    unsigned int off_state_colour;
-    unsigned int on_state_colour;
-    unsigned int unknown_int;
-    unsigned int shortcut_info;
-    void * callback;
-    unsigned long unmapped3;
-    char unmapped4[0x8];
-    dmenu_menu_group_t * menu_group; // Points to the dmenu base entry [0x90] 
-    char unmapped5[0x4];
-    int _selection_index;
-    unsigned int _item_count; //!
-    DMENU_item_eh_type_t event_handler_type_id; // unsure
-    void * event_handler;
-    unsigned long return_buffer;
+    dmenu_vptr_t vPtr; // Item class vPtr/Virtual Table Pointer
+    void * UnknownPtr; // 0x08 // Always zero
+    char ItemText[0x20]; // 32-byte buffer for the item text. If the string is too long, additional space is allocated instead and this is left unused. (it's also left null for separator lines) // 0x10
+    char * pItemText; // Item text pointer. Usually points to the item_text_buffer, but is redirected if the string is too long (or left null for separator lines) // 0x30
+    dmenu_menu_t * Parent; // The dmenu_menu_t that contains this item
+    dmenu_item_t * NextItem; // The proceeding item in the same submenu
+    const unsigned short HorizontalPadding;
+    const unsigned short VerticalPadding;
+    const unsigned short Width; 
+    const unsigned short Height;
+    char Unmapped0[0x8];
+    unsigned long UnknownItemArrayIndex;
+    unsigned long ItemVariable;
+    unsigned int OffStateColour;
+    unsigned int OnStateColour;
+    unsigned int UnknownInt;
+    unsigned int ShortcutInfo;
+    void * Callback;
+    unsigned long Unmapped1;
+    char Unmapped2[0x8];
+    dmenu_menu_group_t * MenuGroup; // Points to the dmenu base entry [0x90] 
+    char Unmapped3[0x4];
+    int _SelectionIndex;
+    unsigned int _ItemCount; //!
+    DMENU_item_eh_type_t EventHandlerTypeID; // unsure
+    void * EventHandler;
+    unsigned long ReturnBuffer;
+    unsigned long Unmapped4;
 
 } dmenu_item_t;
 
@@ -205,44 +206,86 @@ typedef struct dmenu_item_s
 
 typedef struct dmenu_menu_s // 0xE0
 {
-    dmenu_vptr_t vptr; // Item class vPtr/Virtual Table Pointer
-    void * unknown_function_ptr; // 0x08 // Always zero
-    char menu_name_buffer[0x20]; // Default buffer space for the item text, if it fits the buffer. 
-    char * menu_name; // Pointer to the item's text; usually points to the item_text_buffer, but additional space is allocated and used instead if the string length is > 32. 
-    dmenu_menu_t * parent_menu;
-    dmenu_item_t * next_item; // Next item in the regular entries. seems to still be read here, though
-    const unsigned short horizontal_padding;
-    const unsigned short vertical_padding;
-    const unsigned short width;
-    const unsigned short height;
-    char unmapped0[0x8];
-    unsigned long unknown_menu_array_index;
-    void * menu_variable;
-    unsigned int on_state_colour;
-    unsigned int unknown_int;
-    unsigned int shortcut_info;
-    void * callback;
-    unsigned long unmapped2;
-    char unmapped3[0x8];
-    dmenu_menu_group_t * menu_group; // Points to the dmenu base entry [0x90] 
-    unsigned int unmapped4;
-    int selection_index;
-    unsigned int item_count; // The amount of items in the root of the menu
-    unsigned int unk_filter_related_int; // Gets set to zero when removing all filter items
-    char unknown_bool; // not quite sure exactly what it does yet. I've only got guesses
-    const char unmapped5[0x7];
-    dmenu_item_t * first_item; // Points to the first/top item in the menu [0xB0]
-    unsigned int unmapped6;
-    char menu_is_open;
-    char unmapped7[0x3];
-    unsigned long _filter_contents; // Something filter-related
-    unsigned int unmapped8;
-    int on_screen_item_count;
-    unsigned long unmapped9;
-    char unmapped10[0x4];
-    void * unk_stack_thing;
+    dmenu_vptr_t vPtr; // Item class vPtr/Virtual Table Pointer
+    void * UnknownPtr; // 0x08 // Always zero
+    char MenuName[0x20]; // Default buffer space for the menu title, if it fits the buffer. 
+    char * pMenuName; // Pointer to the item's text; usually points to the item_text_buffer, but additional space is allocated and used instead if the string length is > 32. 
+    dmenu_menu_t * Parent;
+    dmenu_item_t * NextItem; // Next item in the regular entries. seems to still be read here, though
+    unsigned short HorizontalPadding;
+    unsigned short VerticalPadding;
+    unsigned short Width;
+    unsigned short Height;
+    char Unmapped0[0x8];
+    unsigned long UnknownMenuArrayIndex;
+    unsigned long MenuVariable;
+    unsigned int OffStateColour;
+    unsigned int OnStateColour;
+    unsigned int UnknownInt0;
+    unsigned int ShortcutInfo;
+    void * Callback;
+    unsigned long Unmapped1;
+    char Unmapped2[0x8];
+    dmenu_menu_group_t * MenuGroup; // Points to the dmenu base entry [0x90] 
+    unsigned int Unmapped3;
+    int SelectionIndex;
+    unsigned int ItemCount; // The amount of items in the root of the menu
+    unsigned int UnknownFilterRelatedInt; // Gets set to zero when removing all filter items
+    char UnknownBool; // not quite sure exactly what it does yet. I've only got guesses
+    const char Unmapped4[0x7];
+    dmenu_item_t * FirstItem; // Points to the first/top item in the menu [0xB0]
+    unsigned int Unmapped5;
+    char _UnknownMenuBool;
+    char Unmapped6[0x3];
+    unsigned long _FilterContents; // Something filter-related
+    unsigned int Unmapped7;
+    int OnScreenItemCount;
+    unsigned long Unmapped8;
+    unsigned * pUnknownInt1[0x4];
+    void * UnknownStackPtr;
 
 } dmenu_menu_t;
+
+// typedef struct dmenu_menu_s // 0xE0
+// {
+//     dmenu_vptr_t vptr; // Item class vPtr/Virtual Table Pointer
+//     void * unknown_function_ptr; // 0x08 // Always zero
+//     char menu_name_buffer[0x20]; // Default buffer space for the item text, if it fits the buffer. 
+//     char * menu_name; // Pointer to the item's text; usually points to the item_text_buffer, but additional space is allocated and used instead if the string length is > 32. 
+//     dmenu_menu_t * parent_menu;
+//     dmenu_item_t * next_item; // Next item in the regular entries. seems to still be read here, though
+//     const unsigned short horizontal_padding;
+//     const unsigned short vertical_padding;
+//     const unsigned short width;
+//     const unsigned short height;
+//     char unmapped0[0x8];
+//     unsigned long unknown_menu_array_index;
+//     unsigned long menu_variable;
+//     unsigned int on_state_colour;
+//     unsigned int unknown_int;
+//     unsigned int shortcut_info;
+//     void * callback;
+//     unsigned long unmapped2;
+//     char unmapped3[0x8];
+//     dmenu_menu_group_t * menu_group; // Points to the dmenu base entry [0x90] 
+//     unsigned int unmapped4;
+//     int selection_index;
+//     unsigned int item_count; // The amount of items in the root of the menu
+//     unsigned int unk_filter_related_int; // Gets set to zero when removing all filter items
+//     char unknown_bool; // not quite sure exactly what it does yet. I've only got guesses
+//     const char unmapped5[0x7];
+//     dmenu_item_t * first_item; // Points to the first/top item in the menu [0xB0]
+//     unsigned int unmapped6;
+//     char menu_is_open;
+//     char unmapped7[0x3];
+//     unsigned long _filter_contents; // Something filter-related
+//     unsigned int unmapped8;
+//     int on_screen_item_count;
+//     unsigned long unmapped9;
+//     char unmapped10[0x4];
+//     void * unk_stack_thing;
+
+// } dmenu_menu_t;
 
 
 
