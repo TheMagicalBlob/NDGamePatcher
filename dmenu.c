@@ -390,8 +390,17 @@ int load_item(const dmenu_item_t * address, dmenu_item_t * item)
 
 
 
-// do_dump_menu_entries-specific struct
-typedef struct {
+typedef enum { // do_dump_menu_entries-specific enum
+    stMenu,
+    stItem
+} DMENU_scannerType_t;
+typedef struct { // do_dump_menu_entries-specific struct
+    DMENU_scannerType_t Type;
+    unsigned long Offset;
+    const char * Name;
+    unsigned long Buffer;
+} scannerCheck_t;
+typedef struct { // do_dump_menu_entries-specific struct
     char Name[0xFF];       // Component name
     char ParentName[0xFF]; // Component's parent name
     dmenu_vptr_t Type;     // Component "type" (class vPtr)
@@ -402,21 +411,63 @@ typedef struct {
 
 
     // Detailed-Scanner reserved
-    size_t CheckCount;            // The amount of items to be checking
-    unsigned long * CheckOffsets; // Offsets of the things being checked in the menu/item struct
-    unsigned long * CheckBuffers; // Storage for check values
-    const char ** CheckNames;      // What it says on the can.
+    size_t CheckCount;
+    scannerCheck_t * Checks;
     
 } DMENU_scanner_t;
 
+static void RunScannerCheck(DMENU_scannerType_t scannerType, DMENU_scanner_t Scanner[], unsigned * ScannerCount, void * pComponent, void * pItem, dmenu_vptr_t type, const char * dtype)
+{
+    unsigned long chk;
+    if (Scanner[*ScannerCount].CheckCount > 0)
+    {
+        for (unsigned i = 0; i < Scanner[*ScannerCount].CheckCount; i++)
+        {          
+            if (Scanner[*ScannerCount].Checks[i].Type != scannerType)
+            {
+                continue;
+            }
+
+
+            chk = *(unsigned long *) (((char *) pComponent) + Scanner[*ScannerCount].Checks[i].Offset);
+            
+            if (chk != 0)
+            {
+                // echo("\n# Check value non-null for item at 0x%llX\n# Check Offset: 0x%llX\n# Check Value: 0x%llX\n", pItem, Scanner[*ScannerCount].CheckOffsets[i], chk);
+                Scanner[*ScannerCount].Checks[i].Buffer = chk;
+
+                Scanner[*ScannerCount].Type = type;
+                strncpy(Scanner[*ScannerCount].dType, dtype, sizeof(Scanner[*ScannerCount].dType));
+                Scanner[*ScannerCount].pItem = pItem;
+                Scanner[*ScannerCount].ReturnBuffer = ((dmenu_item_t *) pComponent)->ReturnBuffer;
+
+                read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &((dmenu_item_t *) pComponent)->Parent->pMenuName), Scanner[*ScannerCount].ParentName);
+                
+                if (((dmenu_item_t *) pComponent)->pItemText)
+                {
+                    read_string(game->pid, ((dmenu_item_t *) pComponent)->pItemText, Scanner[*ScannerCount].Name);
+                }
+                else {
+                    strcpy(Scanner[*ScannerCount].Name, "--------------------------------");
+                }
+
+                ++*ScannerCount;
+            }
+        }
+    }
+}
+
 // do_dump_menu_entries-specific function
-static void PrintScannerContents(DMENU_scanner_t Scanner[], size_t ScannerCount, const char * MenuGroupName)
+static void PrintScannerContents(DMENU_scanner_t Scanner[], size_t ScannerCount, const char * MenuGroupName, char ShowNullChecks)
 {
     if (MenuGroupName == nullptr)
     {
         MenuGroupName = "<unnamed>";
     }
 
+    const char * menuString = "Menu";
+    const char * itemString = "Item";
+    const char * currentTypeString = nullptr;
 
     echo("");
     for (unsigned i = 0; i < ScannerCount; i++)
@@ -433,9 +484,17 @@ static void PrintScannerContents(DMENU_scanner_t Scanner[], size_t ScannerCount,
 
             for (unsigned j = 0; j < Scanner[i].CheckCount; j++)
             {
-                if (Scanner[i].CheckBuffers[j] != 0)
+                if (Scanner[i].Checks[j].Buffer != 0 && !ShowNullChecks)
                 {
-                    snprintf(&scannerOut[strnlen(scannerOut, sizeof(scannerOut) - 1)], sizeof(scannerOut), "\n# %s: 0x%llX = 0x%llX", Scanner[i].CheckNames[j], (unsigned long long) Scanner[i].CheckOffsets[j], (unsigned long long) Scanner[i].CheckBuffers[j]);
+                    if (Scanner[i].Checks[j].Type == stItem)
+                    {
+                        currentTypeString = itemString;
+                    }
+                    else{
+                        currentTypeString = menuString;
+                    }
+
+                    snprintf(&scannerOut[strnlen(scannerOut, sizeof(scannerOut) - 1)], sizeof(scannerOut), "\n# DMENU::%s.%s: 0x%llX = 0x%llX", currentTypeString, Scanner[i].Checks[j].Name, (unsigned long long) Scanner[i].Checks[j].Offset, (unsigned long long) Scanner[i].Checks[j].Buffer);
                 }
             }
             echo("%s\n", (char *) scannerOut);
@@ -453,6 +512,7 @@ static void do_dump_menu_entries(dmenu_menu_group_t * parent_group)
     //#
     //## Basic null checks
     //#
+    #pragma region
     if (parent_group == 0) // Null menu group pointer
     {
         echo("ERROR: Empty menu base pointer provided.");
@@ -536,6 +596,7 @@ static void do_dump_menu_entries(dmenu_menu_group_t * parent_group)
     
     unsigned foundTestItemCount = 0;
     DMENU_scanner_t foundTestItems[maxComponentCount] = {0};
+    #pragma endregion
     
 
 
@@ -546,33 +607,25 @@ static void do_dump_menu_entries(dmenu_menu_group_t * parent_group)
     //#
     
     // Array of offsets in the item and/or menu structures
-    unsigned long CheckOffsets[] = {
-        __offsetof(dmenu_item_t, ItemVariable),
-        __offsetof(dmenu_item_t, Unmapped1)
-    };
-    const char * CheckNames[] = {
-        "ItemVariable",
-        "Unmapped1"
+    scannerCheck_t checks[] =
+    {
+        { stItem, __offsetof(dmenu_item_t, UnknownInt), "UnknownInt", 0 },   
+        { stItem, __offsetof(dmenu_item_t, _SelectionIndex), "_SelectionIndex", 0 },   
+        { stItem, __offsetof(dmenu_item_t, _ItemCount), "_ItemCount", 0 },
+        { stMenu, __offsetof(dmenu_menu_t, Unmapped1), "Unmapped1", 0 }
     };
     // Amount of offsets added to the CheckOffsets array
-    size_t CheckCount = sizeof(CheckOffsets) / sizeof(unsigned long);
+    size_t CheckCount = sizeof(checks) / sizeof(scannerCheck_t);
 
-    
     
     DMENU_scanner_t * scnInitArr[0x2] = { foundTestMenus, foundTestItems }; // Scanner initialization array (two seems odd, but I may add more arrays depeinding on how I end up using this)
     for (int i = 0; i < maxComponentCount; i++)
     {
         for (int j = 0; j < 2; j++)
         {
-            scnInitArr[j][i].CheckCount = CheckCount;     // Amount of checks to run (auto set based on the amount of offsets in the local CheckOffsets array)
+            scnInitArr[j][i].CheckCount = CheckCount; // Amount of checks to run (auto set based on the amount of offsets in the local CheckOffsets array)
 
-            scnInitArr[j][i].CheckOffsets = CheckOffsets; // Offset of the desired member in the parent struct
-            scnInitArr[j][i].CheckNames = (const char **) &CheckNames;     // Name of the desired member in the parent struct
-            
-
-            // Return buffers for non-null checks
-            scnInitArr[j][i].CheckBuffers = (unsigned long *) malloc(CheckCount * sizeof(unsigned long));
-            memset((void *) scnInitArr[j][i].CheckBuffers, 0, CheckCount * sizeof(unsigned long));
+            scnInitArr[j][i].Checks = checks;
         }
     }
 
@@ -661,6 +714,9 @@ static void do_dump_menu_entries(dmenu_menu_group_t * parent_group)
             }
             
 
+            RunScannerCheck(stMenu, foundTestMenus, &foundTestMenuCount, &menu, pItem, type, dtype);
+
+
             // Read next item pointer
             pItem = menu.FirstItem;
             nextIsMenu = 0;
@@ -685,39 +741,9 @@ static void do_dump_menu_entries(dmenu_menu_group_t * parent_group)
                 pCurrComponent->ItemVariable = item.ItemVariable;
             }
 
-
-            unsigned long chk;
-            if (foundTestItems[foundTestItemCount].CheckCount > 0)
-            {
-                for (unsigned i = 0; i < foundTestItems[foundTestItemCount].CheckCount; i++)
-                {          
-                    chk = *(unsigned long *) (((char *) &item) + foundTestItems[foundTestItemCount].CheckOffsets[i]);
-                    
-                    if (chk != 0)
-                    {
-                        // echo("\n# Check value non-null for item at 0x%llX\n# Check Offset: 0x%llX\n# Check Value: 0x%llX\n", pItem, foundTestItems[foundTestItemCount].CheckOffsets[i], chk);
-                        foundTestItems[foundTestItemCount].CheckBuffers[i] = chk;
-
-                        foundTestItems[foundTestItemCount].Type = type;
-                        strncpy(foundTestItems[foundTestItemCount].dType, dtype, sizeof(foundTestItems[foundTestItemCount].dType));
-                        foundTestItems[foundTestItemCount].pItem = pItem;
-                        foundTestItems[foundTestItemCount].ReturnBuffer = item.ReturnBuffer;
-
-                        read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &item.Parent->pMenuName), foundTestItems[foundTestItemCount].ParentName);
-                        
-                        if (item.pItemText)
-                        {
-                            read_string(game->pid, item.pItemText, foundTestItems[foundTestItemCount].Name);
-                        }
-                        else {
-                            strcpy(foundTestItems[foundTestItemCount].Name, "--------------------------------");
-                        }
-
-                        ++foundTestItemCount;
-                    }
-                }
-            }
             
+            RunScannerCheck(stItem, foundTestItems, &foundTestItemCount, &item, pItem, type, dtype);
+
 
 
             // Handle ItemSubmenu components
@@ -755,6 +781,9 @@ static void do_dump_menu_entries(dmenu_menu_group_t * parent_group)
     //#
     //## Print scanned contents
     //#
+
+    const char showNullChecks = 0;
+
     if (knownTypeCount == 0 && unknownTypeCount == 0 && foundTestMenuCount == 0 && foundTestItemCount == 0)
     {
         echo("\n# Scan finished; nothing found to print, somehow.");
@@ -768,13 +797,13 @@ static void do_dump_menu_entries(dmenu_menu_group_t * parent_group)
     if (knownTypeCount > 0)
     {
         echo("Printing %d known types...", knownTypeCount);
-        PrintScannerContents(knownComponents, knownTypeCount, parentName);
+        PrintScannerContents(knownComponents, knownTypeCount, parentName, showNullChecks);
     }
     //## Print unknown types, if there are any
     if (unknownTypeCount > 0)
     {
         echo("Printing %d unknown types...", unknownTypeCount);
-        PrintScannerContents(unknownComponents, unknownTypeCount, parentName);
+        PrintScannerContents(unknownComponents, unknownTypeCount, parentName, showNullChecks);
     }
 
 
@@ -782,13 +811,13 @@ static void do_dump_menu_entries(dmenu_menu_group_t * parent_group)
     if (foundTestMenuCount > (unsigned) 0)
     {
         echo("Printing %d test menus...", foundTestMenuCount);
-        PrintScannerContents(foundTestMenus, foundTestMenuCount, parentName);
+        PrintScannerContents(foundTestMenus, foundTestMenuCount, parentName, showNullChecks);
     }
     //## Print discovered test items
     if (foundTestItemCount > (unsigned) 0)
     {
         echo("Printing %d test items...", foundTestItemCount);
-        PrintScannerContents(foundTestItems, foundTestItemCount, parentName);
+        PrintScannerContents(foundTestItems, foundTestItemCount, parentName, showNullChecks);
     }
 
 

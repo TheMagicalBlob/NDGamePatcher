@@ -804,11 +804,11 @@ int main()
     syscall(SYS_thr_set_name, -1, PAYLOAD_NAME);
 
     echo("\n"
-        "###################################\n"
-        "# %s Entry.\n"
-        "# Built: %s W/ C %ld\n"
-        "# From: %s\n"
-        "###################################\n",
+        "====================================\n"
+        "| %s Entry.\n"
+        "| Built: %s W/ C %ld\n"
+        "| From: %s\n"
+        "====================================\n",
         
         PAYLOAD_NAME,
         __DATE__, __STDC_VERSION__,
