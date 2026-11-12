@@ -75,30 +75,29 @@ static const address_table_t TitleSupportTable[] =
         },
 
         {
-            .DMENU_Handlers_MenuGroup =           (void *) nullptr,
+            .DMENU_Handlers_ItemSubmenu = (void *) 0x0,
+            
+            .DMENU_Handlers_Menu = (void *) 0x0,
+            .DMENU_Handlers_ToggleItem = (void *) 0x8E72E0,
+            .DMENU_Handlers_SeparatorItem = (void *) 0x0,
+            
+            .DMENU_Handlers_StringListItem = (void *) 0x1150910,
+            .DMENU_Handlers_DecimalItem = (void *) 0x701,
+            .DMENU_Handlers_FloatItem = (void *) 0x601,
+            
+            .DMENU_Handlers_ExecItem = (void *) 0x2982700,
+            .DMENU_Handlers_UserItem = (void *) 0x0,
+            .DMENU_Handlers_AltExecItem = (void *) 0x1AED250,
+            .DMENU_Handlers_TimerItem = (void *) 0x1BD8660,
+            .DMENU_Handlers_DynMenu = (void *) 0x20B8CD0,
+            .DMENU_Handlers_WeaponUpgradesMenu = (void *) 0x0,
+            .DMENU_Handlers_TaskItemSubmenu = (void *) 0x0,
+            .DMENU_Handlers_TaskItem = (void *) 0x0,
+            .DMENU_Handlers_StringItem = (void *) 0x13C026BDC8,
+            .DMENU_Handlers_SubnodeTaskItemSubmenu = (void *) 0x0,
+            .DMENU_Handlers_CheckpointItem = (void *) 0x28A6E50,
+            .DMENU_Handlers_TaskHistoryItem = (void *) 0x28A6CC0,
 
-            .DMENU_Handlers_Menu =               (void *) nullptr,
-            .DMENU_Handlers_DynMenu =            (void *) nullptr,
-            .DMENU_Handlers_WeaponUpgradesMenu = (void *) nullptr,
-            
-            .DMENU_Handlers_ItemSubmenu =        (void *) nullptr,
-            .DMENU_Handlers_TaskItemSubmenu =    (void *) nullptr,
-            .DMENU_Handlers_SubnodeTaskItemSubmenu = (void *) nullptr,
-            
-            .DMENU_Handlers_BaseComponent =      (void *) nullptr,
-            .DMENU_Handlers_SeparatorItem =      (void *) nullptr,
-            .DMENU_Handlers_ToggleItem =         (void *) nullptr,
-            .DMENU_Handlers_ExecItem =           (void *) nullptr,
-            .DMENU_Handlers_AltExecItem =        (void *) nullptr,
-            .DMENU_Handlers_StringItem =         (void *) nullptr,
-            .DMENU_Handlers_StringListItem =     (void *) nullptr,
-            .DMENU_Handlers_DecimalItem =        (void *) nullptr,
-            .DMENU_Handlers_TaskHistoryItem =    (void *) nullptr,
-            .DMENU_Handlers_TaskItem =           (void *) nullptr,
-            .DMENU_Handlers_UserItem =           (void *) nullptr,
-            .DMENU_Handlers_TimerItem =          (void *) nullptr,
-            .DMENU_Handlers_CheckpointItem =     (void *) nullptr,
-            .DMENU_Handlers_FloatItem =          (void *) nullptr
         }
     },
     //#

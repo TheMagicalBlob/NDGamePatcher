@@ -328,6 +328,7 @@ typedef struct dmenu_menu_group_s // x >= 0x328
 
 DMENU_stype_t DMENU_GetBaseType(void * item);
 const char * DMENU_GetTypeAsString(dmenu_vptr_t type);
+int DMENU_CreateToggleItem(dmenu_menu_t * pParentMenu, dmenu_item_t ** pItem, const char * ItemName, void * ItemVariable, void * CustomEventHandler);
 
 
 dmenu_item_t * find_item(const char * item_name, dmenu_menu_t * start_menu, char recurse);

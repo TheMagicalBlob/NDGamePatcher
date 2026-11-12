@@ -62,10 +62,26 @@ static int watchpoint_count = 0;
 //## Common Function Declarations
 //#
 
+int
+klogprint(const char *fmt, ...) {
+  __builtin_va_list args;
+  char sargs[0x200] = {0};
+  char buf[0x500];
+
+  __builtin_va_start(args, fmt);
+  vsnprintf(sargs, sizeof sargs, fmt, args);
+  __builtin_va_end(args);
+
+  snprintf(buf, sizeof(buf), "%s", sargs);
+
+  return (int) syscall(0x259, 7, buf, 0);
+}
+
+
 void failed_echo(const char * string, ...)
 {
 #ifdef ECHO
-    klog_printf("Segfault received on attempt to print string from address 0x%llX", (unsigned long) string);
+    klogprint("Segfault received on attempt to print string from address 0x%llX", (unsigned long) string);
 #endif
 }
 
@@ -88,10 +104,10 @@ int echo(const char * string, ...)
     
     if (game != NULL)
     {
-        klog_printf("%d:%d: %s\n", getpid(), game->pid, &msg);
+        klogprint("%d:%d: %s\n", getpid(), game->pid, &msg);
     }
     else{
-        klog_printf("%d:%d: %s\n", getpid(), 0, &msg);
+        klogprint("%d:%d: %s\n", getpid(), 0, &msg);
     }
 
     log_message("%s\n", msg);
@@ -101,7 +117,7 @@ int echo(const char * string, ...)
 
     if (len >= 0x1FA)
     {
-        klog_printf("\nWARNING: constructed output string for proceeding message is too long (0x%x >= 0x%x)\n", len, 0x1FA);
+        klogprint("\nWARNING: constructed output string for proceeding message is too long (0x%x >= 0x%x)\n", len, 0x1FA);
     }
 
     return len;
@@ -160,7 +176,7 @@ void log_message(const char * base_string, ...)
 
         if (logfile < 0)
         {
-            klog_printf("Unable to open logfile, maybe error code: %s", strerror(errno));
+            klogprint("Unable to open logfile, maybe error code: %s", strerror(errno));
         }
     }
 
@@ -172,7 +188,7 @@ void log_message(const char * base_string, ...)
         ret = write(logfile, message, strlen(message));
         if (ret == -1)
         {
-            klog_printf("Write returned error? (%s)\n", strerror(errno));
+            klogprint("Write returned error? (%s)\n", strerror(errno));
         }
     }
 #endif
@@ -594,7 +610,7 @@ static game_id_t find_and_trace_game()
 
 void print_exit_message()
 {
-    klog_printf("\n=============================\n| DMenu Payload Exited (%d) |\n=============================\n\n", getpid());
+    klogprint("\n=============================\n| DMenu Payload Exited (%d) |\n=============================\n\n", getpid());
 }
 
 
@@ -739,8 +755,23 @@ void AssertionHandler(int signal, siginfo_t * info, void * vcontext)
 //### Testing shit
 static void debug_misc()
 {
-    dump_menu_entries();
-return;
+    // dump_menu_entries();
+    // return;
+
+    dmenu_item_t * itemBuf;
+    dmenu_menu_t * parentMenu;
+    itemBuf = nullptr;
+    parentMenu = (dmenu_menu_t *) read_ulong(game->pid, (unsigned long *) &game->Addrs.favorites_menu_group->root_menu);
+
+    echo("Parent menu: 0x%llX + 0xMEH -> 0x%llX", game->Addrs.favorites_menu_group, parentMenu);
+
+    DMENU_CreateToggleItem(parentMenu, &itemBuf, "Disable All Visibility", game->Addrs.d_Novis, nullptr);
+    
+    return;
+
+    
+
+    
 
     struct reg args;
     uintptr_t buf;

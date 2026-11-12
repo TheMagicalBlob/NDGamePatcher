@@ -165,7 +165,14 @@ pid_t proc_wait(int wait)
     }
     else if (WIFSTOPPED(game->status))
     {
-        echo("Stopped (sig: %d)", WSTOPSIG(game->status));
+
+        if (WSTOPSIG(game->status) == 11)
+        {
+            echo("SEGMENTATION FAULT");
+        }
+        else{
+            echo("Stopped (sig: %d)", WSTOPSIG(game->status));
+        }
     }
 
 
@@ -178,7 +185,7 @@ pid_t proc_wait(int wait)
     errno = 0;
     struct ptrace_lwpinfo thread_info;
     ret = ptrace(PT_LWPINFO, game->pid, (caddr_t) &thread_info, sizeof(struct ptrace_lwpinfo));
-    __rerrv(ret != 0, -1, "ERROR: unable to get lwp info for stopped process in pid %d", game->pid);
+    __rerrv(ret != 0, -1, "ERROR: unable to get lwp info for stopped process in pid %d", game->pid)
 
     echo("Thread that stopped / terminated: %s (%d:%d)", thread_info.pl_tdname, returned_pid, thread_info.pl_child_pid);
     return returned_pid;
@@ -783,7 +790,7 @@ void * proc_malloc(size_t amount)
     
     
     // call malloc
-    echo("Allocating %lx bytes in tracee", amount);
+    echo("Allocating 0x%lX bytes in tracee", amount);
     ret = proc_call(game->Addrs.f_Malloc, (unsigned long *) &mem, &regs);
     __rerrv(ret, nullstr, nullptr);
 
