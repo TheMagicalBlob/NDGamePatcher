@@ -70,7 +70,7 @@ static int proc_read(pid_t pid, size_t Length, void * Source, void * Destination
     }
 
 
-    #ifdef IODEBUG
+    #if VERBOSITY > 2
     echo("Read %d bytes from 0x%llX", iod.piod_len, Source);
     #endif
     return iod.piod_len;
@@ -125,7 +125,7 @@ static int proc_write(pid_t pid, size_t Length, void * Destination, void * Sourc
     }
 
     
-    #ifdef IODEBUG
+    #if VERBOSITY > 2
     echo("Wrote %d bytes to 0x%llX", iod.piod_len, Destination);
     #endif
     return iod.piod_len;

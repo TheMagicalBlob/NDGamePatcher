@@ -318,8 +318,10 @@ static int proc_suspend_threads()
 
 int proc_continue()
 {
+    #if VERBOSITY > 1
     echo("Continuing %d", game->pid);
-    
+    #endif
+
     int ret;
     ret = ptrace(PT_CONTINUE, game->pid, (caddr_t) 1, SIGCONT);
     if (ret)
@@ -329,7 +331,7 @@ int proc_continue()
     }
 
     // ret = proc_resume_threads(game->pid);
-    // __err(ret != 0, strbufbuild("proc_resume_threads failed", game->pid));
+    // __err(ret != 0, "proc_resume_threads failed (pid: %d)", game->pid));
     return ret != 0;
 }
 
@@ -338,14 +340,16 @@ int proc_continue()
 
 int proc_stop()
 {
+    #if VERBOSITY > 1
     echo("Stopping %d", game->pid);
+    #endif
 
     int ret;
     ret = kill(game->pid, SIGSTOP);
     __err(ret != 0, "kill(%d, SIGSTOP) failed", game->pid);
 
     // ret = proc_suspend_threads(game->pid);
-    // __err(ret != 0, strbufbuild("proc_suspend_threads failed", game->pid));
+    // __err(ret != 0, "proc_suspend_threads failed (pid: %d)", game->pid));
     return ret != 0;
 }
 
@@ -362,7 +366,7 @@ int proc_get_regs(struct reg * regs)
 
     __rerrv(ret != 0, 1, "PT_GETREGS failed with code %d (%s)", ret, strerror(ret));
 
-    #ifdef IODEBUG
+    #if VERBOSITY > 2
     echo("");
     echo("# Registers (READ):");
     echo("# rax: %llX  rbx: %llX", regs->r_rax, regs->r_rbx);
@@ -383,18 +387,11 @@ int proc_get_regs(struct reg * regs)
 
 int proc_set_regs(struct reg * regs)
 {
-    int ret;
-    if ((ret = ptrace(PT_SETREGS, game->pid, (caddr_t) regs, 0)) != 0)
-    {
-        echo("ERROR:\n# PT_SETREGS failed with code %d (%s)\n", ret, strerror(ret));
-        if (errno)
-        {
-            perror("PT_SETREGS: ");
-        }
-    }
+    int ret = ptrace(PT_SETREGS, game->pid, (caddr_t) regs, 0);
+    __rerrv(ret != 0, 1, "PT_SETREGS failed with code %d (%s)\n", ret, strerror(ret));
     
     
-    #ifdef IODEBUG
+    #if VERBOSITY > 2
     echo("");
     echo("# Registers (WRITTEN):");
     echo("# rax: %llX  rbx: %llX", regs->r_rax, regs->r_rbx);
@@ -415,27 +412,19 @@ int proc_set_regs(struct reg * regs)
 
 int proc_get_dbregs(struct dbreg * dbregs)
 {
-    errno = 0;
-    int ret;
-    if ((ret = ptrace(PT_GETDBREGS, game->pid, (caddr_t) dbregs, 0)) != 0)
-    {
-        echo("ERROR:\n# PT_GETDBREGS failed with code %d (%d -> %s)\n", ret, errno, strerror(errno));
-    }
+    int ret = ptrace(PT_GETDBREGS, game->pid, (caddr_t) dbregs, 0);
+    __rerrv(ret != 0, 1, "PT_GETDBREGS failed with code %d (%s)\n", ret, strerror(ret));
 
-    return ret != 0;
+    return 0;
 }
 
 
 int proc_set_dbregs(struct dbreg * dbregs)
 {
-    errno = 0;
-    int ret;
-    if ((ret = ptrace(PT_SETDBREGS, game->pid, (caddr_t) dbregs, 0)) != 0)
-    {
-        echo("ERROR:\n# PT_SETDBREGS failed with code %d (%d -> %s)\n", ret, errno, strerror(errno));
-    }
+    int ret = ptrace(PT_SETDBREGS, game->pid, (caddr_t) dbregs, 0);
+    __rerrv(ret != 0, 1, "# PT_SETDBREGS failed with code %d (%s)\n", ret, strerror(ret));
     
-    return ret != 0;
+    return 0;
 }
 
 
@@ -465,41 +454,24 @@ int set_watchpoint(short index, void * address, int wp_type, int wp_len)
 
 
     // Get the current number of threads in the game process
-    pid_t pid;
-    pid = game->pid;
-    if ((thread_count = ptrace(PT_GETNUMLWPS, pid, null, 0)) == -1)
-    {
-        perror("PT_GETNUMLWPS: ");
-        echo("ERROR:\n# PT_GETNUMLWPS failed. See error above. Aborting watchpoint creation");
-        return 1;
-    }
-    if (thread_count < 1)
-    {
-        echo("ERROR: Invalid number of threads returned from PT_GETNUMLWPS. Aborting watchpoint creation.");
-        return 1;
-    }
+    pid_t pid = game->pid;
+    thread_count = ptrace(PT_GETNUMLWPS, pid, null, 0);
+    __rerrv(thread_count == -1, 1, "PT_GETNUMLWPS failed. Aborting watchpoint creation")
+    __rerrv(thread_count < 1, 1, "PT_GETNUMLWPS returned invalid number of threads. Aborting watchpoint creation. (%d)", thread_count)
 
 
 
     // Get the threads themselves
     lwpid_list = (lwpid_t *) malloc(thread_count * sizeof(lwpid_t));
-
-    if ((ret = ptrace(PT_GETLWPLIST, pid, (caddr_t) lwpid_list, thread_count)) != thread_count)
-    {
-        perror("PT_GETLWPLIST: ");
-        echo("ERROR:\n# PT_GETLWPLIST failed. Did not fill all array entries. (%d != %d)", ret, thread_count);
-        goto _ret;
-    }
+    ret = ptrace(PT_GETLWPLIST, pid, (caddr_t) lwpid_list, thread_count);
+    __rerrv(ret != thread_count, 1, "PT_GETLWPLIST failed. Did not fill all array entries. (%d != %d)", ret, thread_count)
     
     
     
 
     // Get the current debug register values to avoid overwriting other watchpoints
-    if ((ret = ptrace(PT_GETDBREGS, pid, (caddr_t) &regs, 0)) != 0)
-    {
-        echo("ERROR:\n# PT_GETDBREGS failed with code %d (%s)", ret, strerror(ret));
-        goto _ret;
-    }
+    ret = ptrace(PT_GETDBREGS, pid, (caddr_t) &regs, 0);
+    __errg(ret != thread_count, _ret, "PT_GETDBREGS failed with code %d (%s)", ret, strerror(ret))
 
 
     
@@ -540,20 +512,15 @@ int set_watchpoint(short index, void * address, int wp_type, int wp_len)
         if (0) // (address)
         {
             // Print thread names for shits and giggles (making sure the lwpinfo struct is all good)
-            if ((ret = ptrace(PT_LWPINFO, lwpid_list[i], (caddr_t) &lwpinfo, sizeof(struct ptrace_lwpinfo))) != 0)
-            {
-                echo("ERROR:\n# PT_LWPINFO failed with code (%s) %d\n", strerror(ret), ret);
-                break;
-            }
+            ret = ptrace(PT_LWPINFO, lwpid_list[i], (caddr_t) &lwpinfo, sizeof(struct ptrace_lwpinfo));
+            __errg(ret != 0, _ret, "PT_LWPINFO failed with code (%s) %d", strerror(ret), ret)
+
             echo(lwpinfo.pl_tdname);
         }
 
 
-        if ((ret = ptrace(PT_SETDBREGS, lwpid_list[i], (caddr_t) &regs, 0)) != 0)
-        {
-            echo("ERROR:\n# PT_SETDBREGS failed with code (%s) %d\n", strerror(ret), ret);
-            break;
-        }
+        ret = ptrace(PT_SETDBREGS, lwpid_list[i], (caddr_t) &regs, 0);
+        __errg(ret != 0, _ret, "PT_SETDBREGS failed with code (%s) %d", strerror(ret), ret)
     }
 
     
@@ -779,20 +746,19 @@ _return:
 
 void * proc_malloc(size_t amount)
 {
-    int ret;         // Return status for function calls
     void * mem;      // Allocated memory pointer
     struct reg regs; // Register struct for call args
 
 
     // set malloc arguments
-    ret = proc_set_args(&regs, amount, 0, 0, 0, 0, 0, 0);
-    __rerrv(ret, nullstr, nullptr);
+    __rerrv(proc_set_args(&regs, amount, 0, 0, 0, 0, 0, 0), nullptr, "Failed to set args for proceeding function call to tracee's malloc function (0x%llX).", game->Addrs.f_Malloc)
     
+    #if VERBOSITY > 1
+    echo("Allocating 0x%lX bytes in tracee", amount);
+    #endif
     
     // call malloc
-    echo("Allocating 0x%lX bytes in tracee", amount);
-    ret = proc_call(game->Addrs.f_Malloc, (unsigned long *) &mem, &regs);
-    __rerrv(ret, nullstr, nullptr);
+    __rerrv(proc_call(game->Addrs.f_Malloc, (unsigned long *) &mem, &regs), nullptr, "Call to tracee's malloc function (0x%llX) failed", game->Addrs.f_Malloc)
 
     return mem;
 }
@@ -805,66 +771,15 @@ int proc_free(void * allocated_mem)
     struct reg regs; // Register struct for call args
 
     // set free arguments
-    __rerrv(proc_set_args(&regs, (uintptr_t) allocated_mem, 0, 0, 0, 0, 0, 0), 1, "Failed to set args for proceeding function call to tracee's free function.");
+    __rerrv(proc_set_args(&regs, (uintptr_t) allocated_mem, 0, 0, 0, 0, 0, 0), 1, "Failed to set args for proceeding function call to tracee's free function (0x%llX).", game->Addrs.f_Free);
 
-    // Call free
+    #if VERBOSITY > 1
     echo("Freeing allocated memory in tracee at 0x%llX", allocated_mem);
-    __rerrv(proc_call((void *) game->Addrs.f_Free, NULL, &regs), 1, "Call to tracee's free function failed");
+    #endif
+    
+    // Call free
+    __rerrv(proc_call((void *) game->Addrs.f_Free, NULL, &regs), 1, "Call to tracee's free function (0x%llX) failed", game->Addrs.f_Free)
     
     return 0;
-}
-
-
-
-
-
-
-
-int patch_process(size_t patch_count, byte * patch_addresses[], const byte * patch_data[], size_t patch_sizes[])
-{
-    __rerrv(1, 1, "Unfinished function %s called prematurely.", __FUNCTION__);
-    ((void * (*)()) NULL)();
-    echo("We're still fuckin' goin'?!");
-    exit(1);
-
-    __rerrv(!game, 1, "Invalid game pointer provided.");
-    __rerrv(!patch_count, 0, "WARNING: Patch count was zero.");
-    __rerrv(!(byte *) patch_data, 1, "Invalid patch data array pointer provided.");
-
-    proc_wait(false);
-
-    int ret;
-    echo("Writing %d patches to process %d...", patch_count, game->pid);
-    for (int i = 0, j = 0; i < patch_count; i++, j = 0)
-    {
-        while (j < patch_sizes[i])
-        {
-            ret = write_byte(game->pid, patch_addresses[i] + j, *(patch_data[i] + j));
-            __err(ret, strbufbuild("Error writing byte @0x%X to 0x%llX", *(patch_data[i] + j), patch_addresses[i] + j));
-
-            ++j;
-        }
-    }
-
-
-    byte chk;
-    echo("Verifying patches were written to %d...", game->pid);
-    for (int i = 0, j = 0; i < patch_count; i++, j = 0)
-    {
-        while (j < patch_sizes[i])
-        {
-            chk = read_byte(game->pid, patch_addresses[i] + j);
-            __rerrv(errno != 0, 1, "Error reading expected byte @0x%X from 0x%llX (%s)", *(patch_data[i] + j), patch_addresses[i] + j, strerror(errno));
-
-            if (chk != *(patch_data[i] + j))
-            {
-                echo("Patch %d was not applied correctly (fail address: 0x%llX, expected value: 0x%X, read value: 0x%X)", patch_addresses[i] + j, *(patch_data[i] + j), chk);
-                break;
-            }
-
-
-            ++j;
-        }
-    }
 }
 

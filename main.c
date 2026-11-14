@@ -62,8 +62,9 @@ static int watchpoint_count = 0;
 //## Common Function Declarations
 //#
 
-int
-klogprint(const char *fmt, ...) {
+#define kLogOutBufferSize 0x210
+int kprintf(const char * fmt, ...)
+{
   __builtin_va_list args;
   char sargs[0x200] = {0};
   char buf[0x500];
@@ -77,47 +78,38 @@ klogprint(const char *fmt, ...) {
   return (int) syscall(0x259, 7, buf, 0);
 }
 
-
-void failed_echo(const char * string, ...)
+int kputs(const char * str)
 {
-#ifdef ECHO
-    klogprint("Segfault received on attempt to print string from address 0x%llX", (unsigned long) string);
-#endif
+  return (int) syscall(0x259, 7, str, 0);
 }
+
+
 
 // Print (and optionally format) the specified string to kernel output, as well as to the log file if one is active
 int echo(const char * string, ...)
 {
-#ifdef ECHO
-    // struct sigaction handler;
-    // bzero(&handler, sizeof(struct sigaction));
-
-    // handler.__sigaction_u.__sa_handler = failed_echo;
-    // sigaction(SIGSEGV, &handler, NULL);
-
-    int len;
+#if VERBOSITY > 0
     va_list list;
     va_start(list, string);
     
-    char msg[4000];
-    len = vsnprintf(msg, sizeof(msg) - 2, string, list);
+    char msg[kLogOutBufferSize];
+    int len = vsnprintf(msg, sizeof(msg) - 2, string, list);
     
     if (game != NULL)
     {
-        klogprint("%d:%d: %s\n", getpid(), game->pid, &msg);
+        kprintf("%d:%d: %s\n", getpid(), game->pid, &msg);
     }
     else{
-        klogprint("%d:%d: %s\n", getpid(), 0, &msg);
+        kprintf("%d:%d: %s\n", getpid(), 0, &msg);
     }
 
     log_message("%s\n", msg);
     va_end(list);
 
-    
 
-    if (len >= 0x1FA)
+    if (len >= kLogOutBufferSize)
     {
-        klogprint("\nWARNING: constructed output string for proceeding message is too long (0x%x >= 0x%x)\n", len, 0x1FA);
+        kprintf("\nWARNING: constructed output string for previous message is too long. Message truncated (0x%x >= 0x%x)\n", len, kLogOutBufferSize);
     }
 
     return len;
@@ -176,7 +168,7 @@ void log_message(const char * base_string, ...)
 
         if (logfile < 0)
         {
-            klogprint("Unable to open logfile, maybe error code: %s", strerror(errno));
+            kprintf("Unable to open logfile, maybe error code: %s", strerror(errno));
         }
     }
 
@@ -188,7 +180,7 @@ void log_message(const char * base_string, ...)
         ret = write(logfile, message, strlen(message));
         if (ret == -1)
         {
-            klogprint("Write returned error? (%s)\n", strerror(errno));
+            kprintf("Write returned error? (%s)\n", strerror(errno));
         }
     }
 #endif
@@ -201,32 +193,7 @@ void log_message(const char * base_string, ...)
 
 
 
-// [DEBUG-ONLY] Construct one string in memory to be returned C#-style. Uses one static buffer, only use for certain prints (like the assertion macro)
-char * strbufbuild(char * format, ...)
-{
-#ifdef ECHO
-    va_list list;
-    static char message[2000];
-    bzero(message, sizeof(message));
-
-    // Build string with variable arguments
-    va_start(list, format);
-    vsnprintf(message, sizeof(message) - 1, format, list);
-    va_end(list);
-    return message;
-#else
-    static char * msg = " ";
-    return msg;
-#endif
-}
-
-
-
-
-
-
-
-
+//! write me
 int decode_sid(SID SID, const char * DecodedSID)
 {
     echo("Not Implemented Exception (%s)", __FUNCTION__);
@@ -610,7 +577,7 @@ static game_id_t find_and_trace_game()
 
 void print_exit_message()
 {
-    klogprint("\n=============================\n| DMenu Payload Exited (%d) |\n=============================\n\n", getpid());
+    kprintf("\n=============================\n| DMenu Payload Exited (%d) |\n=============================\n\n", getpid());
 }
 
 
@@ -651,10 +618,7 @@ void cleanup(int exit_code)
 
 
 
-void setup_assertion(const char * function, int line)
-{
 
-}
 
 
 
@@ -668,7 +632,7 @@ void AssertionHandler(int signal, siginfo_t * info, void * vcontext)
     ucontext_t * context;
     context = (ucontext_t *) vcontext;
 
-    #ifdef VERBOSEDEBUG
+    #if VERBOSITY > 1
     echo("pre-assertion context:\n# mc_addr: %llX\n# mc_rip: %llX\n# mc_flags: %llX", context->uc_mcontext.mc_addr, context->uc_mcontext.mc_rip, context->uc_mcontext.mc_flags);
     #endif
 
@@ -755,38 +719,31 @@ void AssertionHandler(int signal, siginfo_t * info, void * vcontext)
 //### Testing shit
 static void debug_misc()
 {
-    // DMENU_DumpSupportInfo();
-
-    // sleep(4);
-
-    // DMENU_RunReversingChecks();
-    // return;
-    
-
-    dmenu_item_t * itemBuf = nullptr;
-    dmenu_menu_t * pFavoritesMenu = nullptr;
-    dmenu_menu_t * testMenu;
-    dmenu_item_t * testSubmenu;
-    pFavoritesMenu = (dmenu_menu_t *) read_ulong(game->pid, (unsigned long *) &game->Addrs.favorites_menu_group->root_menu);
-
-
-    DMENU_FullCreateMenu(pFavoritesMenu, &testMenu, "Test Menu", nullptr, nullptr);
-
-    DMENU_FullCreateItemSubmenu(pFavoritesMenu, &testSubmenu, "Test Menu...", testMenu, nullptr, nullptr);
-
-    DMENU_FullCreateToggleItem(testMenu, &itemBuf, "Disable All Visibility", game->Addrs.d_Novis, nullptr);
-    return;
-
-    
-
-    
-
     struct reg args;
     uintptr_t buf;
 
+    
+    dmenu_menu_t * pFavoritesMenu = (dmenu_menu_t *) read_ulong(game->pid, (unsigned long *) &game->Addrs.favorites_menu_group->root_menu);
+    
+    
+    dmenu_menu_t * pTestMenu;
+    DMENU_FullCreateMenu(pFavoritesMenu, &pTestMenu, "Test Menu", nullptr, nullptr);
+    
+    dmenu_item_t * pTestItemSubmenu;
+    DMENU_FullCreateItemSubmenu(pFavoritesMenu, &pTestItemSubmenu, "Test Menu...", pTestMenu, nullptr, nullptr);
+    
+    dmenu_item_t * pItem = nullptr;
+    DMENU_FullCreateToggleItem(pTestMenu, &pItem, "Test Toggle Item", game->Addrs.d_Novis, nullptr);
+
+    DMENU_FullCreateExecItem(pFavoritesMenu, &pItem, "Detonate All Enemies", (void *) 0x16cc660); //! Calls patched-in function
+
+    DMENU_FullCreateToggleItem(pFavoritesMenu, &pItem, "Disable All Visibility", game->Addrs.d_Novis, nullptr);
+
+
+
     // Allocate arg data space in game process
     buf = (uintptr_t) proc_malloc(0x200);
-    echo("Buffer allocated to 0x%llX", buf);
+    echo("PushAllocator arg Buffer allocated; Ptr: 0x%llX", buf);
 
     // Write args
     write_uint(game->pid, (unsigned *) buf, 0x5D);
@@ -799,13 +756,12 @@ static void debug_misc()
     proc_call((void *) 0x4fa710, nullptr, &args);
 
     // Create Small SpawnAvActor menu
-    proc_set_args(&args, 0, (uintptr_t) read_ulong(game->pid, (unsigned long *) &game->Addrs.favorites_menu_group->root_menu), 0, 0, 0, 0, 0);
+    proc_set_args(&args, 0, (uintptr_t) pTestMenu, 0, 0, 0, 0, 0);
     proc_call((void *) 0x27ad490, nullptr, &args);
 
     // Pop stack allocator
     proc_clear_args(&args);
     proc_call((void *) 0x5eebd0, nullptr, &args);
-
 }
 #endif
 

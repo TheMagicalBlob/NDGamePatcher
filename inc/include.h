@@ -49,27 +49,14 @@
 // Run whatever debug/test code is present, rather than the main payload code
 #define TESTS
 
+// 0: Disabled
+// 1: Basic
+// 2: Detailed
+// 3: Excessive
+#define VERBOSITY 3
 
-// If undefined, echo/logging functions stripped.
-#define ECHO
-// Extended Echo usage
-#ifdef ECHO
-    //! NOT FULLY IMPLEMENTED
-    // 0: Disabled
-    // 1: Basic
-    // 2: Detailed
-    // 3: Excessive
-    #define VERBOSITY 1
-
-    // // Print Verbose I/O Information
-    // #define IODEBUG
-
-    // Print Verbose Debugging Messages
-    #define VERBOSEDEBUG
-    
-    // Duplicate all output on the PS5 in a text file at /data/bLog.txt
-    #define LOGFILE
-#endif
+// Duplicate all output on the PS5 in a text file at /data/bLog.txt
+#define LOGFILE
 
 // // If undefined, ps5-side notification functions will be stripped
 // #define NOTIFY
@@ -208,11 +195,10 @@ typedef struct app_info
 
 
 
+int kprintf(const char *fmt, ...);
 int echo(const char * string, ...);
 void log_message(const char * base_string, ...);
 void notify(const char * message, ...);
-
-char * strbufbuild(char * format, ...);
 
 
 int decode_sid(SID SID, const char * DecodedSID);

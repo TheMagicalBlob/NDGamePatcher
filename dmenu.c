@@ -380,17 +380,21 @@ int load_item(const dmenu_item_t * address, dmenu_item_t * item)
 
 
 
-typedef enum DMENU_ReversingScanner_Type : char { // DMENU_RunReversingChecks-specific enum
+// Enum for specifying the struct to be used in the dmenu reversing scanner
+typedef enum DMENU_ReversingScanner_Type : char {
     stMenu,
     stItem
 } DMENU_ReScanner_Type_t;
-typedef struct DMENU_ReversingScanner_Check { // DMENU_RunReversingChecks-specific struct
+
+// DMENU_RunReversingChecks-specific struct
+typedef struct DMENU_ReversingScanner_Check {
     DMENU_ReScanner_Type_t Type;
     unsigned long Offset;
     const char * Name;
     unsigned long Buffer;
 } DMENU_ReScanner_Check_t;
-typedef struct DMENU_ReversingScanner { // do_DMENU_DumpSupportInfo-specific struct
+// do_DMENU_DumpSupportInfo-specific struct
+typedef struct DMENU_ReversingScanner {
     char Name[0xFF];       // Component name
     char ParentName[0xFF]; // Component's parent name
     dmenu_vptr_t Type;     // Component "type" (class vPtr)
@@ -473,18 +477,18 @@ static void PrintReScannerContents(DMENU_ReScanner_t Scanner[], size_t ScannerCo
     const char * itemString = "Item";
     const char * currentTypeString = nullptr;
 
-    echo("");
+    kprintf("\n");
     for (unsigned i = 0; i < ScannerCount; i++)
     {
-        echo(
-            "\n# /%s/%s/%s\n# {\n#     0x%llX\n#     Type: 0x%llX (%s)\n#     Item Variable: 0x%llX\n#     Return Buffer: 0x%llX\n# }",
+        kprintf(
+            "# /%s/%s/%s\n# {\n#     0x%llX\n#     Type: 0x%llX (%s)\n#     Item Variable: 0x%llX\n#     Return Buffer: 0x%llX\n# }\n",
 
             MenuGroupName, Scanner[i].ParentName, Scanner[i].Name, (unsigned long long) Scanner[i].pItem, (unsigned long long) Scanner[i].Type, Scanner[i].dType, Scanner[i].ItemVariable, Scanner[i].ReturnBuffer
         );
 
         if (Scanner[i].CheckCount > 0)
         {
-            char scannerOut[0x1FC] = {"# DR Scanner:"};
+            char scannerOut[0x1FC] = {"# DR Scanner:\n"};
 
             for (unsigned j = 0; j < Scanner[i].CheckCount; j++)
             {
@@ -498,13 +502,13 @@ static void PrintReScannerContents(DMENU_ReScanner_t Scanner[], size_t ScannerCo
                         currentTypeString = menuString;
                     }
 
-                    snprintf(&scannerOut[strnlen(scannerOut, sizeof(scannerOut) - 1)], sizeof(scannerOut), "\n# DMENU::%s.%s: 0x%llX = 0x%llX", currentTypeString, Scanner[i].Checks[j].Name, (unsigned long long) Scanner[i].Checks[j].Offset, (unsigned long long) Scanner[i].Checks[j].Buffer);
+                    snprintf(&scannerOut[strnlen(scannerOut, sizeof(scannerOut) - 1)], sizeof(scannerOut), "# DMENU::%s.%s: 0x%llX = 0x%llX\n", currentTypeString, Scanner[i].Checks[j].Name, (unsigned long long) Scanner[i].Checks[j].Offset, (unsigned long long) Scanner[i].Checks[j].Buffer);
                 }
             }
-            echo("%s\n", (char *) scannerOut);
+            kprintf("%s\n", (char *) scannerOut);
         }
         else{
-            echo("\n");
+            kprintf("\n");
         }
     }
 }
@@ -596,8 +600,8 @@ void DMENU_RunReversingChecks()
     {
         { stItem, __offsetof(dmenu_item_t, UnknownInt), "UnknownInt", 0 },   
         { stItem, __offsetof(dmenu_item_t, _SelectionIndex), "_SelectionIndex", 0 },   
-        { stItem, __offsetof(dmenu_item_t, _ItemCount), "_ItemCount", 0 },
-        { stMenu, __offsetof(dmenu_menu_t, Unmapped1), "Unmapped1", 0 }
+        { stItem, __offsetof(dmenu_item_t, _ItemCount), "_ItemCount", 0 }
+        // { stMenu, __offsetof(dmenu_menu_t, Unmapped1), "Unmapped1", 0 }
     };
     // Amount of offsets added to the CheckOffsets array
     size_t CheckCount = sizeof(checks) / sizeof(DMENU_ReScanner_Check_t);
@@ -740,21 +744,29 @@ void DMENU_RunReversingChecks()
 
 
 
+// do_DMENU_DumpSupportInfo-specific struct
+typedef struct DMENU_SupportInfoScanner_s {
+    dmenu_vptr_t Type;     // Component "type" (class vPtr)
+    char dType[0x40];      // Component Type as String 
+    void * EventHandler;   // Component event handler (function ran on each cycle)
+    
+} DMENU_SupportScanner_t;
+
 // DMENU_RunReversingChecks-specific function
-static void PrintSupportScannerContents(DMENU_ReScanner_t Scanner[], size_t ScannerCount)
+static void PrintSupportScannerContents(DMENU_SupportScanner_t Scanner[], size_t ScannerCount)
 {
     //## Types
-    echo("{");       for (unsigned i = 0; i < ScannerCount; i++)
+    kprintf("{\n");       for (unsigned i = 0; i < ScannerCount; i++)
     {
-        echo("    .DMENU_Types_%s = (dmenu_vptr_t) 0x%llX,", Scanner[i].dType, Scanner[i].Type);
+        kprintf("    .DMENU_Types_%s = (dmenu_vptr_t) 0x%llX,\n", Scanner[i].dType, Scanner[i].Type);
     }
     
     //## Event Handlers
-    echo("},\n\n{"); for (unsigned i = 0; i < ScannerCount; i++)
+    kprintf("},\n\n{\n"); for (unsigned i = 0; i < ScannerCount; i++)
     {
-        echo("    .DMENU_Handlers_%s = (void *) 0x%llX,", Scanner[i].dType, Scanner[i].EventHandler);
+        kprintf("    .DMENU_Handlers_%s = (void *) 0x%llX,\n", Scanner[i].dType, Scanner[i].EventHandler);
     }
-    echo("}");
+    kprintf("}\n");
 }
 // Dump required addresses for dmenu support in the running title
 void DMENU_DumpSupportInfo()
@@ -828,14 +840,14 @@ void DMENU_DumpSupportInfo()
     //## Component Scanner Variables
     //#
     #define maxComponentCount 0x40
-    DMENU_ReScanner_t * pCurrComponent; // Scanner ref to avoid having a bunch of if/else statements checking for unknown values.
+    DMENU_SupportScanner_t * pCurrComponent; // Scanner ref to avoid having a bunch of if/else statements checking for unknown values.
 
     //## Basic type checks
     unsigned knownTypeCount = 0;
-    DMENU_ReScanner_t knownComponents[maxComponentCount] = {0};
+    DMENU_SupportScanner_t knownComponents[maxComponentCount] = {0};
     
     unsigned unknownTypeCount = 0;
-    DMENU_ReScanner_t unknownComponents[maxComponentCount] = {0};
+    DMENU_SupportScanner_t unknownComponents[maxComponentCount] = {0};
 
 
 
@@ -915,7 +927,6 @@ void DMENU_DumpSupportInfo()
             // Save general component info
             pCurrComponent->Type = type;
             strncpy(pCurrComponent->dType, dtype, sizeof(pCurrComponent->dType));
-            pCurrComponent->pItem = pItem;
         }
 
 
@@ -934,12 +945,7 @@ void DMENU_DumpSupportInfo()
 
             if (newItem && pCurrComponent != nullptr)
             {
-                read_string(game->pid, menu.pMenuName, pCurrComponent->Name);
-                read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &menu.Parent->pMenuName), pCurrComponent->ParentName);
-                
-                pCurrComponent->ReturnBuffer = 0;
-                pCurrComponent->ItemVariable = menu.MenuVariable;
-                pCurrComponent->EventHandler = (unsigned long) menu.Callback;
+                pCurrComponent->EventHandler = menu.Callback;
             }
             
 
@@ -954,19 +960,7 @@ void DMENU_DumpSupportInfo()
 
             if (newItem && pCurrComponent != nullptr)
             {
-                if (item.pItemText)
-                {
-                    read_string(game->pid, item.pItemText, pCurrComponent->Name);
-                }
-                else {
-                    strcpy(pCurrComponent->Name, "--------------------------------");
-                }
-    
-                read_string(game->pid, (void *) read_ulong(game->pid, (unsigned long *) &item.Parent->pMenuName), pCurrComponent->ParentName);
-
-                pCurrComponent->ReturnBuffer = item.ReturnBuffer;
-                pCurrComponent->ItemVariable = item.ItemVariable;
-                pCurrComponent->EventHandler = (unsigned long) item.EventHandler;
+                pCurrComponent->EventHandler = item.EventHandler;
             }
 
             
@@ -1080,8 +1074,8 @@ void DMENU_DumpSupportInfo()
 //#
 #pragma region
 
-//! write me
-static int CreateBaseComponent(dmenu_item_t * item, const char * component_name)
+// Initialize the provided dmenu_component_t (pComponent), setting basic dmenu_component_t structure properties
+static int CreateBaseComponent(dmenu_item_t * pComponent, const char * component_name)
 {
     int ret = 0;
     char * str_dest;
@@ -1090,22 +1084,22 @@ static int CreateBaseComponent(dmenu_item_t * item, const char * component_name)
     // Zero item in tracee's memory
     for (unsigned i = 0; i < sizeof(dmenu_item_t); i++)
     {
-        ret |= write_byte(game->pid, (byte *) item + i, (byte) 0);
+        ret |= write_byte(game->pid, (byte *) pComponent + i, (byte) 0);
 
         __errg(ret != 0, __break, "Failed writing zero byte to struct in tracee's memory. (wrote %d out of %d bytes)", i, sizeof(dmenu_item_t));
     }
 
 __break:
-    ret |= write_ulong(game->pid, (unsigned long *) &item->vPtr, (unsigned long) game->Types.DMENU_Types_BaseComponent);
+    ret |= write_ulong(game->pid, (unsigned long *) &pComponent->vPtr, (unsigned long) game->Types.DMENU_Types_BaseComponent);
     
-    ret |= write_uint(game->pid, &item->OffStateColour, (unsigned) 0xFFC8C8C8); // White
-    ret |= write_uint(game->pid, &item->OnStateColour,  (unsigned) 0xFF00FFFF); // Yellow
+    ret |= write_uint(game->pid, &pComponent->OffStateColour, (unsigned) 0xFFC8C8C8); // White
+    ret |= write_uint(game->pid, &pComponent->OnStateColour,  (unsigned) 0xFF00FFFF); // Yellow
     
-    ret |= write_uint(game->pid, &item->UnknownInt, (unsigned) 0xB0FFB0FF); // Value it always has, still not sure what this does. My original assumption appears to be wrong, though
+    ret |= write_uint(game->pid, &pComponent->UnknownInt, (unsigned) 0xFFB0FFB0); // Value it always has, still not sure what this does. My original assumption appears to be wrong, though
     
     
-    ret |= write_uint(game->pid, (unsigned *) &item->_ItemCount, 1);
-    ret |= write_uint(game->pid, (unsigned *) &item->_SelectionIndex, 1);
+    ret |= write_uint(game->pid, (unsigned *) &pComponent->_ItemCount, 1);
+    ret |= write_uint(game->pid, (unsigned *) &pComponent->_SelectionIndex, 1);
 
 
 
@@ -1119,11 +1113,11 @@ __break:
         name_length = strlen(component_name);
         if (name_length < 0x20)
         {
-            str_dest = (char *) &item->ItemText;
+            str_dest = (char *) &pComponent->ItemText;
             write_string(game->pid, str_dest, component_name);
         }
         else {
-            echo("Item name \"%s\" does not fit the default item buffer, allocating extended buffer", component_name);
+            echo("Item name \"%s\" does not fit the default component name/text buffer, allocating extended buffer", component_name);
             if (name_length < 0xFF)
             {
                 name_length = 0xFF;
@@ -1136,7 +1130,7 @@ __break:
             str_dest[name_length] = 0;
         }
 
-        ret |= write_ulong(game->pid, (unsigned long *) &item->pItemText, (unsigned long) str_dest);
+        ret |= write_ulong(game->pid, (unsigned long *) &pComponent->pItemText, (unsigned long) str_dest);
 
         echo("%s created", component_name);
     }
@@ -1144,7 +1138,7 @@ __break:
 
 
     // Check for and report the number of failed processes
-    __err(ret != 0, "%d write processes failed when creating base component \"%s\" (0x%llX).", ret, component_name, item);
+    __err(ret != 0, "%d write processes failed when creating base component \"%s\" (0x%llX).", ret, component_name, pComponent);
 
     return ret != 0;
 }
@@ -1153,7 +1147,7 @@ __break:
 
 
 
-//! write me
+// Initialize the provided dmenu_menu_t (pMenu), setting basic dmenu_component_t structure properties and additional menu-related ones
 static int CreateMenuComponent(dmenu_menu_t * pMenu, const char * MenuName, dmenu_menu_t * pParent, void * Callback, void * MenuVariable)
 {
     int ret = 0;
@@ -1187,7 +1181,7 @@ static int CreateMenuComponent(dmenu_menu_t * pMenu, const char * MenuName, dmen
 
 
 
-//! write me
+// Initialize the provided dmenu_item_t (pComponent), setting basic dmenu_component_t structure properties and additional itemSubmenu-related ones
 static int CreateItemSubmenuComponent(dmenu_item_t * pComponent, const char * ItemSubmenu, dmenu_menu_t * pChild, void * ItemEventHandler, void * ItemVariable)
 {
     int ret;
@@ -1226,8 +1220,9 @@ static int CreateItemSubmenuComponent(dmenu_item_t * pComponent, const char * It
 
 
 
-//! write me
-static int CreateGeneralComponent(dmenu_item_t * pComponent, const char * ItemName, void * ItemVariable, dmenu_vptr_t ItemType, void * ItemEventHandler, void * DefaultEventHandler)
+// Initialize the provided dmenu_item_t (pComponent), setting basic dmenu_component_t structure properties and important item info
+// (Type, event handler)
+static int CreateGeneralComponent(dmenu_item_t * pComponent, const char * ItemName, void * ItemVariable, dmenu_vptr_t ItemType, DMENU_item_eh_type_t EventHandlerType, void * EventHandler)
 {
     int ret;
     // Create component base
@@ -1237,22 +1232,17 @@ static int CreateGeneralComponent(dmenu_item_t * pComponent, const char * ItemNa
     
 
     // Default to game's basic toggle item event handler if none is specified
-    if (ItemEventHandler == nullptr)
-    {
-        ItemEventHandler = (void *) DefaultEventHandler;
-    }
-    __rerrv(ItemEventHandler == nullptr && ItemType != game->Types.DMENU_Types_ItemSubmenu, 1, "Item event handler still null, aborting.");
+    __rerrv(EventHandler == nullptr && EventHandlerType != DMENU_HandlerType_ToggleItem, 1, "Item event handler still null, aborting.");
 
     // Item Class/Type (vTable pointer)
-    ret |= write_ulong(game->pid, (unsigned long *) &pComponent->vPtr, (unsigned long) game->Types.DMENU_Types_ToggleItem);
+    ret |= write_ulong(game->pid, (unsigned long *) &pComponent->vPtr, (unsigned long) ItemType);
 
 
     // Event Handler type
-    ret |= write_uint(game->pid, (unsigned *) &pComponent->EventHandlerTypeID, (unsigned) DMENU_HandlerType_ToggleItem);
+    ret |= write_uint(game->pid, (unsigned *) &pComponent->EventHandlerTypeID, (unsigned) EventHandlerType);
     
     // Event Handler
-    echo("Event handler: 0x%llX (0x%llX)", __offsetof(dmenu_item_t, EventHandler), ItemEventHandler);
-    ret |= write_ulong(game->pid, (unsigned long *) &pComponent->EventHandler, (unsigned long) ItemEventHandler);
+    ret |= write_ulong(game->pid, (unsigned long *) &pComponent->EventHandler, (unsigned long) EventHandler);
 
     // Item Variable
     ret |= write_ulong(game->pid, (unsigned long *) &pComponent->ItemVariable, (unsigned long) ItemVariable);
@@ -1274,7 +1264,7 @@ static int CreateGeneralComponent(dmenu_item_t * pComponent, const char * ItemNa
 
 
 
-//! write me
+// Initialize a provided DMENU::Menu (pMenu) with the specified name, parent, plus an optional callback and/or menu variable
 int DMENU_CreateMenu(dmenu_menu_t * pMenu, const char * MenuName, dmenu_menu_t * pParent, void * Callback, void * MenuVariable)
 {
     return CreateMenuComponent(pMenu, MenuName, pParent, Callback, MenuVariable);
@@ -1282,8 +1272,7 @@ int DMENU_CreateMenu(dmenu_menu_t * pMenu, const char * MenuName, dmenu_menu_t *
 
 
 
-
-//! write me
+// Initialize a provided DMENU::ItemSubmenu (pItemSubmenu) with the specified name, and an optional event handler and/or submenu variable
 int DMENU_CreateItemSubmenu(dmenu_item_t * pItemSubmenu, const char * SubmenuName, dmenu_menu_t * pNewSubmenu, void * CustomEventHandler, void * SubmenuVariable)
 {
     return CreateItemSubmenuComponent(pItemSubmenu, SubmenuName, (void *) pNewSubmenu, CustomEventHandler, SubmenuVariable) != 0;
@@ -1291,11 +1280,30 @@ int DMENU_CreateItemSubmenu(dmenu_item_t * pItemSubmenu, const char * SubmenuNam
 
 
 
-
-//! write me
-int DMENU_CreateToggleItem(dmenu_item_t * pItem, const char * ItemName, void * ItemVariable, void * ItemAlternateEventHandler)
+// Initialize a provided DMENU::Item (pItem) of type ToggleItem with the specified name, variable, and an optional alternate event handler
+int DMENU_CreateToggleItem(dmenu_item_t * pItem, const char * ItemName, void * ItemVariable, void * EventHandler)
 {
-    return CreateGeneralComponent(pItem, ItemName, ItemVariable, game->Types.DMENU_Types_ToggleItem, ItemAlternateEventHandler, game->EventHandlers.DMENU_Handlers_ToggleItem) != 0;
+    if (EventHandler == nullptr)
+    {
+        EventHandler = game->EventHandlers.DMENU_Handlers_ToggleItem;
+    }
+
+    return CreateGeneralComponent(pItem, ItemName, ItemVariable, game->Types.DMENU_Types_ToggleItem, DMENU_HandlerType_ToggleItem, EventHandler) != 0;
+}
+
+
+
+// Initialize a provided DMENU::Item (pItem) of type ExecItem with the specified name, variable, and an optional event handler
+int DMENU_CreateExecItem(dmenu_item_t * pItem, const char * ItemName, void * ItemFunction)
+{
+    int ret = CreateGeneralComponent(pItem, ItemName, nullptr, game->Types.DMENU_Types_ExecItem, DMENU_HandlerType_ExecItem, ItemFunction) != 0;
+    
+    if (ret == 0)
+    {
+        ret = write_ulong(game->pid, (unsigned long *) &pItem->_SelectionIndex, (unsigned long) 0);
+        ret = write_ulong(game->pid, (unsigned long *) &pItem->_ItemCount, (unsigned long) 0);
+    }
+    return ret;
 }
 
 
@@ -1304,158 +1312,184 @@ int DMENU_CreateToggleItem(dmenu_item_t * pItem, const char * ItemName, void * I
 
 
 
-int DMENU_FullCreateMenu(dmenu_menu_t * pParent, dmenu_menu_t ** pMenu, const char * MenuName, void * Callback, void * MenuVariable)
-{
-    long ret;
-    char menu_name[0xFF];
 
-    if (find_item(MenuName, pParent, false) > 0)
+// Shorthand for allocating the memory for, creating a new dmenu_menu_t
+// If the menu has not yet been created, sets *ppMenu to the newly-allocated pMenu. If the menu already exists as a submenu for pParent, sets *ppMenu to the existing menu
+//
+// Returns:
+// If a new menu is created, returns 1
+// If the menu is found to already exist in pParent's children, 2 is returned
+// On failure, returns -1
+int DMENU_FullCreateMenu(dmenu_menu_t * pParent, dmenu_menu_t ** ppMenu, const char * MenuName, void * Callback, void * MenuVariable)
+{
+    dmenu_menu_t * menuChk = find_menu(MenuName, pParent, false);
+    __rerrv(menuChk == (dmenu_menu_t *) -1, -1, "An error occured when searching the child menus of the provided menu at 0x%llX's for %s", pParent, MenuName);
+
+    if (menuChk > (long) 0)
     {
+        *ppMenu = menuChk;
         echo("Menu \"%s\" already added to specified menu group", MenuName);
-        return 0;
+        return 2;
     }
 
 
+
+    // Allocate space for new menu
+    dmenu_menu_t * pMenu = (dmenu_menu_t *) proc_malloc(align(sizeof(dmenu_menu_t)));
+    __rerrv(!pMenu, -1, "Error allocating space for item");
+
+
+    // Initialize the DMENU::Menu
+    int ret = DMENU_CreateMenu(pMenu, MenuName, pParent, Callback, MenuVariable);
+    __rerrv(ret != 0, -1, "Failed to create item. Aborting to avoid breaking pParent")
     
-    ret = read_ulong(game->pid, (unsigned long *) &pParent->pMenuName);
-    if (ret == 0)
-    {
-        goto _unnamed;
-    }
-
-    ret = read_string(game->pid, (const char *) ret, (char *) menu_name);
-    __rerrv(ret == -1, 1, "read_string returned error when reading name of parent menu.")
-
-    if (menu_name[0] == '\0')
-    {
-    _unnamed:
-        echo("\nWARNING: Parent menu is unnamed- Ensure that this is intentional!\n");
-        strncpy(menu_name, "<unnamed>", sizeof(menu_name));
-    }
-
-
-
-    // Allocate space for new menu entry
-    dmenu_menu_t * menu;
-    menu = (dmenu_menu_t *) proc_malloc(align(sizeof(dmenu_item_t)));
-    __rerrv(!menu, 1, "Error allocating space for item");
-
-    *pMenu = menu;
-    return DMENU_CreateMenu(menu, MenuName, pParent, Callback, MenuVariable);
+    *ppMenu = pMenu;
+    return 1;
 }
 
 
 
 
-// Shorthand for allocating the memory for, creating, and appending a new dmenu_item_t to the provided parent menu
-// Sets the outvar pItem to the pointer of the new menu entry, unless proc_malloc fails
-// returns zero on success, and 1 on failure.
-int DMENU_FullCreateToggleItem(dmenu_menu_t * pParent, dmenu_item_t ** pItem, const char * ItemName, void * ItemVariable, void * CustomEventHandler)
+// Shorthand for allocating the memory for, creating a new dmenu_item_t ItemSubmenu
+// If the submenu has not yet been created, sets *ppItem to the newly-allocated pItem. If the submenu already exists in pParent, sets *ppItem to the existing submenu
+//
+// Returns:
+// If a new submenu is created, returns 1
+// If the submenu is found to already exist in pParent, 2 is returned
+// On failure, returns -1
+int DMENU_FullCreateItemSubmenu(dmenu_menu_t * pParent, dmenu_item_t ** ppItem, const char * ItemSubmenuName, dmenu_menu_t * pNewSubmenu, void * CustomEventHandler, void * SubmenuVariable)
 {
-    unsigned long ret;
-    char menu_name[0xFF];
-    if (ItemName == nullptr)
+    dmenu_item_t * itemChk;
+    if (ItemSubmenuName == nullptr)
     {
-        ItemName = "<unnamed";
+        ItemSubmenuName = "<unnamed>";
+    }
+    else {
+        itemChk = find_item(ItemSubmenuName, pParent, false);
+        __rerrv(itemChk == (dmenu_item_t *) -1, -1, "An error occured when searching the provided item in the menu at 0x%llX for %s", pParent, ItemSubmenuName)
+    
+        if (itemChk > (long) 0) {
+            echo("Item Submenu \"%s\" already added to specified menu group", ItemSubmenuName);
+            *ppItem = itemChk;
+            return 2;
+        }
     }
 
-    if (find_item(ItemName, pParent, false) > 0)
-    {
-        echo("Item \"%s\" already added to specified menu group", ItemName);
-        return 0;
-    }
-
-    ret = read_ulong(game->pid, (unsigned long *) &pParent->pMenuName);
-    if (ret == 0)
-    {
-        goto _unnamed;
-    }
-
-
-    ret = read_string(game->pid, (const char *) ret, (char *) menu_name);
-    __rerrv(ret == -1, 1, "read_string returned error when reading name of parent menu.")
-
-    if (menu_name[0] == '\0')
-    {
-    _unnamed:
-        echo("\nWARNING: Parent menu is unnamed- Ensure that this is intentional!\n");
-        strncpy(menu_name, "<unnamed>", sizeof(menu_name));
-    }
-
-
-    echo("Adding child %s to parent %s", ItemName, menu_name);
 
 
     // Allocate space for new menu entry
-    dmenu_item_t * item = (dmenu_item_t *) proc_malloc(align(sizeof(dmenu_item_t)));
-    *pItem = item;
-    __rerrv(!item, 1, "Error allocating space for %s", ItemName);
+    dmenu_item_t * pItem = (dmenu_item_t *) proc_malloc(align(sizeof(dmenu_item_t)));
+    __rerrv(!pItem, -1, "Error allocating space for %s", ItemSubmenuName);
 
 
-    echo("Creating child");
-    ret = DMENU_CreateToggleItem(item, ItemName, ItemVariable, CustomEventHandler);
-    __rerrv(ret != 0, 1, "Failed to create item. Aborting to avoid breaking %s", menu_name)
+    // Initialize the DMENU::ItemSubmenu
+    int ret = DMENU_CreateItemSubmenu(pItem, ItemSubmenuName, pNewSubmenu, CustomEventHandler, SubmenuVariable);
+    __rerrv(ret != 0, -1, "Failed to create item submenu. Aborting to avoid breaking pParent")
+    *ppItem = pItem;
+
     
+    // Append the newly-created DMENU::ItemSubmenu to the provided DMENU::Menu (pParent)
+    ret = AppendItemToParent(pParent, pItem);
+    __rerrv(ret != 0, -1, "Failed to append the created toggle item at 0x%llX to the parent menu at 0x%llX", pItem, pParent);
+    
+    return 1;
+}
 
-    echo("Prepending child to parent menu");
-    return AppendItemToParent(pParent, item);
-} 
 
 
 
-
-int DMENU_FullCreateItemSubmenu(dmenu_menu_t * pParent, dmenu_item_t ** pItem, const char * ItemName, dmenu_menu_t * pNewSubmenu, void * CustomEventHandler, void * SubmenuVariable)
+// Shorthand for allocating the memory for, creating a new dmenu_item_t ToggleItem
+// If the item has not yet been created, sets *ppItem to the newly-allocated pItem. If the item already exists in pParent, sets *ppItem to the existing item
+//
+// Returns:
+// If a new item is created, returns 1
+// If the item is found to already exist in pParent, 2 is returned
+// On failure, returns -1
+int DMENU_FullCreateToggleItem(dmenu_menu_t * pParent, dmenu_item_t ** ppItem, const char * ItemName, void * ItemVariable, void * CustomEventHandler)
 {
-    unsigned long ret;
-    char menu_name[0xFF];
+    dmenu_item_t * itemChk;
     if (ItemName == nullptr)
     {
-        ItemName = "<unnamed";
+        ItemName = "<unnamed>";
+    }
+    else {
+        itemChk = find_item(ItemName, pParent, false);
+        __rerrv(itemChk == (dmenu_item_t *) -1, -1, "An error occured when searching the provided item in the menu at 0x%llX for %s", pParent, ItemName)
+
+        if (itemChk > (long) 0) {
+            echo("Item \"%s\" already added to specified menu group", ItemName);
+            *ppItem = itemChk;
+            return 2;
+        }
     }
 
-    if (find_item(ItemName, pParent, false) > 0)
-    {
-        echo("Item \"%s\" already added to specified menu group", ItemName);
-        return 0;
-    }
-
-    ret = read_ulong(game->pid, (unsigned long *) &pParent->pMenuName);
-    if (ret == 0)
-    {
-        goto _unnamed;
-    }
-
-
-    ret = read_string(game->pid, (const char *) ret, (char *) menu_name);
-    __rerrv(ret == -1, 1, "read_string returned error when reading name of parent menu.")
-
-    if (menu_name[0] == '\0')
-    {
-    _unnamed:
-        echo("\nWARNING: Parent menu is unnamed- Ensure that this is intentional!\n");
-        strncpy(menu_name, "<unnamed>", sizeof(menu_name));
-    }
-
-
-    echo("Adding child %s to parent %s", ItemName, menu_name);
 
 
     // Allocate space for new menu entry
-    dmenu_item_t * item = (dmenu_item_t *) proc_malloc(align(sizeof(dmenu_item_t)));
-    *pItem = item;
-    __rerrv(!item, 1, "Error allocating space for %s", ItemName);
-
-
-    echo("Creating child");
-    ret = DMENU_CreateItemSubmenu(item, ItemName, pNewSubmenu, CustomEventHandler, SubmenuVariable);
-    __rerrv(ret != 0, 1, "Failed to create item. Aborting to avoid breaking %s", menu_name)
-
-    write_ulong(game->pid, (unsigned long *) &item->ItemVariable, 0ul); // Remove it now that it's been copied to the return buffer (lazy, but meh)
+    dmenu_item_t * pItem = (dmenu_item_t *) proc_malloc(align(sizeof(dmenu_item_t)));
+    __rerrv(!pItem, -1, "Error allocating space for %s", ItemName)
     
+    
+    // Initialize the DMENU::Item
+    int ret = DMENU_CreateToggleItem(pItem, ItemName, ItemVariable, CustomEventHandler);
+    __rerrv(ret != 0, -1, "Failed to create item. Aborting to avoid breaking pParent")
+    
+    
+    *ppItem = pItem;
+    // Append the newly-created DMENU::ItemSubmenu to the provided DMENU::Menu (pParent)
+    ret = AppendItemToParent(pParent, pItem);
+    __rerrv(ret != 0, -1, "Failed to append the created toggle item at 0x%llX to the parent menu at 0x%llX", pItem, pParent);
 
-    echo("Prepending child to parent menu");
-    return AppendItemToParent(pParent, item);
-} 
+    return 1;
+}
+
+
+
+
+// Shorthand for allocating the memory for, creating a new dmenu_item_t ToggleItem
+// If the item has not yet been created, sets *ppItem to the newly-allocated pItem. If the item already exists in pParent, sets *ppItem to the existing item
+//
+// Returns:
+// If a new item is created, returns 1
+// If the item is found to already exist in pParent, 2 is returned
+// On failure, returns -1
+int DMENU_FullCreateExecItem(dmenu_menu_t * pParent, dmenu_item_t ** ppItem, const char * ItemName, void * ItemFunction)
+{
+    dmenu_item_t * itemChk;
+    if (ItemName == nullptr)
+    {
+        ItemName = "<unnamed>";
+    }
+    else {
+        itemChk = find_item(ItemName, pParent, false);
+        __rerrv(itemChk == (dmenu_item_t *) -1, -1, "An error occured when searching the provided item in the menu at 0x%llX for %s", pParent, ItemName)
+
+        if (itemChk > (long) 0) {
+            echo("Item \"%s\" already added to specified menu group", ItemName);
+            *ppItem = itemChk;
+            return 2;
+        }
+    }
+
+
+
+    // Allocate space for new menu entry
+    dmenu_item_t * pItem = (dmenu_item_t *) proc_malloc(align(sizeof(dmenu_item_t)));
+    __rerrv(!pItem, -1, "Error allocating space for %s", ItemName)
+    
+    
+    // Initialize the DMENU::ItemSubmenu
+    int ret = DMENU_CreateExecItem(pItem, ItemName, ItemFunction);
+    __rerrv(ret != 0, -1, "Failed to create item. Aborting to avoid breaking pParent")
+    *ppItem = pItem;
+    
+    
+    // Append the newly-created DMENU::ItemSubmenu to the provided DMENU::Menu (pParent)
+    ret = AppendItemToParent(pParent, pItem);
+    __rerrv(ret != 0, -1, "Failed to append the created toggle item at 0x%llX to the parent menu at 0x%llX", pItem, pParent);
+
+    return 1;
+}
 #pragma endregion
 
 

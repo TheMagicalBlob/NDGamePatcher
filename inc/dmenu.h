@@ -48,7 +48,7 @@ typedef enum DMENU_item_eh_type_e : unsigned
     DMENU_HandlerType_StringItem,
     DMENU_HandlerType_UnknownItem_8,
     DMENU_HandlerType_SeparatorItem,
-    DMENU_HandlerType_UnknownItem_10
+    DMENU_HandlerType_ActorViewer
 
 } DMENU_item_eh_type_t;
 
@@ -348,10 +348,12 @@ int load_item(const dmenu_item_t * address, dmenu_item_t * item);
 int DMENU_CreateMenu(dmenu_menu_t * pMenu, const char * MenuName, dmenu_menu_t * pParent, void * Callback, void * MenuVariable);
 int DMENU_CreateItemSubmenu(dmenu_item_t * pItemSubmenu, const char * SubmenuName, dmenu_menu_t * pNewSubmenu, void * CustomEventHandler, void * SubmenuVariable);
 int DMENU_CreateToggleItem(dmenu_item_t * pItem, const char * ItemName, void * ItemVariable, void * ItemAlternateEventHandler);
+int DMENU_CreateExecItem(dmenu_item_t * pItem, const char * ItemName, void * ItemFunction);
 
 int DMENU_FullCreateMenu(dmenu_menu_t * pParent, dmenu_menu_t ** pMenu, const char * MenuName, void * Callback, void * MenuVariable);
-int DMENU_FullCreateToggleItem(dmenu_menu_t * pParent, dmenu_item_t ** pItem, const char * ItemName, void * ItemVariable, void * CustomEventHandler);
 int DMENU_FullCreateItemSubmenu(dmenu_menu_t * pParent, dmenu_item_t ** pItem, const char * ItemName, dmenu_menu_t * pNewSubmenu, void * CustomEventHandler, void * SubmenuVariable);
+int DMENU_FullCreateToggleItem(dmenu_menu_t * pParent, dmenu_item_t ** pItem, const char * ItemName, void * ItemVariable, void * CustomEventHandler);
+int DMENU_FullCreateExecItem(dmenu_menu_t * pParent, dmenu_item_t ** ppItem, const char * ItemName, void * ItemFunction);
 
 
 int AppendItemToParent(dmenu_menu_t * parent_menu, dmenu_item_t * item);
