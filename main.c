@@ -67,7 +67,7 @@ int kprintf(const char * fmt, ...)
 {
   __builtin_va_list args;
   char sargs[0x200] = {0};
-  char buf[0x500];
+  char buf[kLogOutBufferSize];
 
   __builtin_va_start(args, fmt);
   vsnprintf(sargs, sizeof sargs, fmt, args);
@@ -95,22 +95,23 @@ int echo(const char * string, ...)
     char msg[kLogOutBufferSize];
     int len = vsnprintf(msg, sizeof(msg) - 2, string, list);
     
-    if (game != NULL)
-    {
-        kprintf("%d:%d: %s\n", getpid(), game->pid, &msg);
-    }
-    else{
-        kprintf("%d:%d: %s\n", getpid(), 0, &msg);
+    pid_t pid = 0;
+    if (game != NULL) {
+        pid = game->pid;
     }
 
-    log_message("%s\n", msg);
-    va_end(list);
 
-
-    if (len >= kLogOutBufferSize)
-    {
+#ifdef DEBUG
+    kprintf("%d:%d: %s\n", getpid(), pid, (char *) msg);
+    if (len >= kLogOutBufferSize) {
         kprintf("\nWARNING: constructed output string for previous message is too long. Message truncated (0x%x >= 0x%x)\n", len, kLogOutBufferSize);
     }
+#else
+    klog_printf("%s\n", (char *) msg);
+#endif
+
+    log_message("%s\n", (char *) msg);
+    va_end(list);
 
     return len;
 #else
