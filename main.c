@@ -755,18 +755,26 @@ void AssertionHandler(int signal, siginfo_t * info, void * vcontext)
 //### Testing shit
 static void debug_misc()
 {
-    // dump_menu_entries();
+    // DMENU_DumpSupportInfo();
+
+    // sleep(4);
+
+    // DMENU_RunReversingChecks();
     // return;
-
-    dmenu_item_t * itemBuf;
-    dmenu_menu_t * parentMenu;
-    itemBuf = nullptr;
-    parentMenu = (dmenu_menu_t *) read_ulong(game->pid, (unsigned long *) &game->Addrs.favorites_menu_group->root_menu);
-
-    echo("Parent menu: 0x%llX + 0xMEH -> 0x%llX", game->Addrs.favorites_menu_group, parentMenu);
-
-    DMENU_CreateToggleItem(parentMenu, &itemBuf, "Disable All Visibility", game->Addrs.d_Novis, nullptr);
     
+
+    dmenu_item_t * itemBuf = nullptr;
+    dmenu_menu_t * pFavoritesMenu = nullptr;
+    dmenu_menu_t * testMenu;
+    dmenu_item_t * testSubmenu;
+    pFavoritesMenu = (dmenu_menu_t *) read_ulong(game->pid, (unsigned long *) &game->Addrs.favorites_menu_group->root_menu);
+
+
+    DMENU_FullCreateMenu(pFavoritesMenu, &testMenu, "Test Menu", nullptr, nullptr);
+
+    DMENU_FullCreateItemSubmenu(pFavoritesMenu, &testSubmenu, "Test Menu...", testMenu, nullptr, nullptr);
+
+    DMENU_FullCreateToggleItem(testMenu, &itemBuf, "Disable All Visibility", game->Addrs.d_Novis, nullptr);
     return;
 
     

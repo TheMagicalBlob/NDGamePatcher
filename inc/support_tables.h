@@ -45,7 +45,7 @@ static const address_table_t TitleSupportTable[] =
 
             .f_Free          = (void *) 0x02a8f680,
             .f_Malloc        = (void *) 0x02a8f690,
-            .f_LookupSymbol = (void *) 0x051c0c0,
+            .f_LookupSymbol  = (void *) 0x051c0c0,
 
             .d_Novis = (byte *) 0x70cc124
         },
@@ -75,28 +75,25 @@ static const address_table_t TitleSupportTable[] =
         },
 
         {
-            .DMENU_Handlers_ItemSubmenu = (void *) 0x0,
-            
-            .DMENU_Handlers_Menu = (void *) 0x0,
-            .DMENU_Handlers_ToggleItem = (void *) 0x8E72E0,
-            .DMENU_Handlers_SeparatorItem = (void *) 0x0,
-            
-            .DMENU_Handlers_StringListItem = (void *) 0x1150910,
-            .DMENU_Handlers_DecimalItem = (void *) 0x701,
-            .DMENU_Handlers_FloatItem = (void *) 0x601,
-            
-            .DMENU_Handlers_ExecItem = (void *) 0x2982700,
-            .DMENU_Handlers_UserItem = (void *) 0x0,
-            .DMENU_Handlers_AltExecItem = (void *) 0x1AED250,
-            .DMENU_Handlers_TimerItem = (void *) 0x1BD8660,
-            .DMENU_Handlers_DynMenu = (void *) 0x20B8CD0,
+            .DMENU_Handlers_ItemSubmenu =        (void *) 0x0,
+            .DMENU_Handlers_Menu          =      (void *) 0x0,
+            .DMENU_Handlers_ToggleItem =         (void *) 0x8E72E0,
+            .DMENU_Handlers_SeparatorItem =      (void *) 0x0,
+            .DMENU_Handlers_StringListItem =     (void *) 0x1150910,
+            .DMENU_Handlers_DecimalItem =        (void *) 0x701,
+            .DMENU_Handlers_FloatItem =          (void *) 0x601,
+            .DMENU_Handlers_ExecItem =           (void *) 0x2982700,
+            .DMENU_Handlers_UserItem =           (void *) 0x0,
+            .DMENU_Handlers_AltExecItem =        (void *) 0x1AED250,
+            .DMENU_Handlers_TimerItem =          (void *) 0x1BD8660,
+            .DMENU_Handlers_DynMenu =            (void *) 0x20B8CD0,
             .DMENU_Handlers_WeaponUpgradesMenu = (void *) 0x0,
-            .DMENU_Handlers_TaskItemSubmenu = (void *) 0x0,
-            .DMENU_Handlers_TaskItem = (void *) 0x0,
-            .DMENU_Handlers_StringItem = (void *) 0x13C026BDC8,
+            .DMENU_Handlers_TaskItemSubmenu =    (void *) 0x0,
+            .DMENU_Handlers_TaskItem =           (void *) 0x0,
+            .DMENU_Handlers_StringItem =         (void *) 0x13C026BDC8,
             .DMENU_Handlers_SubnodeTaskItemSubmenu = (void *) 0x0,
-            .DMENU_Handlers_CheckpointItem = (void *) 0x28A6E50,
-            .DMENU_Handlers_TaskHistoryItem = (void *) 0x28A6CC0,
+            .DMENU_Handlers_CheckpointItem =     (void *) 0x28A6E50,
+            .DMENU_Handlers_TaskHistoryItem =    (void *) 0x28A6CC0,
 
         }
     },
@@ -123,7 +120,7 @@ static const address_table_t TitleSupportTable[] =
 
             .f_Free          = (void *) 0x30ed250,
             .f_Malloc        = (void *) 0x30ed260,
-            .f_LookupSymbol = (void *) 0x9a9150,
+            .f_LookupSymbol  = (void *) 0x9a9150,
         
             .d_Novis = (byte *) 0x3a10794
              
@@ -220,7 +217,7 @@ int do_load_ndgame(game_id_t game_id, app_version_sid_t app_ver)
             game->EventHandlers = table.Handlers;
             game->Addrs = table.Addrs;
 
-            // Load the menu base pointers
+            // Load the menu group pointers
             game->Addrs.dev_menu_group       = (dmenu_menu_group_t *) read_ulong(pid, (unsigned long *) game->Addrs.dev_menu_group);
             game->Addrs.quick_menu_group     = (dmenu_menu_group_t *) read_ulong(pid, (unsigned long *) game->Addrs.quick_menu_group);
             game->Addrs.favorites_menu_group = (dmenu_menu_group_t *) read_ulong(pid, (unsigned long *) game->Addrs.favorites_menu_group);

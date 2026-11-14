@@ -187,7 +187,7 @@ typedef struct dmenu_item_s
     void * Callback;
     unsigned long Unmapped1;
     char Unmapped2[0x8];
-    dmenu_menu_group_t * MenuGroup; // Points to the dmenu base entry [0x90] 
+    dmenu_menu_group_t * MenuGroup; // Points to the dmenu group entry [0x90] 
     char Unmapped3[0x4];
     int _SelectionIndex;
     unsigned int _ItemCount; //!
@@ -226,7 +226,7 @@ typedef struct dmenu_menu_s // 0xE0
     void * Callback;
     unsigned long Unmapped1;
     char Unmapped2[0x8];
-    dmenu_menu_group_t * MenuGroup; // Points to the dmenu base entry [0x90] 
+    dmenu_menu_group_t * MenuGroup; // Points to the dmenu group entry [0x90] 
     unsigned int Unmapped3;
     int SelectionIndex;
     unsigned int ItemCount; // The amount of items in the root of the menu
@@ -267,7 +267,7 @@ typedef struct dmenu_menu_s // 0xE0
 //     void * callback;
 //     unsigned long unmapped2;
 //     char unmapped3[0x8];
-//     dmenu_menu_group_t * menu_group; // Points to the dmenu base entry [0x90] 
+//     dmenu_menu_group_t * menu_group; // Points to the dmenu group entry [0x90] 
 //     unsigned int unmapped4;
 //     int selection_index;
 //     unsigned int item_count; // The amount of items in the root of the menu
@@ -293,15 +293,15 @@ typedef struct dmenu_menu_group_s // x >= 0x328
 {
     dmenu_vptr_t vptr; // Item class vPtr/Virtual Table Pointer
     char unused1[0x8]; // Always zero
-    char menu_group_name_buffer[0x20]; // Default buffer space for the menu base name, if it fits the buffer. 
-    char * name; // Pointer to the menu base's text; usually points to the menu_group_name_buffer, but additional space is allocated and used instead if the string length is > 32. 
+    char menu_group_name_buffer[0x20]; // Default buffer space for the menu group name, if it fits the buffer. 
+    char * name; // Pointer to the menu group's text; usually points to the menu_group_name_buffer, but additional space is allocated and used instead if the string length is > 32. 
     char unused2[0x30]; // Always zero
     unsigned int off_state_colour;
     unsigned int on_state_colour;
     unsigned int unknown_int;
     unsigned int shortcut_info;
     char unmapped1[0x30]; // Unmapped
-    dmenu_menu_t * root_menu; // The actual dmenu menu that gets populated with items and acts as this menu base's root submenu // 0xA8
+    dmenu_menu_t * root_menu; // The actual dmenu menu that gets populated with items and acts as this menu group's root submenu // 0xA8
     void * unknown_struct_pointer1; // Menu Options, maybe?
     char open_menu; // Open the menu
     char render_menu; // Render the menu when open
@@ -328,7 +328,9 @@ typedef struct dmenu_menu_group_s // x >= 0x328
 
 DMENU_stype_t DMENU_GetBaseType(void * item);
 const char * DMENU_GetTypeAsString(dmenu_vptr_t type);
-int DMENU_CreateToggleItem(dmenu_menu_t * pParentMenu, dmenu_item_t ** pItem, const char * ItemName, void * ItemVariable, void * CustomEventHandler);
+
+void DMENU_DumpSupportInfo();
+void DMENU_RunReversingChecks();
 
 
 dmenu_item_t * find_item(const char * item_name, dmenu_menu_t * start_menu, char recurse);
@@ -338,12 +340,19 @@ dmenu_item_t * find_submenu(const char * submenu_name, dmenu_menu_t * start_menu
 dmenu_menu_t * get_root_menu(DMENU_menu_index_t menu_group_index);
 
 
-
 int load_menu_group(const dmenu_menu_group_t * address, dmenu_menu_group_t * menu_group);
 int load_menu(const dmenu_menu_t * address, dmenu_menu_t * menu);
 int load_item(const dmenu_item_t * address, dmenu_item_t * item);
 
-void dump_menu_entries();
+
+int DMENU_CreateMenu(dmenu_menu_t * pMenu, const char * MenuName, dmenu_menu_t * pParent, void * Callback, void * MenuVariable);
+int DMENU_CreateItemSubmenu(dmenu_item_t * pItemSubmenu, const char * SubmenuName, dmenu_menu_t * pNewSubmenu, void * CustomEventHandler, void * SubmenuVariable);
+int DMENU_CreateToggleItem(dmenu_item_t * pItem, const char * ItemName, void * ItemVariable, void * ItemAlternateEventHandler);
+
+int DMENU_FullCreateMenu(dmenu_menu_t * pParent, dmenu_menu_t ** pMenu, const char * MenuName, void * Callback, void * MenuVariable);
+int DMENU_FullCreateToggleItem(dmenu_menu_t * pParent, dmenu_item_t ** pItem, const char * ItemName, void * ItemVariable, void * CustomEventHandler);
+int DMENU_FullCreateItemSubmenu(dmenu_menu_t * pParent, dmenu_item_t ** pItem, const char * ItemName, dmenu_menu_t * pNewSubmenu, void * CustomEventHandler, void * SubmenuVariable);
+
 
 int AppendItemToParent(dmenu_menu_t * parent_menu, dmenu_item_t * item);
 
