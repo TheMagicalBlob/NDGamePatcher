@@ -30,8 +30,6 @@
 
 #define true  (char) 1
 #define false (char) 0
-#define TRUE true
-#define FALSE false
 
 #define _SHELLCORE_AUTHID 0x4800000000010003L
 #define PAYLOAD_NAME "dmenu_payload.bin"
@@ -53,7 +51,7 @@
 // 1: Basic
 // 2: Detailed
 // 3: Excessive
-#define VERBOSITY 3
+#define VERBOSITY 2
 
 // Duplicate all output on the PS5 in a text file at /data/bLog.txt
 #define LOGFILE

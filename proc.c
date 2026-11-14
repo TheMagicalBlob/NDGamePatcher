@@ -113,15 +113,17 @@ pid_t proc_wait(int wait)
     int options;
     options = WTRAPPED | WEXITED | WUNTRACED;
     
-    if (!wait)
-    {
-        options |= WNOHANG;
+    if (!wait) {
+        options |= WNOHANG; // Add NoHang option to avoid hanging
+#if VERBOSITY > 1
         echo("Waiting for pid %d w/ NOHANG", game->pid);
+#endif
     }
+#if VERBOSITY > 1
     else{
         echo("Waiting for pid %d.", game->pid);
     }
-    
+#endif
     
 
     // Wait for a child like EDP at the mall
@@ -131,17 +133,18 @@ pid_t proc_wait(int wait)
     __rerrv(returned_pid == -1, -1, "waipid returned error: %s", strerror(errno));
     
     
-
-
     if (returned_pid == 0)
     {
         __rerrv(wait != 0, -1, "ERROR: NOHANG was not specified, but waitpid returned 0 anyway.");
 
+#if VERBOSITY > 1
         echo("No processes wishing to report status.");
+#endif
         return returned_pid;
     }
     
-    
+
+#if VERBOSITY > 1
     echo("Process %d stopped with status: 0x%llX.", returned_pid, game->status);
 
     // Get process' status once it has stopped
@@ -174,7 +177,7 @@ pid_t proc_wait(int wait)
             echo("Stopped (sig: %d)", WSTOPSIG(game->status));
         }
     }
-
+#endif
 
 
 
@@ -206,9 +209,11 @@ static int proc_resume_threads()
     pid_t pid;
     pid = game->pid;
     lwpid_t * threads;
-    
+
+#if VERBOSITY > 1
     echo("Resuming all threads in process %d", pid);
-    
+#endif
+
     
     // Get number of threads1
     errno = 0;
@@ -219,14 +224,9 @@ static int proc_resume_threads()
 
 
 
-
     // Allocate space for the thread ids
     threads = (lwpid_t *) malloc(sizeof(lwpid_t) * thread_count);
     __err(threads == 0, "Unable to allocate the %d bytes needed for getting thread ids.", (sizeof(lwpid_t) * thread_count));
-    if (!threads)
-    {
-        echo("ERROR: ");
-    }
 
 
     // Get threads themselves
@@ -242,10 +242,11 @@ static int proc_resume_threads()
     for(int i = 0; i < thread_count; i++)
     {
         ret = ptrace(PT_RESUME, threads[i], 0, 0);
-        __rerrv(ret, 1, "Error resuming thread #%d out of %d", i, thread_count);
+        __errg(ret, _break, "Error resuming thread #%d out of %d", i, thread_count);
     }
+_break:
 
-
+    free(threads);
     return ret != 0;
 }
 
@@ -281,8 +282,8 @@ static int proc_suspend_threads()
 
     // Get threads themselves
     ret = ptrace(PT_GETLWPLIST, pid, (caddr_t) threads, thread_count);
-    __rerrv(ret != thread_count, 1, "Error getting thread id list. Only read %d out of %d threads.", ret, thread_count);
-    __rerrv(!ret, 1, "Error getting thread id list. (PT_GETLWPLIST returned error)");
+    __errg(ret != thread_count, _ret, "Error getting thread id list. Only read %d out of %d threads.", ret, thread_count);
+    __errg(!ret, _ret, "Error getting thread id list. (PT_GETLWPLIST returned error)");
 
 
     
@@ -293,6 +294,7 @@ static int proc_suspend_threads()
         {
             perror("PT_SUSPEND: ");
             echo("Error suspending thread #%d out of %d", i, thread_count);
+            free(threads);
             return 1;
         }
     }
@@ -306,6 +308,8 @@ static int proc_suspend_threads()
         echo("Error suspending process %d", pid);
     }
 
+_ret:
+    free(threads);
     return ret != 0;
 }
 
@@ -422,7 +426,7 @@ int proc_get_dbregs(struct dbreg * dbregs)
 int proc_set_dbregs(struct dbreg * dbregs)
 {
     int ret = ptrace(PT_SETDBREGS, game->pid, (caddr_t) dbregs, 0);
-    __rerrv(ret != 0, 1, "# PT_SETDBREGS failed with code %d (%s)\n", ret, strerror(ret));
+    __rerrv(ret != 0, 1, "PT_SETDBREGS failed with code %d (%s)\n", ret, strerror(ret));
     
     return 0;
 }
@@ -464,14 +468,14 @@ int set_watchpoint(short index, void * address, int wp_type, int wp_len)
     // Get the threads themselves
     lwpid_list = (lwpid_t *) malloc(thread_count * sizeof(lwpid_t));
     ret = ptrace(PT_GETLWPLIST, pid, (caddr_t) lwpid_list, thread_count);
-    __rerrv(ret != thread_count, 1, "PT_GETLWPLIST failed. Did not fill all array entries. (%d != %d)", ret, thread_count)
+    __errg(ret != thread_count, _retErr, "PT_GETLWPLIST failed. Did not fill all array entries. (%d != %d)", ret, thread_count)
     
     
     
 
     // Get the current debug register values to avoid overwriting other watchpoints
     ret = ptrace(PT_GETDBREGS, pid, (caddr_t) &regs, 0);
-    __errg(ret != thread_count, _ret, "PT_GETDBREGS failed with code %d (%s)", ret, strerror(ret))
+    __errg(ret != 0, _retErr, "PT_GETDBREGS failed with code %d (%s)", ret, strerror(ret))
 
 
     
@@ -513,22 +517,23 @@ int set_watchpoint(short index, void * address, int wp_type, int wp_len)
         {
             // Print thread names for shits and giggles (making sure the lwpinfo struct is all good)
             ret = ptrace(PT_LWPINFO, lwpid_list[i], (caddr_t) &lwpinfo, sizeof(struct ptrace_lwpinfo));
-            __errg(ret != 0, _ret, "PT_LWPINFO failed with code (%s) %d", strerror(ret), ret)
+            __errg(ret != 0, _retErr, "PT_LWPINFO failed with code (%s) %d", strerror(ret), ret)
 
             echo(lwpinfo.pl_tdname);
         }
 
 
         ret = ptrace(PT_SETDBREGS, lwpid_list[i], (caddr_t) &regs, 0);
-        __errg(ret != 0, _ret, "PT_SETDBREGS failed with code (%s) %d", strerror(ret), ret)
+        __errg(ret != 0, _retErr, "PT_SETDBREGS failed with code (%s) %d", strerror(ret), ret)
     }
-
     
     
-    // Return post-lwpid_list allocation
-_ret:
     free(lwpid_list);
     return 0;
+
+_retErr:
+    free(lwpid_list);
+    return 1;
 }
 
 
