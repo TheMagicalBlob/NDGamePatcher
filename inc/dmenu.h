@@ -6,11 +6,11 @@
 
 
 // Pointer to DMenu vitrual function table for DMenu components
-typedef void * dmenu_vptr_t;
+typedef void * DMENU_Type_t;
 
 
-// simplified dmenu type enum boiling it down to structurally different items
-typedef enum DMENU_stype_e : char
+// Simplified dmenu type enum boiling it down to structurally different items
+typedef enum DMENU_SimplifiedType : char
 {
     stype_menu_group,    // The base instance containing all submenus
     stype_menu,         // the menus themselves
@@ -18,7 +18,7 @@ typedef enum DMENU_stype_e : char
     stype_item,         // anything else
     stype_separatorline // The separator lines used for spacing/formatting
 
-} DMENU_stype_t;
+} DMENU_sType_t;
 
 
 
@@ -30,7 +30,7 @@ typedef enum DMENU_menu_index_e : char
    menu_index_quick,    // Quick Menu
    menu_index_favorites // Favorites Menu
 
-} DMENU_menu_index_t;
+} DMENU_MenuGroupIndex_t;
 
 
 
@@ -55,29 +55,33 @@ typedef enum DMENU_item_eh_type_e : unsigned
 
 
 // DMenu component virtual pointers
-typedef struct DMenuTypes_s
+typedef struct DMENU_Types_s
 {
-    dmenu_vptr_t DMENU_Types_MenuGroup; // The base for each debug menu
-    dmenu_vptr_t DMENU_Types_Menu; // The menus themselves which contain individual items
-    dmenu_vptr_t DMENU_Types_DynMenu; // Menus with dynamic contents that're cleared and repopulated every time they're opened
-    dmenu_vptr_t DMENU_Types_WeaponUpgradesMenu;
-    dmenu_vptr_t DMENU_Types_ItemSubmenu;
-    dmenu_vptr_t DMENU_Types_TaskItemSubmenu;
-    dmenu_vptr_t DMENU_Types_SubnodeTaskItemSubmenu;
-    dmenu_vptr_t DMENU_Types_BaseComponent; // 0x??
-    dmenu_vptr_t DMENU_Types_SeparatorItem; // 0xA8
-    dmenu_vptr_t DMENU_Types_ToggleItem; // 0xB8
-    dmenu_vptr_t DMENU_Types_ExecItem; // 0xC0
-    dmenu_vptr_t DMENU_Types_AltExecItem;
-    dmenu_vptr_t DMENU_Types_StringItem;
-    dmenu_vptr_t DMENU_Types_StringListItem;
-    dmenu_vptr_t DMENU_Types_DecimalItem;
-    dmenu_vptr_t DMENU_Types_TaskHistoryItem;
-    dmenu_vptr_t DMENU_Types_TaskItem;
-    dmenu_vptr_t DMENU_Types_UserItem; // Entirely useless, I assume it's meant to be replaced by an actual username
-    dmenu_vptr_t DMENU_Types_TimerItem;
-    dmenu_vptr_t DMENU_Types_CheckpointItem;
-    dmenu_vptr_t DMENU_Types_FloatItem; // 0x158
+    DMENU_Type_t DMENU_Types_MenuGroup; // The base for each debug menu
+    
+    DMENU_Type_t DMENU_Types_Menu; // The menus themselves which contain individual items
+    DMENU_Type_t DMENU_Types_DynMenu; // Menus with dynamic contents that're cleared and repopulated every time they're opened
+    DMENU_Type_t DMENU_Types_WeaponUpgradesMenu;
+    
+    DMENU_Type_t DMENU_Types_ItemSubmenu;
+    DMENU_Type_t DMENU_Types_TaskItemSubmenu;
+    DMENU_Type_t DMENU_Types_SubnodeTaskItemSubmenu;
+    
+    DMENU_Type_t DMENU_Types_BaseComponent; // 0x??
+
+    DMENU_Type_t DMENU_Types_SeparatorItem; // 0xA8
+    DMENU_Type_t DMENU_Types_ToggleItem; // 0xB8
+    DMENU_Type_t DMENU_Types_ExecItem; // 0xC0
+    DMENU_Type_t DMENU_Types_AltExecItem;
+    DMENU_Type_t DMENU_Types_StringItem;
+    DMENU_Type_t DMENU_Types_StringListItem;
+    DMENU_Type_t DMENU_Types_DecimalItem;
+    DMENU_Type_t DMENU_Types_TaskHistoryItem;
+    DMENU_Type_t DMENU_Types_TaskItem;
+    DMENU_Type_t DMENU_Types_UserItem; // Entirely useless, I assume it's meant to be replaced by an actual username
+    DMENU_Type_t DMENU_Types_TimerItem;
+    DMENU_Type_t DMENU_Types_CheckpointItem;
+    DMENU_Type_t DMENU_Types_FloatItem; // 0x158
 
 } DMENU_Types_t;
 
@@ -85,14 +89,19 @@ typedef struct DMenuTypes_s
 
 typedef struct DMENU_EventHandlers_s
 {
+    
     void * DMENU_Handlers_MenuGroup; // The base for each debug menu
+    
     void * DMENU_Handlers_Menu; // The menus themselves which contain individual items
     void * DMENU_Handlers_DynMenu; // Menus with dynamic contents that're cleared and repopulated every time they're opened
     void * DMENU_Handlers_WeaponUpgradesMenu;
+    
     void * DMENU_Handlers_ItemSubmenu;
     void * DMENU_Handlers_TaskItemSubmenu;
     void * DMENU_Handlers_SubnodeTaskItemSubmenu;
+    
     void * DMENU_Handlers_BaseComponent;
+    
     void * DMENU_Handlers_SeparatorItem;
     void * DMENU_Handlers_ToggleItem;
     void * DMENU_Handlers_ExecItem;
@@ -119,22 +128,13 @@ typedef struct dmenu_menu_group_s dmenu_menu_group_t;
 // Addresses of various functions and variables in the game process, assuming aslr has been removed
 typedef struct DMENU_Addresses_s
 {
-    dmenu_menu_group_t * dev_menu_group;
-    dmenu_menu_group_t * quick_menu_group;
-    dmenu_menu_group_t * favorites_menu_group;
-
-    // Function addresses
-    void * f_Malloc; // Malloc
-    void * f_Free;   // Free
-    void * f_LookupSymbol; // Lookup a script symbol via a provided SID
+    void * Malloc;       // Malloc
+    void * Free;         // Free
+    void * LookupSymbol; // Lookup a script symbol via a provided SID
     
-    // Variable addresses
-    byte * d_Novis; // Toggle usage of visibility info (culling)
+    byte * Novis; // Toggle usage of visibility info (culling)
 
 } DMENU_Addresses_t;
-
-
-
 
 // Struct for handling game-specific addresses and other variables. Assigned after attaching
 // is in dmenu.h for laziness reasons (easiest solution to an issue)
@@ -142,15 +142,19 @@ typedef struct ndgame
 {
     pid_t pid;
     int status; // Status reported by waitpid the last time the process stopped
-    game_id_t game_id;
+    GameID_t game_id;
 
     char title_id[0xA];
     char app_ver[0xB]; // String representation
     char title[0x80];
+    
+    dmenu_menu_group_t * DevMenu;
+    dmenu_menu_group_t * QuickMenu;
+    dmenu_menu_group_t * FavoritesMenu;
 
+    DMENU_Addresses_t Addrs;
     DMENU_Types_t Types; // vPtr's for DMenu component class vTables
     DMENU_EventHandlers_t EventHandlers;
-    DMENU_Addresses_t Addrs;
 
 } NdGame_t;
 
@@ -167,7 +171,7 @@ typedef struct dmenu_item_s dmenu_item_t;
 
 typedef struct dmenu_item_s 
 {
-    dmenu_vptr_t vPtr; // Item class vPtr/Virtual Table Pointer
+    DMENU_Type_t vPtr; // Item class vPtr/Virtual Table Pointer
     void * UnknownPtr; // 0x08 // Always zero
     char ItemText[0x20]; // 32-byte buffer for the item text. If the string is too long, additional space is allocated instead and this is left unused. (it's also left null for separator lines) // 0x10
     char * pItemText; // Item text pointer. Usually points to the item_text_buffer, but is redirected if the string is too long (or left null for separator lines) // 0x30
@@ -206,7 +210,7 @@ typedef struct dmenu_item_s
 
 typedef struct dmenu_menu_s // 0xE0
 {
-    dmenu_vptr_t vPtr; // Item class vPtr/Virtual Table Pointer
+    DMENU_Type_t vPtr; // Item class vPtr/Virtual Table Pointer
     void * UnknownPtr; // 0x08 // Always zero
     char MenuName[0x20]; // Default buffer space for the menu title, if it fits the buffer. 
     char * pMenuName; // Pointer to the item's text; usually points to the item_text_buffer, but additional space is allocated and used instead if the string length is > 32. 
@@ -248,7 +252,7 @@ typedef struct dmenu_menu_s // 0xE0
 
 // typedef struct dmenu_menu_s // 0xE0
 // {
-//     dmenu_vptr_t vptr; // Item class vPtr/Virtual Table Pointer
+//     DMENU_Type_t vptr; // Item class vPtr/Virtual Table Pointer
 //     void * unknown_function_ptr; // 0x08 // Always zero
 //     char menu_name_buffer[0x20]; // Default buffer space for the item text, if it fits the buffer. 
 //     char * menu_name; // Pointer to the item's text; usually points to the item_text_buffer, but additional space is allocated and used instead if the string length is > 32. 
@@ -291,7 +295,7 @@ typedef struct dmenu_menu_s // 0xE0
 
 typedef struct dmenu_menu_group_s // x >= 0x328
 {
-    dmenu_vptr_t vptr; // Item class vPtr/Virtual Table Pointer
+    DMENU_Type_t vptr; // Item class vPtr/Virtual Table Pointer
     char unused1[0x8]; // Always zero
     char menu_group_name_buffer[0x20]; // Default buffer space for the menu group name, if it fits the buffer. 
     char * name; // Pointer to the menu group's text; usually points to the menu_group_name_buffer, but additional space is allocated and used instead if the string length is > 32. 
@@ -326,18 +330,18 @@ typedef struct dmenu_menu_group_s // x >= 0x328
 
 
 
-DMENU_stype_t DMENU_GetBaseType(void * item);
-const char * DMENU_GetTypeAsString(dmenu_vptr_t type);
+DMENU_sType_t DMENU_GetBaseType(void * item);
+const char * DMENU_GetTypeAsString(DMENU_Type_t type);
 
 void DMENU_DumpSupportInfo();
 void DMENU_RunReversingChecks();
-
+void forFuckSake();
 
 dmenu_item_t * find_item(const char * item_name, dmenu_menu_t * start_menu, char recurse);
 dmenu_menu_t * find_menu(const char * menu_name, dmenu_menu_t * start_menu, char recurse);
 dmenu_item_t * find_submenu(const char * submenu_name, dmenu_menu_t * start_menu, char recurse);
 
-dmenu_menu_t * get_root_menu(DMENU_menu_index_t menu_group_index);
+dmenu_menu_t * get_root_menu(DMENU_MenuGroupIndex_t menu_group_index);
 
 
 int load_menu_group(const dmenu_menu_group_t * address, dmenu_menu_group_t * menu_group);

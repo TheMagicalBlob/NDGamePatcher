@@ -19,6 +19,8 @@
 
 #include "assertion.h"
 
+void dump_maps(pid_t pid, uintptr_t addr);
+
 
 
 //#
@@ -38,20 +40,20 @@
 
 
 //#
-// ## Compiler preprocessor settings
+//-## Compiler preprocessor settings
 //#
 
 // Do some basic extra debugging processes, as well as prints
-#define DEBUG
+// #define DEBUG
 
 // Run whatever debug/test code is present, rather than the main payload code
-#define TESTS
+// #define TESTS
 
 // 0: Disabled
 // 1: Basic
 // 2: Detailed
 // 3: Excessive
-#define VERBOSITY 2
+#define VERBOSITY 1
 
 // Duplicate all output on the PS5 in a text file at /data/bLog.txt
 #define LOGFILE
@@ -77,8 +79,6 @@ typedef unsigned char byte;
 
 typedef unsigned long SID;
 
-typedef void * dmenu_vptr_t;
-
 
 
 // Basic ID system for the loaded games. 
@@ -94,7 +94,7 @@ typedef enum game_id : char
     TLL  = -4, // Uncharted: The Lost Legacy
     TLLR =  4  // Uncharted: The Lost Legacy Remastered
 
-} game_id_t;
+} GameID_t;
 
 
 
@@ -152,16 +152,6 @@ typedef enum app_version_sid : SID
     V02002000 = 0x682BA8AB0754E94D  // 02.002.000
 
 } app_version_sid_t;
-
-
-
-
-
-
-
-
-
-
 
 
 typedef struct notify_request

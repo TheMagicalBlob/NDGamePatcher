@@ -756,14 +756,14 @@ void * proc_malloc(size_t amount)
 
 
     // set malloc arguments
-    __rerrv(proc_set_args(&regs, amount, 0, 0, 0, 0, 0, 0), nullptr, "Failed to set args for proceeding function call to tracee's malloc function (0x%llX).", game->Addrs.f_Malloc)
+    __rerrv(proc_set_args(&regs, amount, 0, 0, 0, 0, 0, 0), nullptr, "Failed to set args for proceeding function call to tracee's malloc function (0x%llX).", game->Addrs.Malloc)
     
     #if VERBOSITY > 1
     echo("Allocating 0x%lX bytes in tracee", amount);
     #endif
     
     // call malloc
-    __rerrv(proc_call(game->Addrs.f_Malloc, (unsigned long *) &mem, &regs), nullptr, "Call to tracee's malloc function (0x%llX) failed", game->Addrs.f_Malloc)
+    __rerrv(proc_call(game->Addrs.Malloc, (unsigned long *) &mem, &regs), nullptr, "Call to tracee's malloc function (0x%llX) failed", game->Addrs.Malloc)
 
     return mem;
 }
@@ -776,14 +776,14 @@ int proc_free(void * allocated_mem)
     struct reg regs; // Register struct for call args
 
     // set free arguments
-    __rerrv(proc_set_args(&regs, (uintptr_t) allocated_mem, 0, 0, 0, 0, 0, 0), 1, "Failed to set args for proceeding function call to tracee's free function (0x%llX).", game->Addrs.f_Free);
+    __rerrv(proc_set_args(&regs, (uintptr_t) allocated_mem, 0, 0, 0, 0, 0, 0), 1, "Failed to set args for proceeding function call to tracee's free function (0x%llX).", game->Addrs.Free);
 
     #if VERBOSITY > 1
     echo("Freeing allocated memory in tracee at 0x%llX", allocated_mem);
     #endif
     
     // Call free
-    __rerrv(proc_call((void *) game->Addrs.f_Free, NULL, &regs), 1, "Call to tracee's free function (0x%llX) failed", game->Addrs.f_Free)
+    __rerrv(proc_call((void *) game->Addrs.Free, NULL, &regs), 1, "Call to tracee's free function (0x%llX) failed", game->Addrs.Free)
     
     return 0;
 }

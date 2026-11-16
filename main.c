@@ -16,6 +16,10 @@ Credits so far:
 #include "inc/dmenu.h"
 #include "inc/support_tables.h"
 
+#include <sys/types.h>
+#include <sys/user.h>
+#include <libutil.h>
+
 
 //# external functions to link
 extern int sceKernelSendNotificationRequest(int, notify_request_t *, size_t, int);
@@ -86,28 +90,27 @@ int kputs(const char * str)
 
 
 // Print (and optionally format) the specified string to kernel output, as well as to the log file if one is active
-int echo(const char * string, ...)
-{
+int echo(const char * string, ...) {
 #if VERBOSITY > 0
     va_list list;
     va_start(list, string);
     
     char msg[kLogOutBufferSize];
     int len = vsnprintf(msg, sizeof(msg) - 2, string, list);
-    
+
+#ifndef DEBUG
+    klog_printf("%s\n", (char *) msg);
+#else
     pid_t pid = 0;
     if (game != NULL) {
         pid = game->pid;
     }
 
-
-#ifdef DEBUG
     kprintf("%d:%d: %s\n", getpid(), pid, (char *) msg);
+
     if (len >= kLogOutBufferSize) {
         kprintf("\nWARNING: constructed output string for previous message is too long. Message truncated (0x%x >= 0x%x)\n", len, kLogOutBufferSize);
     }
-#else
-    klog_printf("%s\n", (char *) msg);
 #endif
 
     log_message("%s\n", (char *) msg);
@@ -218,7 +221,9 @@ unsigned long encode_sid(const char * input)
     }
     if (!*input)
     {
+#if VERBOSITY > 1
         echo("WARNING: Empty string provided for SID encoding.");
+#endif
         return (SID) 0;
     }
 
@@ -398,7 +403,7 @@ pid_t find_pid(const char *name)
 //#
 
 //! TODO: Add remaining title ids
-static game_id_t get_game_id(title_id_check_t check)
+static GameID_t get_game_id(title_id_check_t check)
 {
     // Read from the title id's string * + 1 so we can read it as an unsigned long without missing id's (e.x. reading both PSA15511 and PSA15512 as (ulong)PSA1551)
     switch(check)
@@ -430,30 +435,30 @@ static game_id_t get_game_id(title_id_check_t check)
 
 
 
-static int load_ndgame(game_id_t game_id, pid_t pid, app_info_t * app_info)
+static int load_ndgame(GameID_t game_id, pid_t pid, app_info_t * app_info)
 {
     //#
     //## Load app metadata
     //#
     echo("Loading NDGame for pid %d", pid);
 
-    int ret;
+    long ret;
     ret = sceKernelGetAppInfo(pid, app_info);
-    __rerrv(ret, 1, "Error getting app info, aborting")
+    __rerrv(ret != 0, 1, "sceKernelGetAppInfo(%d, 0x%llX) retuned error (%d)", ret, pid, app_info)
     
     game->pid = pid;
     strncpy(game->title_id, app_info->title_id, sizeof(app_info->title_id));
 
     ret = sceShellCoreUtilGetAppLaunchedParamString(app_info->app_id, "TITLE", game->title, sizeof(game->title));
-    __rerrv(ret != 0, 1, "TITLE Err")
+    __rerrv(ret != 0, 1, "sceShellCoreUtilGetAppLaunchedParamString(%d, %s, 0x%llX, %d) returned error (%d)", ret, app_info->app_id, "TITLE", (char *) game->title, sizeof(game->title))
 
     ret = sceShellCoreUtilGetAppLaunchedParamString(app_info->app_id, "CONTENT_VERSION", game->app_ver, sizeof(game->app_ver));
-    __rerrv(ret != 0, 1, "CONTENT_VERSION Err")
+    __rerrv(ret != 0, 1, "sceShellCoreUtilGetAppLaunchedParamString(%d, %s, 0x%llX, %d) returned error (%d)", ret, app_info->app_id, "CONTENT_VERSION", (char *) game->app_ver, sizeof(game->app_ver))
     
     if (!*(char *) game->app_ver) // Read legacy app parameter name (for PS4 applications)
     {
         ret = sceShellCoreUtilGetAppLaunchedParamString(app_info->app_id, "APP_VER", game->app_ver, sizeof(game->app_ver));
-        __rerrv(ret != 0,  1, "APP_VER Err")
+        __rerrv(ret != 0, 1, "sceShellCoreUtilGetAppLaunchedParamString(%d, %s, 0x%llX, %d) returned error (%d)", ret, app_info->app_id, "APP_VER", (char *) game->app_ver, sizeof(game->app_ver))
     }
 
 
@@ -462,7 +467,7 @@ static int load_ndgame(game_id_t game_id, pid_t pid, app_info_t * app_info)
     //#
     //## Load function and variable addresses
     //#
-    do_load_ndgame(game_id, encode_sid(game->app_ver));
+    InitSupportTable(game_id, encode_sid(game->app_ver));
     return 0;
 }
 
@@ -505,15 +510,15 @@ static pid_t wait_for_game_launch()
 
 
 
-static game_id_t find_and_trace_game()
+static GameID_t find_and_trace_game()
 {
     pid_t pid;
-    game_id_t err;
+    GameID_t err;
     bzero(game, sizeof(NdGame_t));
 
 
     // Wait for a new bigapp process launch
-    err = (game_id_t) -1;
+    err = (GameID_t) -1;
     pid = wait_for_game_launch();
 
     __rerrv(pid < 1, err, "ERROR: Invalid process id returned from launched game (%d), aborting until new app launch", pid);
@@ -525,7 +530,7 @@ static game_id_t find_and_trace_game()
     ret = sceKernelGetAppInfo(pid, &app_info);
     __rerrv(ret != 0, err, "ERROR: sceKernelGetAppInfo Failed!!! Aborting payload.");
     
-    game_id_t game_id;
+    GameID_t game_id;
     game_id = get_game_id(encode_sid(app_info.title_id));
 
     if (game_id == NONE)
@@ -537,7 +542,7 @@ static game_id_t find_and_trace_game()
 
     // Attach to new game process
     ret = attach(pid);
-    __rerrv(ret, err, "ERROR: Unable to attach to process, aborting.");
+    __rerrv(ret, err, "Unable to attach to process, aborting.");
 
     // Wait for the process to stop
     ret = proc_wait(true);
@@ -549,9 +554,8 @@ static game_id_t find_and_trace_game()
 
     // Read application metadata (app version and title)
     ret = load_ndgame(game_id, pid, &app_info);
-    __rerrv(ret, err, "ERROR: Failed loading ndgame, aborting.");
-
-
+    __rerrv(ret != 0, err, "Failed loading ndgame, aborting finding & tracing of game.");
+    
 
 
     notify(
@@ -623,152 +627,13 @@ void cleanup(int exit_code)
 
 
 
-
-//! TODO: Give this the same output formatting as the error macro's output
-void AssertionHandler(int signal, siginfo_t * info, void * vcontext)
-{
-    int exitCode;
-    exitCode = signal == SIGSEGV;
-    
-    ucontext_t * context;
-    context = (ucontext_t *) vcontext;
-
-    #if VERBOSITY > 1
-    echo("pre-assertion context:\n# mc_addr: %llX\n# mc_rip: %llX\n# mc_flags: %llX", context->uc_mcontext.mc_addr, context->uc_mcontext.mc_rip, context->uc_mcontext.mc_flags);
-    #endif
-
-    if (exitCode)
-    {
-        char assertionMessage[0x200], registersMessage[0x200], bar[0x50];
-        
-        const char * assertionFormatString = "# Segmentation fault received.\n# \n# Reason:\n#";
-
-        if (info->si_code == SEGV_MAPERR)
-        {
-            if (info->si_addr == nullptr)
-            {
-                snprintf(assertionMessage, sizeof(assertionMessage), "%s Null pointer", assertionFormatString);
-            }
-            else{
-                snprintf(assertionMessage, sizeof(assertionMessage), "%s Address 0x%llX was invalid", assertionFormatString, (unsigned long long) info->si_addr);
-            }
-        }
-        else if (info->si_code == SEGV_ACCERR)
-        {
-            snprintf(assertionMessage, sizeof(assertionMessage), "%s Access to 0x%llX is not permitted", assertionFormatString, (unsigned long long) info->si_addr);
-        }
-        else{
-            snprintf(assertionMessage, sizeof(assertionMessage), "%s Unknown Cause %d; Cause address: 0x%llX", assertionFormatString, info->si_code, (unsigned long long) info->si_addr);
-        }
-
-        
-
-        if (0) // Disabled for now, seems off (like RIP always being 1)
-        snprintf(registersMessage, sizeof(registersMessage),
-            "# Registers:\n"
-            "# rax: %lX\n# rbx: %lX\n"
-            "# rcx: %lX\n# rdx: %lX\n"
-            "# rsi: %lX\n# rdi: %lX\n"
-            "# rbp: %lX\n# rsp: %lX\n"
-            "# r8:  %lX\n# r9:  %lX\n"
-            "# r10: %lX\n# r11: %lX\n"
-            "# r12: %lX\n# r13: %lX\n"
-            "# r14: %lX\n# r15: %lX\n"
-            "# rip: %lX\n# \n# eflags: %ld\n"
-            "# trapno:  %d\n# err: %ld",
-
-            context->uc_mcontext.mc_rax,    context->uc_mcontext.mc_rbx,
-            context->uc_mcontext.mc_rcx,    context->uc_mcontext.mc_rdx,
-            context->uc_mcontext.mc_rsi,    context->uc_mcontext.mc_rdi,
-            context->uc_mcontext.mc_rbp,    context->uc_mcontext.mc_rsp,
-            context->uc_mcontext.mc_r8,     context->uc_mcontext.mc_r9,
-            context->uc_mcontext.mc_r10,    context->uc_mcontext.mc_r11,
-            context->uc_mcontext.mc_r12,    context->uc_mcontext.mc_r13,
-            context->uc_mcontext.mc_r14,    context->uc_mcontext.mc_r15,
-            context->uc_mcontext.mc_rip,    context->uc_mcontext.mc_rflags,
-            context->uc_mcontext.mc_trapno, context->uc_mcontext.mc_err
-        );
-
-        
-
-        // Build enclosing '#' bars
-        size_t len;
-        len = get_longest_line_length(assertionMessage, sizeof(assertionMessage));
-        if (len > 0x50) {
-            len = 0x50;
-        }
-        for (unsigned i = 0; i < sizeof(bar) && i < len + 2; *(bar + i ++) = '#');
-        *(bar + len + 2) = 0;
-
-        echo("\n%s\n%s\n# \n%s\n", bar, assertionMessage, bar);
-    }
-    else if (signal == SIGTERM)
-    {
-        echo("Process termiation signal received, process exiting without error.");
-    }
-    else {
-        echo("Miscellaneous signal recieved, exiting (sig: %d)", signal);
-    }
-
-    cleanup(exitCode);
-}
-
-
-
-
 #ifdef TESTS
 //### Testing shit
 static void debug_misc()
 {
-    struct reg args;
-    uintptr_t buf;
-
-    
-    dmenu_menu_t * pFavoritesMenu = (dmenu_menu_t *) read_ulong(game->pid, (unsigned long *) &game->Addrs.favorites_menu_group->root_menu);
-    
-    
-    dmenu_menu_t * pTestMenu;
-    DMENU_FullCreateMenu(pFavoritesMenu, &pTestMenu, "Test Menu", nullptr, nullptr);
-    
-    dmenu_item_t * pTestItemSubmenu;
-    DMENU_FullCreateItemSubmenu(pFavoritesMenu, &pTestItemSubmenu, "Test Menu...", pTestMenu, nullptr, nullptr);
-    
-    dmenu_item_t * pItem = nullptr;
-    DMENU_FullCreateToggleItem(pTestMenu, &pItem, "Test Toggle Item", game->Addrs.d_Novis, nullptr);
-
-    DMENU_FullCreateExecItem(pFavoritesMenu, &pItem, "Detonate All Enemies", (void *) 0x16cc660); //! Calls patched-in function
-
-    DMENU_FullCreateToggleItem(pFavoritesMenu, &pItem, "Disable All Visibility", game->Addrs.d_Novis, nullptr);
-
-
-
-    // Allocate arg data space in game process
-    buf = (uintptr_t) proc_malloc(0x200);
-    echo("PushAllocator arg Buffer allocated; Ptr: 0x%llX", buf);
-
-    // Write args
-    write_uint(game->pid, (unsigned *) buf, 0x5D);
-    write_string(game->pid, (void *) buf + 0x10, __FILE__);
-    write_string(game->pid, (void *) buf + strnlen(__FILE__, 0x200 - 0x40), __FUNCTION__);
-
-
-    // Push stack allocator
-    proc_set_args(&args, buf, buf + 0x10, (uintptr_t) __LINE__, buf + 0x50, 0, 0, 0);
-    proc_call((void *) 0x4fa710, nullptr, &args);
-
-    // Create Small SpawnAvActor menu
-    proc_set_args(&args, 0, (uintptr_t) pTestMenu, 0, 0, 0, 0, 0);
-    proc_call((void *) 0x27ad490, nullptr, &args);
-
-    // Pop stack allocator
-    proc_clear_args(&args);
-    proc_call((void *) 0x5eebd0, nullptr, &args);
+    forFuckSake();
 }
 #endif
-
-
-
-
 
 
 
@@ -787,7 +652,11 @@ static int start()
 
 
 
-
+void assertionHandler(int signal, siginfo_t * info, void * vcontext)
+{
+    AssertionHandler(signal, info, vcontext);
+    cleanup(signal == SIGSEGV);
+}
 
 
 int main()
@@ -854,7 +723,7 @@ int main()
     struct sigaction handler;
     bzero(&handler, sizeof(struct sigaction));
 
-    handler.__sigaction_u.__sa_sigaction = AssertionHandler;
+    handler.__sigaction_u.__sa_sigaction = assertionHandler;
     handler.sa_flags = SA_SIGINFO;
     sigaction(SIGTERM, &handler, NULL);
     sigaction(SIGSEGV, &handler, NULL);

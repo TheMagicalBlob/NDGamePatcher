@@ -30,7 +30,7 @@ __always_inline
 static int proc_read(pid_t pid, size_t Length, void * Source, void * Destination, const char * Caller)
 {
     errno = 0;
-    const char * errMsg = "%s->proc_read failed (%s)\n***   PID:     %d\n***   Length:  %d\n***   Source Address: 0x%llX\n***   Destination Address: 0x%llX\n***";
+    const char * errMsg = "%s->proc_read failed (%x -> %s)\n***   PID:     %d\n***   Length:  %d\n***   Source Address: 0x%llX\n***   Destination Address: 0x%llX (0x%llX)\n***";
 
     if (!Source)
     {
@@ -57,15 +57,22 @@ static int proc_read(pid_t pid, size_t Length, void * Source, void * Destination
 
     
     int ret;
-    struct ptrace_io_desc iod = { PIOD_READ_D, Source, Destination, Length };
+    int piod = PIOD_READ_D;
+
+#ifdef DEBUG
+    if (Source < (void *) 0x3284000)
+    {
+        piod = PIOD_READ_I;
+    }
+#endif
+    struct ptrace_io_desc iod = { piod, Source, Destination, Length };
 
 
     ret = ptrace(PT_IO, pid, (caddr_t) &iod, null);
     if (ret != 0)
     {
         errno = EIO;
-        __err(ret != 0, errMsg, Caller, strerror(ret), pid, Length, Source, Destination);
-        errno = EIO;
+        __err(ret != 0, errMsg, Caller, ret, strerror(ret), pid, Length, Source, Destination, *(char *)Destination);
         return -1;
     }
 
