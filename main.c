@@ -16,10 +16,6 @@ Credits so far:
 #include "inc/dmenu.h"
 #include "inc/support_tables.h"
 
-#include <sys/types.h>
-#include <sys/user.h>
-#include <libutil.h>
-
 
 //# external functions to link
 extern int sceKernelSendNotificationRequest(int, notify_request_t *, size_t, int);
@@ -144,7 +140,7 @@ void notify(const char * message, ...)
     sceKernelSendNotificationRequest(0, &request, sizeof(request), 0); // Not sure what the first and last arg are for. One may be notification type though
 #endif
 #ifdef DEBUG
-    echo("[Notification]: %s\n", request.message);
+    kprintf("[Notification]: %s\n", request.message);
 #endif
 }
 
@@ -403,7 +399,7 @@ pid_t find_pid(const char *name)
 //#
 
 //! TODO: Add remaining title ids
-static GameID_t get_game_id(title_id_check_t check)
+static GameId_t GetGamdId(title_id_check_t check)
 {
     // Read from the title id's string * + 1 so we can read it as an unsigned long without missing id's (e.x. reading both PSA15511 and PSA15512 as (ulong)PSA1551)
     switch(check)
@@ -435,7 +431,7 @@ static GameID_t get_game_id(title_id_check_t check)
 
 
 
-static int load_ndgame(GameID_t game_id, pid_t pid, app_info_t * app_info)
+static int load_ndgame(GameId_t game_id, pid_t pid, app_info_t * app_info)
 {
     //#
     //## Load app metadata
@@ -480,18 +476,18 @@ static int load_ndgame(GameID_t game_id, pid_t pid, app_info_t * app_info)
 // Saves the pid, app id, and title id of the attached process to the provided ndgame struct
 // 
 //! TODO: Add support for the other naughtydog executable names so the payload works regardless of which is running
-static pid_t wait_for_game_launch()
+static pid_t wait_for_app_launch(const char * ProcessName)
 {
     pid_t pid;
 
     //! TODO: Replace with kernel event method. We've already added credits for it, understand and then use it already
     // Check for any running eboot.bin processes
-    pid = find_pid("eboot.bin");
+    pid = find_pid(ProcessName);
     echo("find_pid: %d", pid);
 
     while (pid == -1) {
         sleep(10);
-        pid = find_pid("eboot.bin");
+        pid = find_pid(ProcessName);
         echo("_find_pid: %d", pid);
 
         if (pid > 0) {
@@ -510,67 +506,65 @@ static pid_t wait_for_game_launch()
 
 
 
-static GameID_t find_and_trace_game()
+static int TraceGame(pid_t pid)
 {
-    pid_t pid;
-    GameID_t err;
     bzero(game, sizeof(NdGame_t));
 
-
-    // Wait for a new bigapp process launch
-    err = (GameID_t) -1;
-    pid = wait_for_game_launch();
-
-    __rerrv(pid < 1, err, "ERROR: Invalid process id returned from launched game (%d), aborting until new app launch", pid);
-
-
     // Read and check Title ID
-    int ret;
     app_info_t app_info;
-    ret = sceKernelGetAppInfo(pid, &app_info);
-    __rerrv(ret != 0, err, "ERROR: sceKernelGetAppInfo Failed!!! Aborting payload.");
+    int ret = sceKernelGetAppInfo(pid, &app_info);
+    __rerrv(ret != 0, 1, "sceKernelGetAppInfo Failed. Aborting payload.");
     
-    GameID_t game_id;
-    game_id = get_game_id(encode_sid(app_info.title_id));
-
-    if (game_id == NONE)
+    GameId_t game_id = GetGamdId(encode_sid(app_info.title_id));
+    if (game_id != NONE)
     {
-        echo("Unknown game, ignoring %s.", app_info.title_id);
-        return NONE;
+        game->game_id = game_id;
+
+        //! TODO: Update hardcoded addresses to have a zero base address, updating them on NdGame_t init with the process' base address
+        // Check for intended base address
+        game->BaseAddress = kernel_dynlib_mapbase_addr(game->pid, 0);
+        game->Entry = (void *) kernel_dynlib_entry_addr(game->pid, 0);
+
+        // Attach to new game process
+        ret = attach(pid);
+        __rerrv(ret, 1, "Unable to attach to process, aborting.");
+
+        // Wait for the process to stop
+        ret = proc_wait(true);
+        __rerrv(ret == -1, 1, "proc_wait returned error when waiting after initial attachment, aborting")
+
+
+        // Save id of process only once attached
+        game->game_id = game_id;
+
+        // Read application metadata (app version and title)
+        ret = load_ndgame(game_id, pid, &app_info);
+        __rerrv(ret != 0, 1, "Failed loading ndgame, aborting finding & tracing of game.");
+        
+
+
+        notify(
+            "Attached to game process. (pid %d)\n"
+            "Title ID: %s (%s)\n"
+            "App Version: %s\n"
+            "Title: %s\n\n"
+            "Base Address: 0x%llX\n"
+            "Entry: 0x%llX\n",
+            
+            pid,
+            game->title_id, game->game_id == T2R ? "T2R" : "T1x",
+            game->app_ver,
+            game->title,
+            game->BaseAddress,
+            game->Entry
+        );
+
+        return ret;
     }
 
 
-    // Attach to new game process
-    ret = attach(pid);
-    __rerrv(ret, err, "Unable to attach to process, aborting.");
-
-    // Wait for the process to stop
-    ret = proc_wait(true);
-    __rerrv(ret == -1, err, "ERROR: proc_wait returned error when waiting after initial attachment, aborting")
-
-
-    // Save id of process only once attached
-    game->game_id = game_id;
-
-    // Read application metadata (app version and title)
-    ret = load_ndgame(game_id, pid, &app_info);
-    __rerrv(ret != 0, err, "Failed loading ndgame, aborting finding & tracing of game.");
-    
-
-
-    notify(
-        "Attached to game process. (pid %d)\n"
-        "Title ID: %s\n"
-        "App Version: %s\n"
-        "Title: %s\n",
-        
-        pid,
-        game->title_id,
-        game->app_ver,
-        game->title
-    );
-
-    return ret;
+    echo("Unknown game, ignoring %s.", app_info.title_id);
+    return 0;
 }
 
 
@@ -712,8 +706,10 @@ int main()
             echo("Process %d terminated without issue", pid);
         }
 
-
+        
+#ifdef DEBUG
         exit(0);
+#endif
         return 0;
     }
 
@@ -734,11 +730,16 @@ int main()
     
     
     
-    // Find game process to trace
-    echo("Proceeding with new %s instance (%d) - Waiting/Searching for game process.", PAYLOAD_NAME, getpid());
-    ret = find_and_trace_game();
-    __rerrv(ret != 0, 1, "Unhandled error finding game process, payload aborting with error.");
+    //#
+    //## Find game process to trace
+    //#
 
+    
+    pid = wait_for_app_launch("eboot.bin"); // Wait for a new bigapp process launch
+    __rerrv(pid < 1, 1, "Invalid process id returned from launched game (%d), aborting payload", pid);
+
+    ret = TraceGame(pid);
+    __rerrv(ret != 0, 1, "Unhandled error tracing game process, aborting payload.");
 
 
 #ifdef TESTS

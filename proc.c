@@ -188,7 +188,7 @@ pid_t proc_wait(int wait)
     errno = 0;
     struct ptrace_lwpinfo thread_info;
     ret = ptrace(PT_LWPINFO, game->pid, (caddr_t) &thread_info, sizeof(struct ptrace_lwpinfo));
-    __rerrv(ret != 0, -1, "ERROR: unable to get lwp info for stopped process in pid %d", game->pid)
+    __rerrv(ret != 0, -1, "Unable to get lwp info for stopped process in pid %d", game->pid)
 
     echo("Thread that stopped / terminated: %s (%d:%d)", thread_info.pl_tdname, returned_pid, thread_info.pl_child_pid);
     return returned_pid;
@@ -660,7 +660,7 @@ int proc_call(void * function_address, unsigned long * return_val_ptr, struct re
     
     //! I guess we can't actually read from that address? Can we only read after the header?
     // int ret;
-    // ret = read_byte(game->pid, (void *) 0x400000);
+    // ret = read_byte((void *) 0x400000);
     // __rerrv(ret != 0xCC, errmsg, 1);
     
 
@@ -682,7 +682,7 @@ int proc_call(void * function_address, unsigned long * return_val_ptr, struct re
     
 
     // Set return address
-    ret = write_ulong(game->pid, (void *) (arg_regs->r_rsp -= 8), (unsigned long) 0x400000);
+    ret = write_ulong((void *) (arg_regs->r_rsp -= 8), (unsigned long) 0x400000);
     __rerrv(ret != 0, 1, "Failed setting return address, aborting function call");
     
     // Set next instruction address

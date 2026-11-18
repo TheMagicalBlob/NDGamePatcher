@@ -13,7 +13,7 @@ int attach(pid_t pid);
 int detach(const char * from);
 pid_t proc_wait(int wait);
 
-// int _proc_continue(pid_t pid, void * resume, int signal);
+// int _proc_continue(void * resume, int signal);
 
 int proc_continue();
 int proc_stop();

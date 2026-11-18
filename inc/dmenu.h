@@ -142,11 +142,13 @@ typedef struct ndgame
 {
     pid_t pid;
     int status; // Status reported by waitpid the last time the process stopped
-    GameID_t game_id;
+    GameId_t game_id;
 
     char title_id[0xA];
     char app_ver[0xB]; // String representation
     char title[0x80];
+    void * Entry; // Base address of the traced process
+    intptr_t BaseAddress; // Base address of the traced process
     
     dmenu_menu_group_t * DevMenu;
     dmenu_menu_group_t * QuickMenu;

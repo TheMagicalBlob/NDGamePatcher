@@ -15,7 +15,7 @@ typedef void * DMENU_Type_t;
 
 typedef struct suppport_table_s
 {
-    GameID_t game_id;              // Id of the loaded game (T2R, T1X, UC4, etc.)
+    GameId_t game_id;              // Id of the loaded game (T2R, T1X, UC4, etc.)
     app_version_sid_t app_ver_sid;  // The games app_ver encoded as an SID
     
 
@@ -34,7 +34,7 @@ typedef struct suppport_table_s
 
 
 
-#ifdef DEBUG
+#if 0
 //#
 //## DEBUG support table(s)
 //#
@@ -244,10 +244,8 @@ static const suppport_table_t TitleSupportTable[] =
 
 
 // Load various function and variable addresses. Function's in the header file to try and make adding support less tedious
-int InitSupportTable(GameID_t game_id, app_version_sid_t app_ver)
+int InitSupportTable(GameId_t game_id, app_version_sid_t app_ver)
 {
-    pid_t pid;
-    pid = game->pid;
     suppport_table_t table;
 
     // Loop through the support table looking for an entry that matches the provided game id and app version
@@ -265,9 +263,9 @@ int InitSupportTable(GameID_t game_id, app_version_sid_t app_ver)
             echo("DevMenu**: 0x%llX",       table.DevMenu);
             echo("QuickMenu**: 0x%llX",     table.QuickMenu);
             echo("FavoritesMenu**: 0x%llX", table.FavoritesMenu);
-            game->DevMenu       = (dmenu_menu_group_t *) read_ulong(pid, (unsigned long *) table.DevMenu);
-            game->QuickMenu     = (dmenu_menu_group_t *) read_ulong(pid, (unsigned long *) table.QuickMenu);
-            game->FavoritesMenu = (dmenu_menu_group_t *) read_ulong(pid, (unsigned long *) table.FavoritesMenu);
+            game->DevMenu       = (dmenu_menu_group_t *) read_ulong((unsigned long *) table.DevMenu);
+            game->QuickMenu     = (dmenu_menu_group_t *) read_ulong((unsigned long *) table.QuickMenu);
+            game->FavoritesMenu = (dmenu_menu_group_t *) read_ulong((unsigned long *) table.FavoritesMenu);
             return 0;
         }
     }

@@ -13,13 +13,13 @@
 #include <sys/wait.h>
 #include <sys/sysctl.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 
 #include <ps5/klog.h>
 #include <ps5/kernel.h>
 
 #include "assertion.h"
 
-void dump_maps(pid_t pid, uintptr_t addr);
 
 
 
@@ -44,7 +44,7 @@ void dump_maps(pid_t pid, uintptr_t addr);
 //#
 
 // Do some basic extra debugging processes, as well as prints
-// #define DEBUG
+#define DEBUG
 
 // Run whatever debug/test code is present, rather than the main payload code
 // #define TESTS
@@ -81,6 +81,7 @@ typedef unsigned long SID;
 
 
 
+
 // Basic ID system for the loaded games. 
 typedef enum game_id : char
 {
@@ -94,7 +95,7 @@ typedef enum game_id : char
     TLL  = -4, // Uncharted: The Lost Legacy
     TLLR =  4  // Uncharted: The Lost Legacy Remastered
 
-} GameID_t;
+} GameId_t;
 
 
 
@@ -198,4 +199,7 @@ size_t get_longest_line_length(const char * str, size_t str_maxlen);
 int * get_watchpoint_count();
 
 pid_t find_pid(const char * process_name);
+
+
+
 
