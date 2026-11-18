@@ -607,7 +607,9 @@ void cleanup(int exit_code)
 
     if (logfile) {
         echo("Closing logfile handle");
+        
         close(logfile);
+        logfile = 0;
     }
 
     echo("Exiting");

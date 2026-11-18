@@ -174,30 +174,30 @@ static void * DMENU_FindComponent(const char * expected_component_name, dmenu_me
     int ret;
     dmenu_menu_t * menu;
     DMENU_MenuGroupIndex_t curr_base_index = 0;
+#if VERBOSITY > 1
     echo("Beginning search for %s", expected_component_name);
-
+#endif
 
     if (start_menu == nullptr)
     {
+    #if VERBOSITY > 1
         echo("No start menu provided.");
+    #endif
         dmenu_menu_group_t * parent_group;
         
     _recheck:
         parent_group = *(&game->DevMenu + curr_base_index);
-        __rerrv(parent_group == null, nullptr, "Null parent base in ndgame struct at game->DevMenu + %d, aborting", curr_base_index);
+        __rerrv(parent_group == null, nullptr, "Null parent base in ndgame struct at game->DevMenu + %d. Aborting", curr_base_index)
 
-        echo("Checking menu group at 0x%llX.", parent_group);
 
         menu = (dmenu_menu_t *) read_ulong((unsigned long *) &parent_group->root_menu);
-        __rerrv(menu == (dmenu_menu_t *) -1, nullptr, "error reading root menu from menu group #%d", curr_base_index)
-        if (menu == 0)
-        {
-            echo("ERROR: Menu group doesn't even have a root menu! Aborting.");
-            return nullptr;
-        }
+        __rerrv(menu == (dmenu_menu_t *) -1, nullptr, "read_ulong returned error when reading root menu from menu group #%d", curr_base_index)
+        __rerrv(menu == (dmenu_menu_t *) nullptr, nullptr, "DMENU::MenuGroup has no root DMENU::Menu. Aborting")
     }
     else{
+    #if VERBOSITY > 1
         echo("Start menu provided. (0x%llX)", start_menu);
+    #endif
         menu = start_menu;
     }
     
@@ -219,11 +219,15 @@ static void * DMENU_FindComponent(const char * expected_component_name, dmenu_me
 
     if (pItem == nullptr)
     {
+#if VERBOSITY > 1
         echo("%s contains no items, aborting", parent_name);
+#endif
         return nullptr;
     }
 
+#if VERBOSITY > 2
     echo("Searching %s for %s", parent_name, expected_component_name);
+#endif
 
     
     int depth = 0;
@@ -238,25 +242,29 @@ static void * DMENU_FindComponent(const char * expected_component_name, dmenu_me
     next_is_menu = 0;
     while(pItem != nullptr)
     {
+        // Get base type of item
         base_type = DMENU_GetBaseType(pItem);
         
+        // Read component name
         entry_name_ptr = (const char *) read_ulong((unsigned long *) &((dmenu_item_t *) pItem)->pItemText);
-        if ((void *) entry_name_ptr == nullptr)
+        if (entry_name_ptr == (const char *) nullptr)
         {
             goto _no_name;
         }
-        
 
         ret = read_string(entry_name_ptr, entry_name);
-        if (ret == -1)
-        {
-            __rerrv(ret != sizeof(dmenu_menu_t), nullptr, "ERROR: Failed reading name from component at 0x%llX when searching for component \"%s\", aborting.", pItem, expected_component_name)
-            break;
-        }
+        __rerrv(ret == -1, nullptr, "Failed reading name from component at 0x%llX when searching for component \"%s\" Aborting.", pItem, expected_component_name)
+
+        
 
         // Check for matching base type and component name
         if (expected_component_stype == base_type && !strncmp(expected_component_name, entry_name, strlen(entry_name)))
         {
+#if   VERBOSITY > 2
+            kprintf("Found specified item at 0x%llX\n", pItem);
+#elif VERBOSITY > 1
+            kprintf("\n");
+#endif
             return pItem;
         }
 
@@ -300,20 +308,22 @@ static void * DMENU_FindComponent(const char * expected_component_name, dmenu_me
             next_is_menu = 0;
         }
     }
+#if VERBOSITY > 1
+    kprintf("\n");
+#endif
 
 
-
-    
-    if (curr_base_index >= 2)
+    if (curr_base_index < 2)
     {
-        #ifdef DEBUG
-        echo("Didn't find component %s in Menu #%d; checking next menu", expected_component_name, curr_base_index);
-        #endif
-        return nullptr;
+#if VERBOSITY > 2
+        echo("Didn't find component %s in menu #%d; checking next one", expected_component_name, curr_base_index);
+#endif
+        curr_base_index++;
+        goto _recheck;
     }
+    
+    return nullptr;
 
-    curr_base_index++;
-    goto _recheck;
 }
 
 

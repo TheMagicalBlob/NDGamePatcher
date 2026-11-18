@@ -290,7 +290,7 @@ int write_single(float * address, float value)
 
 
 // Read a null-terminated string of characters from the traced process' memory from the provided address.
-// Returns the amount of characters written, or 0 if there were any errors such as a null string or buffer pointer, or an I/O issue
+// Returns the amount of characters read, or 0 if there were any errors such as a null string or buffer pointer, or an I/O issue
 int read_string(const char * source, char * buffer)
 {
     if (source == 0)
