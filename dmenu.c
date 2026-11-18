@@ -544,51 +544,43 @@ static void PrintReScannerContents(DMENU_ReScanner_t Scanner[], size_t ScannerCo
 //! TODO: Finish refining this. it treats everything as a 64-bit unsigned integer
 void DMENU_RunReversingChecks()
 {
-    dmenu_menu_group_t menuGroup;
-    load_menu_group(game->DevMenu, &menuGroup);
-    
     //#
     //## Basic null checks
     //#
-    #pragma region
-    if (menuGroup.root_menu == 0) // Empty menu group
-    {
-        if (menuGroup.name)
-        {
-            echo("Provided menu group %s has no menus.", menuGroup.name);
-        }
-        else {
-            echo("Provided menu group (unnamed) has no menus.");
-        }
-        return;
-    }
+    __rerr(game == 0, "NDGame was null");
+    __rerr(game->DevMenu == 0, "Dev Menu group pointer was null")
 
-    char parentName[0x40] = {"Error"};
-    __rerr(read_string((const char *) menuGroup.name, parentName) == -1, "Failed to read menu group name before dumping menu entries, aborting.");
+    //# Load menu group
+    dmenu_menu_group_t menuGroup;
+    load_menu_group(game->DevMenu, &menuGroup);
+    __rerr(menuGroup.root_menu == 0, "Provided menu group at 0x%llX has no menus.", game->DevMenu)
+
+    //# In case we haven't finished reversing the current game enough to have DMENU component subclass types saved
+    __rerr(game->Types.DMENU_Types_ItemSubmenu == nullptr || game->Types.DMENU_Types_Menu == nullptr, "Support table for the current game has not been fully set. Cannot proceed with dumper.")
+
+    //# Read menu group name, and bitch if that fails
+    char MenuGroupName[0x40] = {"Error"};
+    __rerr(read_string((const char *) menuGroup.name, MenuGroupName) == -1, "Failed to read menu group name before running reversing checks on items, aborting.")
     
     
 
     
+
 
     //#
     //## Begin dumper by reading root menu of provided menu group
     //#
-    echo("Dumping %s contents.", parentName);
+    echo("Dumping %s contents.", MenuGroupName);
     
     dmenu_menu_t menu;
     read_bytes(sizeof(dmenu_menu_t), (byte *) menuGroup.root_menu, (byte *) &menu);
     
     void * pItem = menu.FirstItem;
-    if(pItem == 0)
-    {
-        echo("ERROR:\n# %s %s has no entries (%d).\n# Aborting.", DMENU_GetTypeAsString(menu.vPtr), menu.MenuName, pItem);
-        return;
-    }
+    __rerr(pItem == 0, "%s %s has no entries (%d).\n# Aborting.", DMENU_GetTypeAsString(menu.vPtr), menu.MenuName, pItem)
 
 
 
 
-    
     //#
     //## General Menu-Crawling Variables
     //#
@@ -605,22 +597,9 @@ void DMENU_RunReversingChecks()
 
 
     //#
-    //## Component Scanner Variables
-    //#
-    #define maxComponentCount 0x40
-
-    unsigned foundTestMenuCount = 0;
-    DMENU_ReScanner_t foundTestMenus[maxComponentCount] = {0};
-    
-    unsigned foundTestItemCount = 0;
-    DMENU_ReScanner_t foundTestItems[maxComponentCount] = {0};
-
-    
-
-
-    //#
     //## Setup detailed scanner's current config
     //#
+    #define maxComponentCount 0x40
     
     // Array of offsets in the item and/or menu structures
     DMENU_ReScanner_Check_t checks[] =
@@ -630,11 +609,19 @@ void DMENU_RunReversingChecks()
         { stItem, __offsetof(dmenu_item_t, _ItemCount), "_ItemCount", 0 }
         // { stMenu, __offsetof(dmenu_menu_t, Unmapped1), "Unmapped1", 0 }
     };
+
+    unsigned foundTestMenuCount = 0;
+    DMENU_ReScanner_t foundTestMenus[maxComponentCount] = {0};
+    
+    unsigned foundTestItemCount = 0;
+    DMENU_ReScanner_t foundTestItems[maxComponentCount] = {0};
+
     // Amount of offsets added to the CheckOffsets array
     size_t CheckCount = sizeof(checks) / sizeof(DMENU_ReScanner_Check_t);
 
-    
-    DMENU_ReScanner_t * scnInitArr[0x2] = { foundTestMenus, foundTestItems }; // Scanner initialization array (two seems odd, but I may add more arrays depeinding on how I end up using this)
+    // Scanner initialization array (two seems odd, but I may add more arrays depeinding on how I end up using this)
+    DMENU_ReScanner_t * scnInitArr[0x2] = { foundTestMenus, foundTestItems };
+
     for (int i = 0; i < maxComponentCount; i++)
     {
         for (int j = 0; j < 2; j++)
@@ -751,13 +738,13 @@ void DMENU_RunReversingChecks()
         if (foundTestMenuCount > (unsigned) 0)
         {
             echo("Printing %d test menus...", foundTestMenuCount);
-            PrintReScannerContents(foundTestMenus, foundTestMenuCount, parentName, showNullChecks);
+            PrintReScannerContents(foundTestMenus, foundTestMenuCount, MenuGroupName, showNullChecks);
         }
         
         if (foundTestItemCount > (unsigned) 0)
         {
             echo("Printing %d test items...", foundTestItemCount);
-            PrintReScannerContents(foundTestItems, foundTestItemCount, parentName, showNullChecks);
+            PrintReScannerContents(foundTestItems, foundTestItemCount, MenuGroupName, showNullChecks);
         }
     }
 
@@ -782,64 +769,51 @@ typedef struct DMENU_SupportInfoScanner_s {
 // DMENU_DumpSupportInfo-specific function
 static void PrintSupportScannerContents(DMENU_SupportScanner_t Scanner[], size_t ScannerCount)
 {
-    //## Types
-    kprintf("{\n");       for (unsigned i = 0; i < ScannerCount; i++)
-    {
-        kprintf("    .DMENU_Types_%s = (DMENU_Type_t) 0x%llX,\n", Scanner[i].dType, Scanner[i].Type);
-    }
-    
     //## Event Handlers
-    kprintf("},\n\n{\n"); for (unsigned i = 0; i < ScannerCount; i++)
+    kprintf("{\n");
+    for (unsigned i = 0; i < ScannerCount; i++)
     {
         kprintf("    .DMENU_Handlers_%s = (void *) 0x%llX,\n", Scanner[i].dType, Scanner[i].EventHandler);
     }
     kprintf("}\n");
 }
 
-//! TODO: UPDATE THIS, YOU FUCKING MORON. Scanner needs filled-in type info to get the names, you overly-forgetful dunce. We're only doing two games here, so just save some option names we know will always be present
 // Dump required addresses for dmenu support in the running title
 void DMENU_DumpSupportInfo()
 {
-    dmenu_menu_group_t menuGroup;
-    load_menu_group(game->DevMenu, &menuGroup);
-    
-    
     //#
     //## Basic null checks
     //#
-    if (menuGroup.root_menu == 0) // Empty menu group
-    {
-        if (menuGroup.name)
-        {
-            echo("Provided menu group %s has no menus.", menuGroup.name);
-        }
-        else {
-            echo("Provided menu group (unnamed) has no menus.");
-        }
-        return;
-    }
+    __rerr(game == 0, "NDGame was null");
+    __rerr(game->DevMenu == 0, "Dev Menu group pointer was null")
 
-    char parentName[0x40] = {"Error"};
-    __rerr(read_string((const char *) menuGroup.name, parentName) == -1, "Failed to read menu group name before dumping menu entries, aborting.");
+    //# Load menu group
+    dmenu_menu_group_t menuGroup;
+    load_menu_group(game->DevMenu, &menuGroup);
+    __rerr(menuGroup.root_menu == 0, "Provided menu group at 0x%llX has no menus.", game->DevMenu);
+
+    //# Read menu group name, and bitch if that fails
+    char MenuGroupName[0x40] = {"Error"};
+    __rerr(read_string((const char *) menuGroup.name, MenuGroupName) == -1, "Failed to read menu group name before dumping dmenu component types, aborting.");
+
+    //# In case we haven't finished reversing the current game enough to have DMENU component subclass types saved
+    __rerr(game->Types.DMENU_Types_ItemSubmenu == nullptr || game->Types.DMENU_Types_Menu == nullptr, "Support table for the current game has not been fully set. Cannot proceed with dumper.")
     
     
 
     
 
+    
     //#
     //## Begin dumper by reading root menu of current menu group
     //#
-    echo("Dumping Support info.", parentName);
+    echo("Dumping Support info.", MenuGroupName);
     
     dmenu_menu_t menu;
     read_bytes(sizeof(dmenu_menu_t), (byte *) menuGroup.root_menu, (byte *) &menu);
     
-    void * pItem;
-    if((pItem = menu.FirstItem) == 0)
-    {
-        echo("ERROR:\n# %s %s has no entries (%d).\n# Aborting.", DMENU_GetTypeAsString(menu.vPtr), menu.MenuName, pItem);
-        return;
-    }
+    void * pItem = menu.FirstItem;
+    __rerr(pItem == 0, "%s %s has no entries (%d). Aborting support info dumper.", DMENU_GetTypeAsString(menu.vPtr), menu.MenuName, pItem)
 
 
 
@@ -1163,7 +1137,7 @@ static const char * GuessItemTypeFromCommonName(const char * ItemName)
 
     } lazyName_t;
 
-    lazyName_t NameChecks[] = {};
+    lazyName_t NameChecks[] = {0};
     // {
     //     { Display___, "MenuGroup", &game->Types.DMENU_Types_MenuGroup },
     //     { Display, "Menu", &game->Types.DMENU_Types_Menu },

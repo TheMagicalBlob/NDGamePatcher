@@ -64,9 +64,9 @@ static const suppport_table_t TitleSupportTable[] =
             .Novis = (byte *) 0x70cc124
         },
 
-        {},
+        {0},
 
-        {}
+        {0}
     },
 };
 
@@ -260,9 +260,6 @@ int InitSupportTable(GameId_t game_id, app_version_sid_t app_ver)
             game->Addrs = table.Addrs;
 
             // Load the menu group pointers
-            echo("DevMenu**: 0x%llX",       table.DevMenu);
-            echo("QuickMenu**: 0x%llX",     table.QuickMenu);
-            echo("FavoritesMenu**: 0x%llX", table.FavoritesMenu);
             game->DevMenu       = (dmenu_menu_group_t *) read_ulong((unsigned long *) table.DevMenu);
             game->QuickMenu     = (dmenu_menu_group_t *) read_ulong((unsigned long *) table.QuickMenu);
             game->FavoritesMenu = (dmenu_menu_group_t *) read_ulong((unsigned long *) table.FavoritesMenu);

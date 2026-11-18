@@ -168,7 +168,7 @@ void log_message(const char * base_string, ...)
 
         if (logfile < 0)
         {
-            kprintf("Unable to open logfile, maybe error code: %s", strerror(errno));
+            kprintf("Unable to open logfile (errno: %s)", strerror(errno));
         }
     }
 
@@ -176,8 +176,7 @@ void log_message(const char * base_string, ...)
     if (logfile)
     {
         // Write the message to the log file
-        int ret;
-        ret = write(logfile, message, strlen(message));
+        int ret = write(logfile, message, strlen(message));
         if (ret == -1)
         {
             kprintf("Write returned error? (%s)\n", strerror(errno));
@@ -420,7 +419,7 @@ static GameId_t GetGamdId(title_id_check_t check)
 
 
         default:
-            echo("Unknown game title id read (%llu)", check);
+            echo("Unknown game title id read (SID: 0x%llX)", check);
     }
 
     return NONE;
@@ -724,7 +723,6 @@ int main()
     sigaction(SIGTERM, &handler, NULL);
     sigaction(SIGSEGV, &handler, NULL);
 
-    int ret;
     game = &ndgame;
     watchpoint_count = 0;
     
@@ -734,11 +732,19 @@ int main()
     //## Find game process to trace
     //#
 
-    
-    pid = wait_for_app_launch("eboot.bin"); // Wait for a new bigapp process launch
+    // Wait for a new bigapp process launch
+    pid = wait_for_app_launch("eboot.bin");
     __rerrv(pid < 1, 1, "Invalid process id returned from launched game (%d), aborting payload", pid);
 
-    ret = TraceGame(pid);
+    // Attach and initialize the game process if it's title id returns a known Game ID
+    int ret = TraceGame(pid);
+
+    //! TODO: Once we're checking kevents for app launch instead of using find_pid and can wait for app exit, edit this to restart the search for the game process
+    if (game->game_id == NONE)
+    {
+        echo("No known game detected.");
+        return 1;
+    }
     __rerrv(ret != 0, 1, "Unhandled error tracing game process, aborting payload.");
 
 
