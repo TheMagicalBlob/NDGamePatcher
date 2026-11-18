@@ -47,7 +47,7 @@
 #define DEBUG
 
 // Run whatever debug/test code is present, rather than the main payload code
-// #define TESTS
+#define TESTS
 
 // 0: Disabled
 // 1: Basic

@@ -1208,7 +1208,7 @@ void forFuckSake()
     unsigned currTypeCount = 0;
 
     ffsScanner_t * pCurrComponent; // Scanner ref to avoid having a bunch of if/else statements checking for unknown values.
-    ffsScanner_t unknownComponents[maxTypeCount] = {0}; // Basic type checks
+    ffsScanner_t components[maxTypeCount] = {0}; // Basic type checks
 
 
 
@@ -1229,16 +1229,18 @@ void forFuckSake()
     dmenu_menu_group_t menuGroup;
     load_menu_group(game->DevMenu, &menuGroup);
 
-    game->Types.DMENU_Types_MenuGroup = menuGroup.vptr;
-
     if (menuGroup.root_menu == 0)
     {
         echo("Provided menu group (0x%llX) has no menus.", game->DevMenu);
         return;
     }
+    
+    pCurrComponent = &components[currTypeCount++];
 
-    char parentName[0x40] = {"Error"};
-    __rerr(read_string((const char *) menuGroup.name, parentName) == -1, "Failed to read menu group name before dumping menu entries, aborting.");
+    game->Types.DMENU_Types_MenuGroup = menuGroup.vptr;
+    pCurrComponent->Type = menuGroup.vptr;
+    strncpy((char *) pCurrComponent->dType, "MenuGroup", sizeof(pCurrComponent->dType));
+    __rerr(read_string((const char *) menuGroup.name, pCurrComponent->ComponentName) == -1, "Failed to read menu group name before dumping menu entries, aborting.");
     
     
 
@@ -1251,11 +1253,37 @@ void forFuckSake()
     dmenu_menu_t menu;
     load_menu(menuGroup.root_menu, &menu);
 
+    pCurrComponent = &components[currTypeCount++];
+
     game->Types.DMENU_Types_Menu = menu.vPtr;
-    
+    pCurrComponent->Type = menu.vPtr;
+    strncpy((char *) pCurrComponent->dType, "Menu", sizeof(pCurrComponent->dType));
+    __rerr(read_string((const char *) menu.MenuName, pCurrComponent->ComponentName) == -1, "Failed to read root menu name before dumping menu entries, aborting.");
+
     void * pItem = menu.FirstItem;
     __rerr(pItem == nullptr, "Menu %s has no entries. Aborting.", menu.MenuName)
+    
+
+
+    // Check for expected item submenu before proceeding
+    pCurrComponent = &components[currTypeCount++];
+    __rerr(read_string((char *) read_ulong((unsigned long *) &((dmenu_item_t *)pItem)->pItemText), pCurrComponent->ComponentName) == -1, "Failed to read root menu name before dumping menu entries, aborting.");
+    size_t nameChkLen = strnlen(pCurrComponent->ComponentName, 0xFF);
+    if (strncmp(pCurrComponent->ComponentName + (nameChkLen - 3), "...", 4))
+    {
+        echo("ANUS (%s)", pCurrComponent->ComponentName + (nameChkLen - 3));
+        echo("ERROR: First item of a menu group's root menu must be an item submenu (DMENU::ItemSubmenu).");
+        return;
+    }
+
+    pItem =                (dmenu_item_t *) read_ulong(&((dmenu_item_t *) pItem)->ReturnBuffer);
+    history[++depth] =     (dmenu_menu_t *) read_ulong((unsigned long *) &((dmenu_item_t *) pItem)->NextItem);
+    pCurrComponent->Type = (DMENU_Type_t)   read_ulong((unsigned long *) pItem);
+    strncpy((char *) pCurrComponent->dType, "ItemSubmenu", sizeof(pCurrComponent->dType));
+    nextIsMenu = 1;
+
 #pragma endregion
+
 
 
 
@@ -1279,7 +1307,7 @@ void forFuckSake()
 
         for (int i = 0; i < currTypeCount; i++)
         {
-            if (unknownComponents[i].Type == type)
+            if (components[i].Type == type)
             {
                 newItem = (char) 0x0;
                 // echo("Known item 0x%llX", type);
@@ -1296,7 +1324,7 @@ void forFuckSake()
 
 
         // I'm Lazily leaving this pointer usage intact so the code's prettier
-        pCurrComponent = &unknownComponents[currTypeCount++];
+        pCurrComponent = &components[currTypeCount++];
 
 
         // Zero current struct
@@ -1304,8 +1332,8 @@ void forFuckSake()
 
         // Save general component info
         pCurrComponent->Type = type;
-        strncpy(pCurrComponent->dType, DMENU_GetTypeAsString(type), sizeof(pCurrComponent->dType));
-        echo("New type (0x%llX/%s)", type, pCurrComponent->dType);
+        // strncpy(pCurrComponent->dType, DMENU_GetTypeAsString(type), sizeof(pCurrComponent->dType));
+        // echo("New type (0x%llX/%s)", type, pCurrComponent->dType);
 
 
 
@@ -1413,7 +1441,7 @@ void forFuckSake()
         if (currTypeCount > (unsigned) 0)
         {
             echo("Printing %d unknown types...", currTypeCount);
-            ffsPrint(unknownComponents, currTypeCount);
+            ffsPrint(components, currTypeCount);
         }
     }
     else {
