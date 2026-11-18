@@ -1102,9 +1102,15 @@ typedef enum ScannerNameSIDs : unsigned long {
 }
  NameSID_t;
 
-static void SnakeTransform(char In[])
+static void TempTransform(char In[])
 {
     size_t len = strlen(In);
+
+    if (*In == '\0')
+    {
+        strncpy(In, "Separator", sizeof("Separator"));
+        return;
+    }
 
     for(int i = 0; i < len; i++)
     {
@@ -1129,8 +1135,8 @@ static void ffsPrint(ffsScanner_t Scanner[], size_t ScannerCount)
     kprintf("{\n"); for (unsigned i = 0; i < ScannerCount; i++)
     {
         // kprintf("    DMENU_Types_%s = (DMENU_Type_t) 0x%llX,\n", Scanner[i].dType, Scanner[i].Type);
-        SnakeTransform(Scanner[i].ComponentName);
-        kprintf("%s, %s, &game->Types.DMENU_Types_%s", Scanner[i].ComponentName, Scanner[i].dType, Scanner[i].dType);
+        TempTransform(Scanner[i].ComponentName);
+        kprintf("{ %s, \"%s\", &game->Types.DMENU_Types_%s },\n", Scanner[i].ComponentName, Scanner[i].dType, Scanner[i].dType);
     }
     kprintf("}\n");
 }
@@ -1214,9 +1220,8 @@ void forFuckSake()
 
 
 
-
     //#
-    //## Load the "Dev Menu" menu group, and save the Type
+    //## Begin dumper
     //#
     
     //## Make sure the menu base pointer pointers have been added
@@ -1226,14 +1231,12 @@ void forFuckSake()
         return;
     }
 
+    //#
+    //## MenuGroup
+    //#
     dmenu_menu_group_t menuGroup;
     load_menu_group(game->DevMenu, &menuGroup);
-
-    if (menuGroup.root_menu == 0)
-    {
-        echo("Provided menu group (0x%llX) has no menus.", game->DevMenu);
-        return;
-    }
+    __rerr(menuGroup.root_menu == 0, "Provided menu group (0x%llX) has no menus.", game->DevMenu)
     
     pCurrComponent = &components[currTypeCount++];
 
@@ -1242,31 +1245,30 @@ void forFuckSake()
     strncpy((char *) pCurrComponent->dType, "MenuGroup", sizeof(pCurrComponent->dType));
     __rerr(read_string((const char *) menuGroup.name, pCurrComponent->ComponentName) == -1, "Failed to read menu group name before dumping menu entries, aborting.");
     
-    
 
-    
 
     //#
-    //## Begin dumper by reading root menu of current menu group
+    //## Menu
     //#
-    
     dmenu_menu_t menu;
     load_menu(menuGroup.root_menu, &menu);
-
     pCurrComponent = &components[currTypeCount++];
 
     game->Types.DMENU_Types_Menu = menu.vPtr;
     pCurrComponent->Type = menu.vPtr;
     strncpy((char *) pCurrComponent->dType, "Menu", sizeof(pCurrComponent->dType));
-    __rerr(read_string((const char *) menu.MenuName, pCurrComponent->ComponentName) == -1, "Failed to read root menu name before dumping menu entries, aborting.");
+    __rerr(read_string((const char *) menu.pMenuName, pCurrComponent->ComponentName) == -1, "Failed to read root menu name before dumping menu entries, aborting.");
 
     void * pItem = menu.FirstItem;
     __rerr(pItem == nullptr, "Menu %s has no entries. Aborting.", menu.MenuName)
     
 
 
-    // Check for expected item submenu before proceeding
+    //#
+    //## ItemSubmenu (But check for it before proceeding)
+    //#
     pCurrComponent = &components[currTypeCount++];
+
     __rerr(read_string((char *) read_ulong((unsigned long *) &((dmenu_item_t *)pItem)->pItemText), pCurrComponent->ComponentName) == -1, "Failed to read root menu name before dumping menu entries, aborting.");
     size_t nameChkLen = strnlen(pCurrComponent->ComponentName, 0xFF);
     if (strncmp(pCurrComponent->ComponentName + (nameChkLen - 3), "...", 4))
@@ -1276,12 +1278,15 @@ void forFuckSake()
         return;
     }
 
-    pItem =                (dmenu_item_t *) read_ulong(&((dmenu_item_t *) pItem)->ReturnBuffer);
     history[++depth] =     (dmenu_menu_t *) read_ulong((unsigned long *) &((dmenu_item_t *) pItem)->NextItem);
     pCurrComponent->Type = (DMENU_Type_t)   read_ulong((unsigned long *) pItem);
-    strncpy((char *) pCurrComponent->dType, "ItemSubmenu", sizeof(pCurrComponent->dType));
-    nextIsMenu = 1;
 
+    game->Types.DMENU_Types_ItemSubmenu = pCurrComponent->Type;
+
+    strncpy((char *) pCurrComponent->dType, "ItemSubmenu", sizeof(pCurrComponent->dType));
+    
+    pItem = (dmenu_item_t *) read_ulong(&((dmenu_item_t *) pItem)->ReturnBuffer);
+    nextIsMenu = 1;
 #pragma endregion
 
 
@@ -1310,7 +1315,6 @@ void forFuckSake()
             if (components[i].Type == type)
             {
                 newItem = (char) 0x0;
-                // echo("Known item 0x%llX", type);
                 goto _nextItem;
             }
         }
@@ -1332,8 +1336,7 @@ void forFuckSake()
 
         // Save general component info
         pCurrComponent->Type = type;
-        // strncpy(pCurrComponent->dType, DMENU_GetTypeAsString(type), sizeof(pCurrComponent->dType));
-        // echo("New type (0x%llX/%s)", type, pCurrComponent->dType);
+        strncpy(pCurrComponent->dType, DMENU_GetTypeAsString(type), sizeof(pCurrComponent->dType));
 
 
 
@@ -1378,7 +1381,7 @@ void forFuckSake()
             
 
             // Handle ItemSubmenu components
-            if (DMENU_GetBaseType(pItem) == stype_itemsubmenu)
+            if (DMENU_GetBaseType(type) == stype_itemsubmenu)
             {
                 pItem = (dmenu_item_t *) item.ReturnBuffer;
 
