@@ -135,7 +135,7 @@ pid_t proc_wait(int wait)
     
     if (returned_pid == 0)
     {
-        __rerrv(wait != 0, -1, "ERROR: NOHANG was not specified, but waitpid returned 0 anyway.");
+        __rerrv(wait != 0, -1, "NOHANG was not specified, but waitpid returned 0 anyway.");
 
 #if VERBOSITY > 1
         echo("No processes wishing to report status.");
@@ -190,7 +190,9 @@ pid_t proc_wait(int wait)
     ret = ptrace(PT_LWPINFO, game->pid, (caddr_t) &thread_info, sizeof(struct ptrace_lwpinfo));
     __rerrv(ret != 0, -1, "Unable to get lwp info for stopped process in pid %d", game->pid)
 
+#if VERBOSITY > 1
     echo("Thread that stopped / terminated: %s (%d:%d)", thread_info.pl_tdname, returned_pid, thread_info.pl_child_pid);
+#endif
     return returned_pid;
 }
 
@@ -724,12 +726,15 @@ int proc_call(void * function_address, unsigned long * return_val_ptr, struct re
     {
         // Read return value
         *(long long *) return_val_ptr = return_regs.r_rax;
-        
+#if VERBOSITY > 1
         echo("Function at 0x%llX returned: 0x%llX", function_address, *return_val_ptr);
+#endif
     }
+#if VERBOSITY > 1
     else {
         echo("Function at 0x%llX returned.", function_address);
     }
+#endif
     
 
 

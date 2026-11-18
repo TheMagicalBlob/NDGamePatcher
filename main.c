@@ -607,7 +607,7 @@ void cleanup(int exit_code)
 
     if (logfile) {
         echo("Closing logfile handle");
-        
+
         close(logfile);
         logfile = 0;
     }
@@ -744,7 +744,7 @@ int main()
     //! TODO: Once we're checking kevents for app launch instead of using find_pid and can wait for app exit, edit this to restart the search for the game process
     if (game->game_id == NONE)
     {
-        echo("No known game detected.");
+        echo("No known game detected. Aborting payload");
         return 1;
     }
     __rerrv(ret != 0, 1, "Unhandled error tracing game process, aborting payload.");

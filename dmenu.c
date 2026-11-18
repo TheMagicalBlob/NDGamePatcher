@@ -1463,22 +1463,22 @@ static int CreateBaseComponent(dmenu_item_t * pComponent, const char * component
     // Zero item in tracee's memory
     for (unsigned i = 0; i < sizeof(dmenu_item_t); i++)
     {
-        ret |= write_byte((byte *) pComponent + i, (byte) 0);
+        ret += write_byte((byte *) pComponent + i, (byte) 0);
 
-        __errg(ret != 0, __break, "Failed writing zero byte to struct in tracee's memory. (wrote %d out of %d bytes)", i, sizeof(dmenu_item_t));
+        __errg(ret != 0, __break, "Failed writing zero byte to struct in tracee's memory. (wrote %d out of %d bytes)", i, sizeof(dmenu_item_t))
     }
 
 __break:
-    ret |= write_ulong((unsigned long *) &pComponent->vPtr, (unsigned long) game->Types.DMENU_Types_BaseComponent);
+    ret += write_ulong((unsigned long *) &pComponent->vPtr, (unsigned long) game->Types.DMENU_Types_BaseComponent);
     
-    ret |= write_uint(&pComponent->OffStateColour, (unsigned) 0xFFC8C8C8); // White
-    ret |= write_uint(&pComponent->OnStateColour,  (unsigned) 0xFF00FFFF); // Yellow
+    ret += write_uint(&pComponent->OffStateColour, (unsigned) 0xFFC8C8C8); // White
+    ret += write_uint(&pComponent->OnStateColour,  (unsigned) 0xFF00FFFF); // Yellow
     
-    ret |= write_uint(&pComponent->UnknownInt, (unsigned) 0xFFB0FFB0); // Value it always has, still not sure what this does. My original assumption appears to be wrong, though
+    ret += write_uint(&pComponent->UnknownInt, (unsigned) 0xFFB0FFB0); // Value it always has, still not sure what this does. My original assumption appears to be wrong, though
     
     
-    ret |= write_uint((unsigned *) &pComponent->_ItemCount, 1);
-    ret |= write_uint((unsigned *) &pComponent->_SelectionIndex, 1);
+    ret += write_uint((unsigned *) &pComponent->_ItemCount, 1);
+    ret += write_uint((unsigned *) &pComponent->_SelectionIndex, 1);
 
 
 
@@ -1509,15 +1509,17 @@ __break:
             str_dest[name_length] = 0;
         }
 
-        ret |= write_ulong((unsigned long *) &pComponent->pItemText, (unsigned long) str_dest);
+        ret += write_ulong((unsigned long *) &pComponent->pItemText, (unsigned long) str_dest);
 
+#if VERBOSITY > 1
         echo("%s created", component_name);
+#endif
     }
 
 
 
     // Check for and report the number of failed processes
-    __err(ret != 0, "%d write processes failed when creating base component \"%s\" (0x%llX).", ret, component_name, pComponent);
+    __err(ret != 0, "%d write processes failed when creating base component \"%s\" (0x%llX).", ret, component_name, pComponent)
 
     return ret != 0;
 }
@@ -1529,14 +1531,14 @@ __break:
 // Initialize the provided dmenu_menu_t (pMenu), setting basic dmenu_component_t structure properties and additional menu-related ones
 static int CreateMenuComponent(dmenu_menu_t * pMenu, const char * MenuName, dmenu_menu_t * pParent, void * Callback, void * MenuVariable)
 {
-    int ret = 0;
     // Create component base
-    ret = CreateBaseComponent((dmenu_item_t *) pMenu, MenuName);
+    int ret = CreateBaseComponent((dmenu_item_t *) pMenu, MenuName);
     __rerrv(ret != 0, 1, "Failed creating base component for menu %s, aborting.", MenuName)
-    
-    
+
+
+#if VERBOSITY > 1    
     echo("Base component created, finishing menu creation");
-    
+#endif
     // Item Class/Type (vTable pointer)
     ret += write_ulong((unsigned long *) &pMenu->vPtr, (unsigned long) game->Types.DMENU_Types_Menu);
 
@@ -1563,14 +1565,14 @@ static int CreateMenuComponent(dmenu_menu_t * pMenu, const char * MenuName, dmen
 // Initialize the provided dmenu_item_t (pComponent), setting basic dmenu_component_t structure properties and additional itemSubmenu-related ones
 static int CreateItemSubmenuComponent(dmenu_item_t * pComponent, const char * ItemSubmenu, dmenu_menu_t * pChild, void * ItemEventHandler, void * ItemVariable)
 {
-    int ret;
     // Create component base
-    ret = CreateBaseComponent(pComponent, ItemSubmenu);
+    int ret = CreateBaseComponent(pComponent, ItemSubmenu);
     __rerrv(ret != 0, 1, "Failed creating base component for submenu %s, aborting.", ItemSubmenu)
     
+
+#if VERBOSITY > 1    
     echo("Base component created, finishing item submenu creation");
-
-
+#endif
     // Item Class/Type (vTable pointer)
     ret |= write_ulong((unsigned long *) &pComponent->vPtr, (unsigned long) game->Types.DMENU_Types_ItemSubmenu);
 
@@ -1590,7 +1592,7 @@ static int CreateItemSubmenuComponent(dmenu_item_t * pComponent, const char * It
     
     
     // Check for and report the number of failed processes
-    __err(ret != 0, "%d write processes failed when creating %s \"%s\".", DMENU_GetTypeAsString(game->Types.DMENU_Types_ItemSubmenu), ItemSubmenu);
+    __err(ret != 0, "%d write processes failed when creating %s \"%s\".", DMENU_GetTypeAsString(game->Types.DMENU_Types_ItemSubmenu), ItemSubmenu)
 
     return ret;
 }
@@ -1603,35 +1605,31 @@ static int CreateItemSubmenuComponent(dmenu_item_t * pComponent, const char * It
 // (Type, event handler)
 static int CreateGeneralComponent(dmenu_item_t * pComponent, const char * ItemName, void * ItemVariable, DMENU_Type_t ItemType, DMENU_item_eh_type_t EventHandlerType, void * EventHandler)
 {
-    int ret;
     // Create component base
-    ret = CreateBaseComponent(pComponent, ItemName);
+    int ret = CreateBaseComponent(pComponent, ItemName);
     __rerrv(ret != 0, 1, "Failed creating base component for %s, aborting.", ItemName)
-    echo("Base component created, finishing general component");
-    
 
-    // Default to game's basic toggle item event handler if none is specified
-    __rerrv(EventHandler == nullptr && EventHandlerType != DMENU_HandlerType_ToggleItem, 1, "Item event handler still null, aborting.");
+
+    #if VERBOSITY > 1
+    echo("Base component created, finishing general component");
+    #endif
+    
+    // Finish general component initialization
 
     // Item Class/Type (vTable pointer)
-    ret |= write_ulong((unsigned long *) &pComponent->vPtr, (unsigned long) ItemType);
-
-
+    ret += write_ulong((unsigned long *) &pComponent->vPtr, (unsigned long) ItemType);
     // Event Handler type
-    ret |= write_uint((unsigned *) &pComponent->EventHandlerTypeID, (unsigned) EventHandlerType);
-    
+    ret += write_uint((unsigned *) &pComponent->EventHandlerTypeID, (unsigned) EventHandlerType);
     // Event Handler
-    ret |= write_ulong((unsigned long *) &pComponent->EventHandler, (unsigned long) EventHandler);
-
+    ret += write_ulong((unsigned long *) &pComponent->EventHandler, (unsigned long) EventHandler);
     // Item Variable
-    ret |= write_ulong((unsigned long *) &pComponent->ItemVariable, (unsigned long) ItemVariable);
-
+    ret += write_ulong((unsigned long *) &pComponent->ItemVariable, (unsigned long) ItemVariable);
     // Item return buffer
-    ret |= write_ulong((unsigned long *) &pComponent->ReturnBuffer, (unsigned long) ItemVariable);
+    ret += write_ulong((unsigned long *) &pComponent->ReturnBuffer, (unsigned long) ItemVariable);
     
     
     // Check for and report the number of failed processes
-    __err(ret != 0, "%d write processes failed when creating %s \"%s\".", DMENU_GetTypeAsString(ItemType), ItemName);
+    __err(ret != 0, "%d write processes failed when creating %s \"%s\".", DMENU_GetTypeAsString(ItemType), ItemName)
 
     return ret;
 }
@@ -2117,7 +2115,6 @@ int patch_game()
     {
         void * DetonateAllEnemiesEventHandler = (void *) 0x16cc660;
         
-        echo("========================================");
         if (read_byte(DetonateAllEnemiesEventHandler) == 0x83) // Check for patched-in temp function
         {
             DMENU_FullCreateExecItem(pFavoritesMenu, &pItem, "Detonate All Enemies", DetonateAllEnemiesEventHandler); //! Calls patched-in function
