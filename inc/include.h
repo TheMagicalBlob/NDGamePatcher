@@ -44,10 +44,10 @@
 //#
 
 // Do some basic extra debugging processes, as well as prints
-#define DEBUG
+// #define DEBUG
 
 // Run whatever debug/test code is present, rather than the main payload code
-#define TESTS
+// #define TESTS
 
 // 0: Disabled
 // 1: Basic

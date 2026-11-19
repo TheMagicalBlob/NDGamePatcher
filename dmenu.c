@@ -1079,26 +1079,29 @@ typedef struct ffsScanner_s {
     
 } ffsScanner_t;
 
-typedef enum ScannerNameSIDs : unsigned long {
-    Display___ = 0x2EC64816C47E0B09,
-    Display = 0x1125D159F7E64DF5,
-    Draw_World_Axes = 0xB395C8699F19AA20,
+typedef enum ScannerNameSIDs : unsigned long
+{
     Separator = 0x0,
-    FPS_Display_Mode = 0xD3CCD68F47D972D9,
-    Msg_Con_Left_Pad = 0xC8B17F89F580EAA6,
-    Msg_Con_Scale = 0x8E77FF26CD2B26AC,
-    Clear_Msg_Con_Persistent = 0xEAE27E32AEDA0710,
-    User = 0xA48F81F001B893D2,
+    Jackson                       = 0x117A5A051D638A06,
+    ndi                           = 0x213CC31925758172,
+    mil_street_see_scan           = 0x639FCA3D906A8765,
+    efg_guitar_flashback___       = 0x2E2F38FDA43A1C4E,
+    mil_street_start_alley___     = 0xEE78D0F63871EDA8,
+    Player_Weapon_Upgrades        = 0x4973E93586AB5D39,
+    home___                       = 0x57A03A3717D81A8C,
+    Re_play_last_selected_task_10 = 0x6EFB7D8560194852,
+    main_menu___                  = 0x70AC0188912E5F36,
+    Msg_Con_Scale                 = 0x8E77FF26CD2B26AC,
+    Give_Player_Weapon            = 0x911AFF9B4E54453B,
+    User                          = 0xA48F81F001B893D2,
     Set_Allocation_Diff_Detection_Marker = 0xB2588361502D39ED,
-    Timer0_HH_MM_SS_UU = 0xEA3F6419BF322512,
-    Give_Player_Weapon = 0x911AFF9B4E54453B,
-    Player_Weapon_Upgrades = 0x4973E93586AB5D39,
-    main_menu___ = 0x70AC0188912E5F36,
-    ndi = 0x213CC31925758172,
-    // Jackson = 0x117A5A051D638A06,
-    // efg_guitar_flashback___ = 0x2E2F38FDA43A1C4E,
-    Play_next_task = 0xEF8210605F73C499,
-    Re_play_last_selected_task_10 = 0x6EFB7D8560194852
+    Draw_World_Axes               = 0xB395C8699F19AA20,
+    Msg_Con_Left_Pad              = 0xC8B17F89F580EAA6,
+    FPS_Display_Mode              = 0xD3CCD68F47D972D9,
+    PROLOGUE                      = 0xDDF0D537CCA82598,
+    Timer0_HH_MM_SS_UU            = 0xEA3F6419BF322512,
+    Clear_Msg_Con_Persistent      = 0xEAE27E32AEDA0710,
+    Play_next_task                = 0xEF8210605F73C499,
 }
  NameSID_t;
 
@@ -1134,61 +1137,72 @@ static void ffsPrint(ffsScanner_t Scanner[], size_t ScannerCount)
     //## Types
     kprintf("{\n"); for (unsigned i = 0; i < ScannerCount; i++)
     {
-        // kprintf("    DMENU_Types_%s = (DMENU_Type_t) 0x%llX,\n", Scanner[i].dType, Scanner[i].Type);
-        TempTransform(Scanner[i].ComponentName);
-        kprintf("{ %s, \"%s\", &game->Types.DMENU_Types_%s },\n", Scanner[i].ComponentName, Scanner[i].dType, Scanner[i].dType);
+        kprintf("    DMENU_Types_%s = (DMENU_Type_t) 0x%llX,\n", Scanner[i].dType, Scanner[i].Type);
+        // TempTransform(Scanner[i].ComponentName);
+        // kprintf("{ %s, \"%s\", &game->Types.DMENU_Types_%s },\n", Scanner[i].ComponentName, Scanner[i].dType, Scanner[i].dType);
     }
     kprintf("}\n");
 }
 
-static const char * GuessItemTypeFromCommonName(const char * ItemName)
+// Try and determine types based on common item names
+static char GuessItemTypeFromCommonName(DMENU_Type_t Type, const char * ItemName, char * dType)
 {
-    SID NameSID = encode_sid(ItemName);
-
-    char OutString[0x30] = { "unknown_type" };
     typedef struct {
-        SID SID;
-        const char * TypeName;
-        const DMENU_Type_t Type;
+        const SID SID;
+        const char * dType;
+        DMENU_Type_t * Type;
 
-    } lazyName_t;
+    } typeCheck_t;
 
-    lazyName_t NameChecks[] = {0};
-    // {
-    //     { Display___, "MenuGroup", &game->Types.DMENU_Types_MenuGroup },
-    //     { Display, "Menu", &game->Types.DMENU_Types_Menu },
-    //     { "DynMenu", &game->Types.DMENU_Types_DynMenu },
-    //     { "WeaponUpgradesMenu", &game->Types.DMENU_Types_WeaponUpgradesMenu },
-    //     { "ItemSubmenu", &game->Types.DMENU_Types_ItemSubmenu },
-    //     { "TaskItemSubmenu", &game->Types.DMENU_Types_TaskItemSubmenu },
-    //     { "SubnodeTaskItemSubmenu", &game->Types.DMENU_Types_SubnodeTaskItemSubmenu },
-    //     { "BaseComponent", &game->Types.DMENU_Types_BaseComponent },
-    //     { Separator, "SeparatorItem", &game->Types.DMENU_Types_SeparatorItem },
-    //     { Draw_World_Axes, "ToggleItem", &game->Types.DMENU_Types_ToggleItem },
-    //     { "ExecItem", &game->Types.DMENU_Types_ExecItem },
-    //     { "AltExecItem", &game->Types.DMENU_Types_AltExecItem },
-    //     { "StringItem", &game->Types.DMENU_Types_StringItem },
-    //     { "StringListItem", &game->Types.DMENU_Types_StringListItem },
-    //     { "DecimalItem", &game->Types.DMENU_Types_DecimalItem },
-    //     { "TaskHistoryItem", &game->Types.DMENU_Types_TaskHistoryItem },
-    //     { "TaskItem", &game->Types.DMENU_Types_TaskItem },
-    //     { "UserItem", &game->Types.DMENU_Types_UserItem },
-    //     { "TimerItem", &game->Types.DMENU_Types_TimerItem },
-    //     { "CheckpointItem", &game->Types.DMENU_Types_CheckpointItem },
-    //     { "FloatItem", &game->Types.DMENU_Types_FloatItem }
-    // };
+    typeCheck_t TypeChecks[] =
+    {
+        { Draw_World_Axes, "ToggleItem", &game->Types.DMENU_Types_ToggleItem },
+        { Separator, "SeparatorItem", &game->Types.DMENU_Types_SeparatorItem },
+        { FPS_Display_Mode, "StringListItem", &game->Types.DMENU_Types_StringListItem },
+        { Msg_Con_Left_Pad, "DecimalItem", &game->Types.DMENU_Types_DecimalItem },
+        { Msg_Con_Scale, "FloatItem", &game->Types.DMENU_Types_FloatItem },
+        { Clear_Msg_Con_Persistent, "ExecItem", &game->Types.DMENU_Types_ExecItem },
+        { User, "UserItem", &game->Types.DMENU_Types_UserItem },
+        { Set_Allocation_Diff_Detection_Marker, "AltExecItem", &game->Types.DMENU_Types_AltExecItem },
+        { Timer0_HH_MM_SS_UU, "TimerItem", &game->Types.DMENU_Types_TimerItem },
+        { Give_Player_Weapon, "DynMenu", &game->Types.DMENU_Types_DynMenu },
+        { Player_Weapon_Upgrades, "WeaponUpgradesMenu", &game->Types.DMENU_Types_WeaponUpgradesMenu },
+        { Jackson, "StringItem", &game->Types.DMENU_Types_StringItem },
+        { PROLOGUE, "StringItem", &game->Types.DMENU_Types_StringItem },
+        { main_menu___, "TaskItemSubmenu", &game->Types.DMENU_Types_TaskItemSubmenu },
+        { home___, "TaskItemSubmenu", &game->Types.DMENU_Types_TaskItemSubmenu },
+        { efg_guitar_flashback___, "SubnodeTaskItemSubmenu", &game->Types.DMENU_Types_SubnodeTaskItemSubmenu },
+        { mil_street_start_alley___, "SubnodeTaskItemSubmenu", &game->Types.DMENU_Types_SubnodeTaskItemSubmenu },
+        { ndi, "TaskItem", &game->Types.DMENU_Types_TaskItem },
+        { mil_street_see_scan, "TaskItem", &game->Types.DMENU_Types_TaskItem },
+        { Play_next_task, "CheckpointItem", &game->Types.DMENU_Types_CheckpointItem },
+        { Re_play_last_selected_task_10, "TaskHistoryItem", &game->Types.DMENU_Types_TaskHistoryItem },
+    };
 
-    NameSID = encode_sid(ItemName);
-    size_t count = sizeof(NameChecks) / 0x10;
+    static char * DuplicateAvoidance;
+
+    SID NameSID = encode_sid(ItemName);
+    size_t count = sizeof(TypeChecks) / sizeof(typeCheck_t);
+    
+    if (DuplicateAvoidance == 0)
+    {
+        DuplicateAvoidance = (char *) malloc(count + 1);
+        memset(DuplicateAvoidance, 0, count + 1);
+    }
+
     for(int i = 0; i < count; i++)
     {
-        if (NameSID == NameChecks[i].SID)
+        if (NameSID == TypeChecks[i].SID && DuplicateAvoidance[i] == 0)
         {
-            strncpy(OutString, NameChecks[i].TypeName, sizeof(OutString));
+            strncpy(dType, TypeChecks[i].dType, 0x40);
+            *TypeChecks[i].Type = Type;
+            DuplicateAvoidance[i] = 1;
+            return 0;
         }
     }
 
-    return "";
+    strncpy(dType, "unknown_type", 0x40);
+    return 1;
 } 
 
 // Dump required addresses for dmenu support in the running title
@@ -1203,8 +1217,11 @@ void forFuckSake()
     int depth = 0;
     dmenu_menu_t * history[0x20]; // surely there's no place with a submenu depth even approaching 32, so this should be more than sufficient in size
     
+    long ret;
     char nextIsMenu = 0;
     char newItem = 0;
+    char ComponentName[0xFF];
+    char dtype[0x40];
     
     DMENU_Type_t type;
     dmenu_item_t item;
@@ -1216,6 +1233,7 @@ void forFuckSake()
     ffsScanner_t * pCurrComponent; // Scanner ref to avoid having a bunch of if/else statements checking for unknown values.
     ffsScanner_t components[maxTypeCount] = {0}; // Basic type checks
 
+    int TaskMenuDepth = -1;
 
 
 
@@ -1303,28 +1321,34 @@ void forFuckSake()
         __errg(type == (void *) 0, _contScannerLoop, "Item @ 0x%llX; Item vPtr/type was null. Skipping item and it's menu", pItem);
 
 
-
         //#
         //## Check current type, saving it if it's not already been found
         //#
-        newItem = (char) 1;
+        newItem = (char) 0;
         pCurrComponent = nullptr;
 
-        for (int i = 0; i < currTypeCount; i++)
+        ret = (long) read_ulong((unsigned long *) &((dmenu_item_t *) pItem)->pItemText);
+        if (ret != 0)
         {
-            if (components[i].Type == type)
-            {
-                newItem = (char) 0x0;
-                goto _nextItem;
-            }
+            read_string((const char *) ret, ComponentName);
         }
 
-        if (currTypeCount >= maxTypeCount)
-        {
-            echo("Maximum UNKNOWN component recursion reached!! Skipping item type 0x%llX", type);
-            newItem = (char) 0x0;
-            goto _nextItem;
+
+
+        newItem = GuessItemTypeFromCommonName(type, ComponentName, dtype);
+        
+        if (!newItem) {
+            for (int i = 0; i < currTypeCount; i++) {
+                if (components[i].Type == type) {
+                    goto _nextItem;
+                }
+            }
+            newItem = 1;
         }
+        else goto _nextItem;
+
+
+        __rerr(currTypeCount >= maxTypeCount, "Maximum component recursion reached!! Increase value beyond 0x%ld to proceed", maxTypeCount)
 
 
         // I'm Lazily leaving this pointer usage intact so the code's prettier
@@ -1336,8 +1360,8 @@ void forFuckSake()
 
         // Save general component info
         pCurrComponent->Type = type;
-        strncpy(pCurrComponent->dType, DMENU_GetTypeAsString(type), sizeof(pCurrComponent->dType));
-
+        strncpy(pCurrComponent->ComponentName, ComponentName, sizeof(pCurrComponent->ComponentName));
+        strncpy(pCurrComponent->dType, dtype, sizeof(pCurrComponent->dType));
 
 
         
@@ -1353,7 +1377,10 @@ void forFuckSake()
             if (newItem && pCurrComponent != nullptr)
             {
                 pCurrComponent->EventHandler = menu.Callback;
-                read_string((const char *) menu.pMenuName, pCurrComponent->ComponentName);
+                if (TaskMenuDepth == -1 && !strncmp(pCurrComponent->ComponentName, "Play Task", sizeof("Play Task")))
+                {
+                    TaskMenuDepth = depth;
+                }
             }
             
 
@@ -1369,13 +1396,6 @@ void forFuckSake()
             if (newItem && pCurrComponent != nullptr)
             {
                 pCurrComponent->EventHandler = item.EventHandler;
-
-                if (item.pItemText == 0) {
-                    pCurrComponent->ComponentName[0] = '\0';
-                }
-                else {
-                    read_string((const char *) item.pItemText, pCurrComponent->ComponentName);
-                }
             }
 
             
